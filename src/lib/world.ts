@@ -176,7 +176,8 @@ const estRadius = (q: number): number => Math.sqrt(q) * HEX_W * 0.46 + HEX_R;
 const contractsOf = (c: Capability): number => c.contracts ?? 2 + (hash(c.id) % 9);
 // Crown size grows with the story's total contract count, so a heavier, more
 // tested story is a visibly BIGGER tree — the core "complexity at a glance".
-const crownRadius = (weight: number): number => Math.max(14, Math.min(40, 13 + weight * 0.62));
+// Wide slope + range so light vs heavy stories read at very different sizes.
+const crownRadius = (weight: number): number => Math.max(13, Math.min(48, 11 + weight * 0.85));
 const treeReach = (crownR: number): number => 2.7 * crownR + 16;
 
 // ---------- view structures ----------
@@ -269,7 +270,7 @@ export function buildWorld(data: Dataset): World {
   const idIndex = new Map(stories.map((s, i) => [s.id, i]));
   // weight = total contracts in the story (drives tree + island size)
   const weights = stories.map((s) => s.capabilities.reduce((sum, c) => sum + contractsOf(c), 0));
-  const quotas = stories.map((_, i) => Math.max(4, Math.min(11, 4 + Math.round(weights[i] / 6))));
+  const quotas = stories.map((_, i) => Math.max(4, Math.min(13, 3 + Math.round(weights[i] / 4))));
 
   // edges: declared story-level depends_on, filtered to real, non-self
   const depsOf = new Map<string, string[]>(stories.map((s) => [s.id, []]));
