@@ -6,11 +6,13 @@
 // Dorfromantik-style world of EXTRUDED HEX-TILE TERRITORIES — the most
 // depended-upon "foundation" stories sit at the bottom and dependents fan
 // upward, so the eye traces the load-bearing base up through the canopy.
-// Each story claims a small cluster of hex tiles and grows ONE central tree
-// (crown colour = lifecycle/health), with garden flora for its capabilities,
-// dashed "roads" for dependency edges, a signpost for human-witnessed stories,
-// transient "blooms" on fresh passing verdicts, and orbiting "wisps" for the
-// agent/human sessions working right now.
+// Each story claims a cluster of hex tiles and grows ONE central tree whose
+// SIZE scales with how much is proven there (its total contract count), so a
+// heavier, more-tested story is a visibly bigger tree — complexity you can read
+// at a glance. Garden flora are its capabilities; dashed "roads" are dependency
+// edges; a signpost marks a human-witnessed story; "blooms" announce fresh
+// passing verdicts; "wisps" are the sessions working right now. Each story also
+// carries a laid-out capability sub-DAG for the drill-down.
 //
 // Everything is computed deterministically at BUILD TIME (pure functions, no
 // randomness that isn't hashed from ids), so the world renders identically
@@ -29,6 +31,8 @@ export interface Capability {
   id: string;
   title: string;
   status: Status;
+  /** Leaf-test count. Optional — derived from the id when absent. */
+  contracts?: number;
   dependsOn?: string[];
   verdict?: Verdict;
 }
@@ -166,24 +170,33 @@ function transitiveClosure(start: string, next: Map<string, string[]>): string[]
 
 const ringsOf = (q: number): number => (q <= 1 ? 0 : q <= 7 ? 1 : q <= 19 ? 2 : 3);
 const estRadius = (q: number): number => Math.sqrt(q) * HEX_W * 0.46 + HEX_R;
-const crownRadius = (caps: number): number => Math.min(30, 17 + 2.1 * caps);
-const treeReach = (caps: number): number => 2.7 * crownRadius(caps) + 16;
+// A capability's contract (leaf-test) count — the proxy for "how much is proven
+// here". Authored when present, else a stable hash-derived 2..10 so the mock
+// still shows a believable spread of complexity at a glance.
+const contractsOf = (c: Capability): number => c.contracts ?? 2 + (hash(c.id) % 9);
+// Crown size grows with the story's total contract count, so a heavier, more
+// tested story is a visibly BIGGER tree — the core "complexity at a glance".
+const crownRadius = (weight: number): number => Math.max(14, Math.min(40, 13 + weight * 0.62));
+const treeReach = (crownR: number): number => 2.7 * crownR + 16;
 
 // ---------- view structures ----------
 
 interface Tile { d: string; side: string; owner: number; variant: number; wheat: boolean; }
-interface CapSpot { id: string; title: string; status: Status; x: number; y: number; variant: number; bloom: boolean; }
+interface CapSpot { id: string; title: string; status: Status; x: number; y: number; variant: number; bloom: boolean; contracts: number; }
 interface DecorSpot { x: number; y: number; seed: number; }
 interface WispView { id: string; band: 'fresh' | 'stale'; workingOn: string; }
+
+export interface DagNode { id: string; title: string; status: Status; contracts: number; x: number; y: number; }
+export interface CapDag { w: number; h: number; nodes: DagNode[]; edges: { d: string }[]; }
 
 export interface Territory {
   i: number;
   id: string; title: string; outcome: string;
   status: Status; vis: Status; witness: 'human' | 'machine';
-  capCount: number; verdict?: Verdict;
+  capCount: number; contractTotal: number; weight: number; crownR: number; verdict?: Verdict;
   cx: number; cy: number; radius: number;
   treeX: number; treeY: number; labelY: number; plateW: number;
-  caps: CapSpot[]; decor: DecorSpot[]; wisps: WispView[];
+  caps: CapSpot[]; decor: DecorSpot[]; wisps: WispView[]; capDag: CapDag;
   bloom: boolean; sapling: boolean; young: boolean; withered: boolean;
   sealFilled: boolean;
   deps: string[]; ancestors: string[]; descendants: string[];
@@ -198,7 +211,53 @@ export interface World {
   tiles: Tile[]; coast: string[]; borders: Border[]; roads: Road[];
   territories: Territory[];
   drawOrder: number[];
-  stats: { stories: number; caps: number; proven: number; building: number; unhealthy: number; sessions: number };
+  stats: { stories: number; caps: number; contracts: number; proven: number; building: number; unhealthy: number; sessions: number };
+}
+
+// ---------- capability sub-DAG layout (the drill-down) ----------
+
+// A simple layered (longest-path) layout of a story's capabilities, dependencies
+// at the bottom. Cards are a fixed CW×CH; CLIENT renders with the same numbers.
+export const DAG_CW = 112;
+export const DAG_CH = 42;
+const DAG_HGAP = 26;
+const DAG_WGAP = 12;
+
+function layoutCapDag(story: Story): CapDag {
+  const caps = story.capabilities;
+  if (caps.length === 0) return { w: DAG_CW, h: DAG_CH, nodes: [], edges: [] };
+  const ids = new Set(caps.map((c) => c.id));
+  const depsOf = new Map<string, string[]>(
+    caps.map((c) => [c.id, (c.dependsOn ?? []).filter((d) => d !== c.id && ids.has(d))]),
+  );
+  const rankMap = longestRank(caps.map((c) => c.id), depsOf);
+  const maxR = Math.max(0, ...rankMap.values());
+  const byR: Capability[][] = Array.from({ length: maxR + 1 }, () => []);
+  caps.forEach((c) => byR[rankMap.get(c.id) ?? 0].push(c));
+  const rowW = byR.map((row) => row.length * DAG_CW + Math.max(0, row.length - 1) * DAG_WGAP);
+  const w = Math.max(DAG_CW, ...rowW);
+  const h = (maxR + 1) * DAG_CH + maxR * DAG_HGAP;
+  const pos = new Map<string, Pt>();
+  byR.forEach((row, r) => {
+    const y = (maxR - r) * (DAG_CH + DAG_HGAP); // rank 0 sits at the bottom
+    let x = (w - rowW[r]) / 2;
+    for (const c of row) { pos.set(c.id, { x, y }); x += DAG_CW + DAG_WGAP; }
+  });
+  const nodes: DagNode[] = caps.map((c) => {
+    const p = pos.get(c.id)!;
+    return { id: c.id, title: c.title, status: display(c.status), contracts: contractsOf(c), x: p.x, y: p.y };
+  });
+  const edges: { d: string }[] = [];
+  for (const c of caps) {
+    for (const d of depsOf.get(c.id) ?? []) {
+      const cp = pos.get(c.id)!, dp = pos.get(d)!;
+      const x1 = dp.x + DAG_CW / 2, y1 = dp.y;          // top of the dependency
+      const x2 = cp.x + DAG_CW / 2, y2 = cp.y + DAG_CH; // bottom of the dependent
+      const my = (y1 + y2) / 2;
+      edges.push({ d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${x1.toFixed(1)} ${my.toFixed(1)}, ${x2.toFixed(1)} ${my.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}` });
+    }
+  }
+  return { w, h, nodes, edges };
 }
 
 // ---------- build ----------
@@ -208,7 +267,9 @@ export function buildWorld(data: Dataset): World {
   const sessions = data.sessions ?? [];
   const n = stories.length;
   const idIndex = new Map(stories.map((s, i) => [s.id, i]));
-  const quotas = stories.map((s) => Math.max(4, s.capabilities.length + 3));
+  // weight = total contracts in the story (drives tree + island size)
+  const weights = stories.map((s) => s.capabilities.reduce((sum, c) => sum + contractsOf(c), 0));
+  const quotas = stories.map((_, i) => Math.max(4, Math.min(11, 4 + Math.round(weights[i] / 6))));
 
   // edges: declared story-level depends_on, filtered to real, non-self
   const depsOf = new Map<string, string[]>(stories.map((s) => [s.id, []]));
@@ -328,7 +389,8 @@ export function buildWorld(data: Dataset): World {
     const tp = center(centerTile);
     const vis = display(story.status);
     const caps = story.capabilities;
-    const crownR = crownRadius(caps.length);
+    const weight = weights[i];
+    const crownR = crownRadius(weight);
     const ringR = Math.max(crownR * 0.9, Math.min(crownR + 16, radius - HEX_R * 0.5));
     const ARC = (Math.PI * 4) / 3;
     const capSpots: CapSpot[] = caps.map((cap, j) => {
@@ -343,7 +405,7 @@ export function buildWorld(data: Dataset): World {
       // Capability-level blooms are disabled: the mock verdicts cluster at each
       // story's timestamp, so per-cap sparkles bunch up. The crown bloom alone
       // carries "this story just passed" cleanly.
-      return { id: cap.id, title: cap.title, status: cv, x, y, variant: hash(`${cap.id}:v`) % 3, bloom: false };
+      return { id: cap.id, title: cap.title, status: cv, x, y, variant: hash(`${cap.id}:v`) % 3, bloom: false, contracts: contractsOf(cap) };
     });
 
     const decor: DecorSpot[] = [];
@@ -367,9 +429,9 @@ export function buildWorld(data: Dataset): World {
 
     return {
       i, id: story.id, title: story.title, outcome: story.outcome,
-      status: story.status, vis, witness: story.witness, capCount: caps.length, verdict: story.verdict,
+      status: story.status, vis, witness: story.witness, capCount: caps.length, contractTotal: weight, weight, crownR, verdict: story.verdict,
       cx, cy, radius, treeX: tp.x, treeY: tp.y, labelY, plateW: Math.max(110, story.title.length * 7.6 + 26),
-      caps: capSpots, decor, wisps,
+      caps: capSpots, decor, wisps, capDag: layoutCapDag(story),
       bloom, sapling: caps.length === 0 && vis !== 'unhealthy', young: vis === 'proposed' && caps.length > 0, withered: vis === 'unhealthy',
       sealFilled: story.witness === 'human' && !!story.verdict && story.verdict.outcome === 'pass',
       deps: depsOf.get(story.id) ?? [],
@@ -455,7 +517,6 @@ export function buildWorld(data: Dataset): World {
   });
 
   // bounds
-  const allC = [...drawTiles, ...coast].length ? null : null;
   const tileCenters: Pt[] = [];
   for (const [k] of owner) { const p = k.split(','); tileCenters.push(center({ q: Number(p[0]), r: Number(p[1]) })); }
   for (const k of emptySet) { const p = k.split(','); tileCenters.push(center({ q: Number(p[0]), r: Number(p[1]) })); }
@@ -464,13 +525,14 @@ export function buildWorld(data: Dataset): World {
   const maxX = Math.max(...tileCenters.map((p) => p.x)) + HEX_W / 2 + MARGIN;
   const minY = Math.min(
     ...tileCenters.map((p) => p.y - HEX_R),
-    ...territories.map((t) => t.treeY - treeReach(t.capCount)),
+    ...territories.map((t) => t.treeY - treeReach(t.crownR)),
   ) - MARGIN;
   const maxY = Math.max(...tileCenters.map((p) => p.y), ...territories.map((t) => t.labelY + 30)) + HEX_R + DEPTH + MARGIN / 2;
 
   const drawOrder = territories.map((_, i) => i).sort((a, b) => territories[a].treeY - territories[b].treeY);
 
   const caps = stories.reduce((s, st) => s + st.capabilities.length, 0);
+  const contractsTotal = weights.reduce((a, b) => a + b, 0);
   const proven = territories.filter((t) => t.vis === 'healthy').length;
   const building = stories.filter((s) => s.status === 'building').length;
   const unhealthy = territories.filter((t) => t.vis === 'unhealthy').length;
@@ -479,6 +541,6 @@ export function buildWorld(data: Dataset): World {
     project: data.project,
     width: Math.ceil(maxX - minX), height: Math.ceil(maxY - minY), ox: -minX, oy: -minY,
     tiles: drawTiles, coast, borders, roads, territories, drawOrder,
-    stats: { stories: n, caps, proven, building, unhealthy, sessions: sessions.length },
+    stats: { stories: n, caps, contracts: contractsTotal, proven, building, unhealthy, sessions: sessions.length },
   };
 }

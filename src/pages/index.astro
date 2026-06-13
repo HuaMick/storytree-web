@@ -1,33 +1,39 @@
 ---
 import Base from '../layouts/Base.astro';
-import HeroScene from '../components/HeroScene.astro';
+import TreeWorld from '../components/TreeWorld.astro';
 ---
 
 <Base active="home">
   <!-- ───────────────────────── hero ───────────────────────── -->
   <section class="hero section">
-    <div class="wrap hero__grid">
-      <div class="hero__copy">
-        <p class="eyebrow">An experiment in building software with AI agents</p>
-        <h1>Software you can<br />watch grow.</h1>
-        <p class="lede">
-          Building with AI&nbsp;agents is fast — and a blur. The code writes itself; the hard part is
-          <em>seeing</em> what it built, trusting it, and keeping humans and agents pointed the same
-          way. storytree turns a project into a living map you — and your agents — can read at a
-          glance: what exists, what's proven, what's broken. Nothing goes green until a failing check
-          is made to pass.
-        </p>
-        <div class="hero__cta">
-          <a class="btn btn--primary" href="/how-it-works/">See how it works →</a>
-          <a class="btn btn--ghost" href="/constitution/">Read the constitution</a>
-        </div>
-        <p class="hero__note muted">
-          Small on purpose. Invite-only for now — but the door to ask is wide open.
-        </p>
+    <div class="wrap hero__copy">
+      <p class="eyebrow">An experiment in building software with AI agents</p>
+      <h1>Software you can watch grow.</h1>
+      <p class="lede">
+        Building with AI&nbsp;agents is fast — and a blur. The code writes itself; the hard part is
+        <em>seeing</em> what it built, trusting it, and keeping humans and agents pointed the same way.
+        storytree turns a project into a living map you — and your agents — can read at a glance: what
+        exists, what's proven, what's broken. Nothing goes green until a failing check is made to pass.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn--primary" href="/how-it-works/">See how it works →</a>
+        <a class="btn btn--ghost" href="/constitution/">Read the constitution</a>
       </div>
-      <div class="hero__art">
-        <HeroScene />
-      </div>
+      <p class="hero__note muted">
+        Small on purpose. Invite-only for now — but the door to ask is wide open.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── the live map, front and centre ───────────────────────── -->
+  <section class="section--tight">
+    <div class="wrap">
+      <p class="demo-lead">
+        Here's a whole system in storytree's map view — a made-up team-chat backend. Bigger trees have
+        more behind them; red is where a check is failing. <strong>Hover or tap a tree</strong> to
+        inspect a story, or click to pin it and light up everything it depends on.
+      </p>
+      <TreeWorld />
     </div>
   </section>
 
@@ -139,10 +145,11 @@ import HeroScene from '../components/HeroScene.astro';
 </Base>
 
 <style>
-  .hero { padding-top: clamp(2.4rem, 6vw, 4.4rem); }
-  .hero__grid { display: grid; gap: clamp(1.8rem, 4vw, 3rem); align-items: center; }
-  @media (min-width: 860px) { .hero__grid { grid-template-columns: 1.05fr 1fr; } }
+  .hero { padding-top: clamp(2.4rem, 6vw, 4.4rem); padding-bottom: clamp(1.4rem, 3vw, 2.2rem); }
+  .hero__copy { max-width: 50rem; }
   .hero__copy h1 { margin-top: 0.2rem; }
+  .demo-lead { max-width: 44rem; color: var(--ink-soft); font-size: 1.02rem; margin: 0 0 0.5rem; }
+  .demo-lead strong { color: var(--ink); }
   .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.6rem; }
   .hero__note { margin-top: 1.3rem; font-size: 0.95rem; }
   .hero em { font-style: italic; color: var(--ink); }

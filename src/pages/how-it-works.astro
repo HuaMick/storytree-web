@@ -194,6 +194,48 @@ import TreeWorld from '../components/TreeWorld.astro';
     </div>
   </section>
 
+  <!-- why this is different -->
+  <section class="section--tight">
+    <div class="wrap prose">
+      <p class="eyebrow">Why this is different</p>
+      <h2>Most tools give an agent one surface. storytree draws the whole map.</h2>
+      <p>
+        An agent has to hold three things at once, and it's bad at all three: <strong>what's true</strong>
+        (the decisions, the definitions), <strong>what the system is</strong> (the code), and
+        <strong>what needs doing</strong> (the work). The honest fix isn't a bigger context window — it's
+        to stop making the agent hold them in its head and put each on a wall it can read.
+      </p>
+      <p>
+        We're not the first to any one of these, and that's reassuring. Steve Yegge's
+        <strong>Beads</strong> is a dependency-aware issue graph that replaces the markdown TODO files
+        that rot between sessions — a work surface, done well. Anthropic's <strong>Skills</strong> and
+        Letta's memory blocks are curated knowledge surfaces — a library. And the code map is old:
+        <strong>Aider</strong> has shipped a tree-sitter "repo map" since 2023, and tools like CodeGraph
+        let an agent query a code graph instead of grepping. Smart people arrived at each surface on
+        their own — which usually means an idea is right, not clever.
+      </p>
+      <p>
+        Two things we haven't seen anyone else do. <strong>One:</strong> put all three together —
+        knowledge, code, and work as one deliberate model, not one pillar in isolation.
+        <strong>Two, and it's the one we care about:</strong> draw the map at the altitude of
+        <em>intent</em>. The repo-map tools read the code that already exists and compress it — a
+        faithful mirror of <em>what's there</em>. A mirror can't tell you what a system is <em>for</em>,
+        who owns what, or whether a thing is done. storytree's map is the other way around: the code has
+        to satisfy <em>it</em>. A <strong>story</strong> is the size of a service — "the message store",
+        "the billing ledger"; a <strong>capability</strong> is an organ inside it; the line between them
+        is how you prove it, and the dependency edges fall out of the proofs instead of being hand-drawn.
+        Spec-driven tools get close to authoring intent, but tend to flatten it into a per-feature
+        checklist that's thrown away when the feature ships. A standing, two-tier map of intent that
+        outlives any one task still looks like open ground.
+      </p>
+      <p class="muted">
+        We might be wrong that the unification is worth it — maybe one surface is enough and the other
+        two are overhead. We'd bet the other way. The field is already walking toward all three from
+        three different directions; we just think you arrive faster if you draw the whole map at once.
+      </p>
+    </div>
+  </section>
+
   <!-- honesty / transparency -->
   <section class="section--tight">
     <div class="wrap prose">

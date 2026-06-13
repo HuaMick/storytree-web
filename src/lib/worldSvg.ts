@@ -29,10 +29,9 @@ const r01 = (seed: number): number => {
 // ---------- the central story tree ----------
 
 function tree(t: Territory): string {
-  const caps = t.capCount;
   if (t.withered) return witheredTree(t);
   if (t.sapling) return saplingTree();
-  const R = Math.min(30, 17 + 2.1 * caps) * (t.young ? 0.66 : 1);
+  const R = t.crownR * (t.young ? 0.66 : 1);
   const cy = -1.62 * R;
   const jb = (i: number, bx: number, by: number, br: number) => {
     const k = h(`${t.id}:c${i}`);
@@ -65,7 +64,7 @@ function saplingTree(): string {
 }
 
 function witheredTree(t: Territory): string {
-  const R = Math.min(30, 17 + 2.1 * t.capCount);
+  const R = t.crownR;
   const cy = -1.62 * R;
   const branches = [
     `M 0 ${f(cy)} C 2 ${f(cy - 0.42 * R)} 1 ${f(cy - 0.7 * R)} ${f(0.2 * R)} ${f(cy - R)}`,
@@ -137,7 +136,7 @@ function conifer(x: number, y: number, ht: number, seed: number): string {
 }
 
 function signpost(t: Territory, tx: number, ty: number): string {
-  const x = Math.min(30, 17 + 2.1 * t.capCount) * 0.7 + 9;
+  const x = t.crownR * 0.7 + 9;
   const cls = t.sealFilled ? 'seal-filled' : 'seal-blank';
   const check = t.sealFilled ? `<path class="tick" d="M -3.2 -18 l 2.4 2.4 l 4.4 -5.2"/>` : '';
   return (
@@ -169,7 +168,7 @@ function territoryGroup(t: Territory): string {
   // transform). Decor, flora and the central tree are y-sorted so southern
   // (lower) art overlaps northern art correctly.
   const tx = t.treeX, ty = t.treeY;
-  const R = Math.min(30, 17 + 2.1 * t.capCount) * (t.young ? 0.66 : 1);
+  const R = t.crownR * (t.young ? 0.66 : 1);
   const items: { y: number; s: string }[] = [];
   for (const d of t.decor) {
     const cnt = 2 + (d.seed % 2);
@@ -236,7 +235,7 @@ export function renderWorld(w: World): string {
   const flora = w.drawOrder.map((i) => territoryGroup(w.territories[i])).join('');
 
   const hits = w.territories.map((t) => {
-    const top = t.treeY - (2.7 * Math.min(30, 17 + 2.1 * t.capCount) + 16);
+    const top = t.treeY - (2.7 * t.crownR + 16);
     const hgt = t.labelY + 30 - top;
     const sw = t.vis === 'healthy' ? 'proven' : t.vis === 'unhealthy' ? 'needs attention' : t.vis;
     return `<rect class="tw-hit" x="${f(t.cx - t.radius)}" y="${f(top)}" width="${f(t.radius * 2)}" height="${f(hgt)}" rx="14" tabindex="0" role="button" data-id="${esc(t.id)}" aria-label="${esc(t.title)} — ${esc(sw)}. ${esc(t.outcome)}"/>`;

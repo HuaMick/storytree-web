@@ -24,8 +24,10 @@ const blob = Object.fromEntries(
       vis: t.vis,
       witness: t.witness,
       capCount: t.capCount,
+      contractTotal: t.contractTotal,
       deps: t.deps.map((d) => titleById.get(d) ?? d),
-      caps: t.caps.map((c) => ({ title: c.title, status: c.status })),
+      caps: t.caps.map((c) => ({ title: c.title, status: c.status, contracts: c.contracts })),
+      dag: t.capDag,
       sessions: t.sessions,
       ancestors: t.ancestors,
       descendants: t.descendants,
@@ -53,6 +55,7 @@ const filters = [
     <div class="tw-stats" aria-label="system summary">
       <span><b>{stats.stories}</b> stories</span>
       <span><b>{stats.caps}</b> capabilities</span>
+      <span><b>{stats.contracts}</b> tests</span>
       <span class="s-healthy"><b>{stats.proven}</b> proven</span>
       <span class="s-unhealthy"><b>{stats.unhealthy}</b> need attention</span>
       <span class="s-live"><b>{stats.sessions}</b> working now</span>
@@ -100,6 +103,7 @@ const filters = [
         <p class="tw-d-deps" id="tw-d-deps"></p>
         <div class="tw-d-sessions" id="tw-d-sessions"></div>
         <p class="tw-d-capn" id="tw-d-capn"></p>
+        <div class="tw-d-dag" id="tw-d-dag" aria-hidden="true"></div>
         <ul class="tw-d-caps" id="tw-d-caps"></ul>
       </div>
     </aside>
@@ -285,7 +289,22 @@ const filters = [
   .tw-d-caps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.32rem; }
   .tw-d-caps li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
   .tw-d-caps .dot { width: 0.6rem; height: 0.6rem; border-radius: 999px; flex: none; }
-  .tw-d-caps em { margin-left: auto; font-style: normal; font-size: 0.74rem; color: var(--ink-faint); text-transform: capitalize; }
+  .tw-d-caps .tw-cap-ttl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tw-d-caps em { margin-left: auto; flex: none; font-style: normal; font-size: 0.72rem; color: var(--ink-faint); white-space: nowrap; }
+
+  /* capability sub-DAG (drill-down) */
+  .tw-d-dag { margin: 0 0 0.85rem; overflow-x: auto; }
+  .tw-dag { display: block; }
+  .tw-de { fill: none; stroke: #c8b48d; stroke-width: 1.4; }
+  .tw-dn-bg { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+  .tw-dn-strip { fill: var(--ink-soft); }
+  .tw-dn.st-healthy .tw-dn-strip { fill: var(--evergreen); }
+  .tw-dn.st-mapped .tw-dn-strip { fill: var(--brown); }
+  .tw-dn.st-proposed .tw-dn-strip { fill: var(--amber); }
+  .tw-dn.st-unhealthy .tw-dn-strip { fill: var(--crimson); }
+  .tw-dn-status { font: 600 8px var(--font-body); fill: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tw-dn-ttl { font: 600 12px var(--font-body); fill: var(--ink); }
+  .tw-dn-meta { font: 500 9px var(--font-body); fill: var(--ink-faint); }
 
   /* ---- legend caption ---- */
   .tw-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 1.1rem; padding: 0.8rem 1rem; border-top: 1px solid var(--line); background: var(--surface-2); font-size: 0.82rem; color: var(--ink-soft); }
@@ -298,11 +317,13 @@ const filters = [
 </style>
 
 <script>
-  type Cap = { title: string; status: string };
+  type Cap = { title: string; status: string; contracts: number };
   type Sess = { id: string; workingOn: string; band: string };
+  type DagNode = { id: string; title: string; status: string; contracts: number; x: number; y: number };
+  type Dag = { w: number; h: number; nodes: DagNode[]; edges: { d: string }[] };
   type Node = {
-    title: string; outcome: string; vis: string; witness: string; capCount: number;
-    deps: string[]; caps: Cap[]; sessions: Sess[]; ancestors: string[]; descendants: string[];
+    title: string; outcome: string; vis: string; witness: string; capCount: number; contractTotal: number;
+    deps: string[]; caps: Cap[]; dag: Dag; sessions: Sess[]; ancestors: string[]; descendants: string[];
   };
 
   const root = document.getElementById('tw-root');
@@ -352,6 +373,33 @@ const filters = [
       });
     }
 
+    const DAG_CW = 112, DAG_CH = 42; // keep in sync with world.ts DAG_CW/DAG_CH
+    function renderDag(dag: Dag) {
+      const host = el('tw-d-dag');
+      if (!dag || !dag.nodes.length) { host.innerHTML = ''; return; }
+      const cards = dag.nodes
+        .map((nd) => {
+          const ttl = nd.title.length > 16 ? nd.title.slice(0, 15) + '…' : nd.title;
+          const sw = nd.status === 'unhealthy' ? 'failing' : nd.status;
+          return '<g class="tw-dn st-' + nd.status + '" transform="translate(' + nd.x + ' ' + nd.y + ')">'
+            + '<rect class="tw-dn-bg" width="' + DAG_CW + '" height="' + DAG_CH + '" rx="7"/>'
+            + '<path class="tw-dn-strip" d="M 0 13 L 0 7 Q 0 0 7 0 L ' + (DAG_CW - 7) + ' 0 Q ' + DAG_CW + ' 0 ' + DAG_CW + ' 7 L ' + DAG_CW + ' 13 Z"/>'
+            + '<text class="tw-dn-status" x="7" y="10">' + escapeHtml(sw) + '</text>'
+            + '<text class="tw-dn-ttl" x="7" y="27">' + escapeHtml(ttl) + '</text>'
+            + '<text class="tw-dn-meta" x="' + (DAG_CW - 7) + '" y="' + (DAG_CH - 8) + '" text-anchor="end">' + nd.contracts + ' tests</text>'
+            + '</g>';
+        })
+        .join('');
+      const edges = dag.edges.map((e) => '<path class="tw-de" d="' + e.d + '" marker-end="url(#tw-de-arrow)"/>').join('');
+      const cw = host.clientWidth || 250;
+      const scale = Math.min(cw / dag.w, 280 / dag.h, 1.2);
+      const wpx = Math.round(dag.w * scale), hpx = Math.round(dag.h * scale);
+      host.innerHTML =
+        '<svg class="tw-dag" width="' + wpx + '" height="' + hpx + '" viewBox="0 0 ' + dag.w + ' ' + dag.h + '">'
+        + '<defs><marker id="tw-de-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#c8b48d"/></marker></defs>'
+        + edges + cards + '</svg>';
+    }
+
     function fillStory(id: string) {
       const d = blob[id];
       const badge = el('tw-d-badge');
@@ -368,13 +416,15 @@ const filters = [
             .map((s) => '<div class="tw-sess"><span class="tw-sess-band ' + (s.band === 'stale' ? 'stale' : '') + '"></span><span><code>' + escapeHtml(s.id) + '</code> — ' + escapeHtml(s.workingOn) + '</span></div>')
             .join('')
         : '';
-      el('tw-d-capn').textContent = d.capCount + (d.capCount === 1 ? ' capability' : ' capabilities');
+      el('tw-d-capn').textContent =
+        d.capCount + (d.capCount === 1 ? ' capability' : ' capabilities') + ' · ' + d.contractTotal + ' tests';
       el('tw-d-caps').innerHTML = d.caps
-        .map((c) => '<li><span class="dot s-' + c.status + '"></span>' + escapeHtml(c.title) + '<em>' + escapeHtml(c.status === 'unhealthy' ? 'failing' : c.status) + '</em></li>')
+        .map((c) => '<li><span class="dot s-' + c.status + '"></span><span class="tw-cap-ttl">' + escapeHtml(c.title) + '</span><em>' + c.contracts + ' tests · ' + escapeHtml(c.status === 'unhealthy' ? 'failing' : c.status) + '</em></li>')
         .join('');
       ov.hidden = true;
       story.hidden = false;
       insp.setAttribute('data-state', 'story');
+      renderDag(d.dag);
     }
 
     function showOverview() {
