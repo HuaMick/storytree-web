@@ -8,6 +8,7 @@ node_modules/
 publish-info.json
 # local report/dev artifacts — not part of the public site
 screenshots/
+WEBSITE-BUILD-REPORT.md
 # dev-only helpers that borrow the private sibling repo's Playwright/chromium
 scripts/shots.mjs
 scripts/make-og.mjs
