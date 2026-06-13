@@ -8,13 +8,14 @@ import HeroScene from '../components/HeroScene.astro';
   <section class="hero section">
     <div class="wrap hero__grid">
       <div class="hero__copy">
-        <p class="eyebrow">An experiment in building software</p>
+        <p class="eyebrow">An experiment in building software with AI agents</p>
         <h1>Software you can<br />watch grow.</h1>
         <p class="lede">
-          storytree is a small experiment with a big question at its centre: can software be
-          built out in the open — by many people and AI&nbsp;agents at once, including people who've
-          never written a line of code — and stay fair and trustworthy <em>because</em> of that
-          openness, not in spite of it?
+          Building with AI&nbsp;agents is fast — and a blur. The code writes itself; the hard part is
+          <em>seeing</em> what it built, trusting it, and keeping humans and agents pointed the same
+          way. storytree turns a project into a living map you — and your agents — can read at a
+          glance: what exists, what's proven, what's broken. Nothing goes green until a failing check
+          is made to pass.
         </p>
         <div class="hero__cta">
           <a class="btn btn--primary" href="/how-it-works/">See how it works →</a>
@@ -34,10 +35,10 @@ import HeroScene from '../components/HeroScene.astro';
   <section class="section--tight">
     <div class="wrap prose">
       <p class="lede">
-        Picture a city you can watch being built — not from a press release months later,
-        but live, brick by brick, with the reasoning behind every decision out where you can
-        read it. That's the shape of storytree: a project grows as a living map of
-        <strong>stories</strong>, and anyone can watch it happen.
+        Picture your whole system as a place you can walk — not a wall of diffs and a chat log that
+        scrolls forever, but a living map of <strong>stories</strong>, where colour is health and you
+        can see at a glance what your agents actually built. That's the shape of storytree: a project
+        grows as a map you can read, and the work stays out in the open where it can be checked.
       </p>
     </div>
   </section>
@@ -56,10 +57,11 @@ import HeroScene from '../components/HeroScene.astro';
               <path d="M13 17 L27 14 M13 17 L22 27" stroke="#a98e5f" stroke-width="1.6"/>
             </svg>
           </div>
-          <h3>Many builders, at once</h3>
+          <h3>A swarm of agents, one map</h3>
           <p class="muted">
-            People and AI&nbsp;agents work side by side, in parallel, fast. Software shouldn't be a
-            black box a handful of people disappear into — it can be a shared, watchable space.
+            People and AI&nbsp;agents build in parallel, fast. Instead of a separate chat log to
+            re-read per agent, one shared map shows who's touching what, where the proof stands, and
+            what's still just an idea.
           </p>
         </article>
 
@@ -72,9 +74,9 @@ import HeroScene from '../components/HeroScene.astro';
           </div>
           <h3>Nothing ships without proof</h3>
           <p class="muted">
-            Ideas and concerns are raised in the open, discussed, and — once they pass real
-            review gates and a person signs off — become working software. Good intentions aren't
-            enough; the work has to earn its place.
+            A green node isn't the model's say-so. It's a check that was <em>failing</em>, made to
+            pass for the right reason, with a human sign-off. Agents reward-hack; a failing check made
+            to pass is harder to fake. "Done" means evidence, not vibes.
           </p>
         </article>
 
@@ -89,9 +91,9 @@ import HeroScene from '../components/HeroScene.astro';
           </div>
           <h3>You don't have to trust us</h3>
           <p class="muted">
-            The decisions, the reasoning, and the record are open and meant to be checked.
-            We're building toward a way to simply <em>ask</em> the project, against its whole
-            record — so a hidden agenda has nowhere left to hide.
+            The decisions, the reasoning, and the record are open and meant to be checked. We're
+            building toward a way to simply <em>ask</em> the project, against its whole record — so a
+            hidden agenda has nowhere left to hide.
           </p>
         </article>
       </div>
@@ -105,11 +107,11 @@ import HeroScene from '../components/HeroScene.astro';
         <p class="eyebrow">The bet</p>
         <h2>An open record is a stronger foundation for trust than promises.</h2>
         <p class="lede">
-          Most projects ask you to trust the people running them. We're trying to show you
-          don't have to. A complete, open record you can interrogate directly can make a project
-          genuinely fairer to everyone it touches — the people who use it, the people who build
-          it, and the people affected by it. If that works, it's a way of building that more
-          people can take part in. If it doesn't, you'll be able to see that too.
+          Most projects ask you to trust the people running them. We're trying to show you don't have
+          to. When agents write most of the code and humans can't read all of it, the thing that keeps
+          a project honest isn't good intentions — it's a complete, open record you can interrogate
+          directly. If that works, it's a fairer way to build software, and one more people can take
+          part in. If it doesn't, you'll be able to see that too.
         </p>
         <a class="btn btn--primary" href="/how-it-works/">How the pieces fit together →</a>
       </div>
@@ -122,11 +124,11 @@ import HeroScene from '../components/HeroScene.astro';
       <p class="eyebrow">Where we are right now</p>
       <h2>Early, honest, and growing slowly.</h2>
       <p>
-        storytree isn't open source yet — it's not ready to be. Taking part is invite-only while
-        we iterate out the rough edges and build the guardrails real openness needs. Today one
-        person still decides what gets built next — we're honest that "your voice counts" isn't
-        yet "your vote counts." But this website is the open front door: you're welcome to watch,
-        to ask hard questions, and to tell us where we're wrong — that last one especially.
+        storytree isn't open source yet — it's not ready to be. Taking part is invite-only while we
+        iterate out the rough edges and build the guardrails real openness needs. Today one person
+        still decides what gets built next — we're honest that "your voice counts" isn't yet "your
+        vote counts." But this website is the open front door: you're welcome to watch, to ask hard
+        questions, and to tell us where we're wrong — that last one especially.
       </p>
       <div class="hero__cta">
         <a class="btn btn--primary" href="/contact/">Ask to come in</a>
@@ -149,6 +151,7 @@ import HeroScene from '../components/HeroScene.astro';
   .pillar__icon { margin-bottom: 0.7rem; }
   .pillar h3 { margin-bottom: 0.35rem; }
   .pillar p { margin-bottom: 0; }
+  .pillar em { font-style: italic; }
 
   .band {
     background: linear-gradient(135deg, #2f6b3f 0%, #245031 100%);

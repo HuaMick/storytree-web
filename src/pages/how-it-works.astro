@@ -6,139 +6,212 @@ import TreeWorld from '../components/TreeWorld.astro';
 <Base
   active="how"
   title="How storytree works"
-  description="The living story-tree map, the review gates where nothing ships without proof, building in parallel by people and AI agents, and an open record you can check directly."
+  description="A live map of your system, a library where intent is decided, and a harness that holds the agents to it — built for people shipping software with AI agents."
 >
   <!-- intro -->
   <section class="section">
     <div class="wrap prose">
       <p class="eyebrow">How it works</p>
-      <h1>A project that grows like a garden.</h1>
+      <h1>The model isn't the bottleneck anymore.</h1>
       <p class="lede">
-        The <a href="/constitution/">constitution</a> says what storytree believes. This page is
-        the how: the pieces that turn "build software in the open" from a nice idea into something
-        you can actually watch happen — and check.
+        If you build with AI&nbsp;agents, you've felt the shift: writing the code stopped being the
+        hard part. The hard part is <em>seeing</em> what got built, <em>trusting</em> it, and keeping
+        several humans and a swarm of agents pointed at the same thing. storytree is three pieces
+        aimed squarely at that — a live <strong>map</strong> of your system, a shared
+        <strong>library</strong> where intent gets decided, and a <strong>harness</strong> that
+        holds the agents to it.
       </p>
+    </div>
+    <div class="wrap">
+      <div class="grid grid--3 trio">
+        <div class="card trio__card">
+          <span class="trio__tag">The map</span>
+          <p>A top-down, glanceable picture of the whole system, coloured by health. You read it instead of re-reading diffs and chat logs — and so do the agents.</p>
+        </div>
+        <div class="card trio__card">
+          <span class="trio__tag">The library</span>
+          <p>Where humans and agents agree what's being built and what "done" means — <em>before</em> a line is generated, so review checks the work against intent.</p>
+        </div>
+        <div class="card trio__card">
+          <span class="trio__tag">The harness</span>
+          <p>A deterministic, human-in-the-loop lane that holds the model to the same gates a team would — nothing counts as done until a check that was failing is made to pass.</p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- the living map + tree demo -->
+  <!-- THE MAP + demo -->
   <section class="section--tight">
+    <div class="wrap prose">
+      <p class="eyebrow">The map · observability</p>
+      <h2>A satellite view of your system, not a scroll-back of the chat.</h2>
+      <p>
+        An agent writes 400 lines in a minute. Now the work isn't writing — it's working out what
+        changed and whether it's healthy. In Sonar's mid-2026 survey of 1,100+ developers, 96% said
+        they don't fully trust that AI-generated code is functionally correct — yet only about half
+        always verify it before it ships. The tools that watch agents mostly watch the <em>run</em> —
+        traces, tokens, cost. Almost
+        none of them show you the <em>system</em>: what now exists, and what's actually been checked.
+      </p>
+      <p>
+        storytree does. Every project is a living map you read at a glance. Each tree is a
+        <strong>story</strong> — one slice of the product. Its colour is its health, the garden around
+        it is its capabilities, and the roads between trees are what depends on what. Glance to see
+        what exists and what's holding; drill into a node and read the code when you actually need to.
+      </p>
+    </div>
+
     <div class="wrap">
-      <div class="prose">
-        <p class="eyebrow">1 · The living map</p>
-        <h2>Every project is a tree of stories.</h2>
-        <p>
-          Instead of a roadmap hidden in someone's head, a storytree project is a living map you
-          can see. Each <strong>story</strong> is a self-contained piece of the software — "the
-          part that sends invitations", "the part that draws the map". As work happens, the map
-          grows: new stories sprout, dependencies form roads between them, and each one changes
-          colour as it earns its place.
-        </p>
-      </div>
-
       <TreeWorld />
+    </div>
 
-      <div class="prose legend-note">
-        <p class="muted">
-          A made-up example project, shown in storytree's real map view. Hover or tap a tree to
-          read what it is. (This is fictional data — a toy "garden planner" app — not storytree's
-          own roadmap.)
-        </p>
-      </div>
+    <div class="wrap prose legend-note">
+      <p class="muted">
+        Above is a made-up system — a fictional team-chat backend called <strong>Cohoot</strong> —
+        shown in storytree's real map view. Hover or tap any tree to inspect a story; click to pin it
+        and light up everything it depends on. (Invented data, not storytree's own roadmap.)
+      </p>
+    </div>
+
+    <div class="wrap prose">
+      <p>
+        And the map isn't only for you — it's what the <strong>agents</strong> read too. The instinct
+        is to dump the whole repo into context and let the model sort it out, but quality drops long
+        before the window is full — attention is a <em>finite resource with diminishing marginal
+        returns</em> as it fills (Anthropic's framing). Hand an agent a compact, top-down graph of the system with
+        health states and it spends its budget on the task instead of burning it re-deriving the maze
+        — and rotting its own context on the way in.
+      </p>
     </div>
   </section>
 
   <!-- the grain -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">2 · The grain</p>
-      <h2>Big things are made of small, provable things.</h2>
+      <p class="eyebrow">The grain</p>
+      <h2>Big things are made of small, checkable things.</h2>
       <p>
-        Zoom into a story and it's made of smaller pieces, each one small enough to prove on its
-        own. The idea is old and boring and it works: you don't get to call something "done"
-        because you feel good about it — you get to call it done when there's evidence.
+        Zoom into a story and it's made of smaller pieces, each one small enough to pin down on its
+        own. The idea is old, boring, and it works: you don't get to call something done because it
+        feels done — you get to call it done when there's evidence.
       </p>
       <div class="grid grid--3 ladder">
         <div class="card">
           <span class="dot dot--healthy"></span><strong>Story</strong>
-          <p class="muted">A whole, useful capability — the kind of thing a newcomer can point at. Proven by walking through it end to end, the way a real person would use it.</p>
+          <p class="muted">A whole, useful slice — the kind of thing a newcomer can point at. Checked by walking it end to end, the way a real person would actually use it.</p>
         </div>
         <div class="card">
           <span class="dot dot--healthy"></span><strong>Capability</strong>
-          <p class="muted">An organ inside a story. Proven by testing its parts wired together, for real — no faking the hard bits.</p>
+          <p class="muted">An organ inside a story. Checked by testing its parts wired together, for real — no faking the hard bits with a mock.</p>
         </div>
         <div class="card">
           <span class="dot dot--healthy"></span><strong>Contract</strong>
-          <p class="muted">A single behaviour, pinned down by one focused automated test. The smallest brick.</p>
+          <p class="muted">A single behaviour, pinned by one focused automated test. The smallest brick — and the one thing an agent can't talk its way past.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- the gates -->
+  <!-- DAG as health monitor -->
+  <section class="section--tight">
+    <div class="wrap prose">
+      <p class="eyebrow">The graph · triage</p>
+      <h2>A file tree tells you where things are. A health graph tells you where they're broken.</h2>
+      <p>
+        storytree assumes the whole system can be drawn as a graph — stories to capabilities to
+        contracts, with dependency edges between them. That one assumption turns the map into a
+        real-time health monitor. Health flows along the edges like blast-radius analysis: when a
+        contract fails, everything that leans on it is marked suspect, and the red branch tells you —
+        and the next agent — exactly where to look.
+      </p>
+      <p>
+        You can see it in the map above. One failing branch — the real-time fan-out that everything
+        live depends on — drags presence, typing, and push down with it. A flat file tree would just
+        show you where those files live. The graph shows you that they're all downstream of the same
+        broken thing. <strong>The red branch is the work; everything else can wait.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- the harness / gates -->
   <section class="section">
     <div class="wrap band2">
       <div class="band2__inner prose">
-        <p class="eyebrow">3 · The gates</p>
-        <h2>Nothing ships without proof.</h2>
+        <p class="eyebrow">The harness · proof</p>
+        <h2>"All tests pass" is a claim, not a proof.</h2>
         <p>
-          This is the load-bearing rule. Between "someone proposed this" and "this is part of the
-          software" sits a <strong>gate</strong> — and the gate refuses anything that can't show
-          its working. A piece only turns green when a test that was <em>failing</em> is made to
-          pass for the right reason. No hand-waving a thing into "done"; no quietly marking your
-          own homework.
+          Agents don't just hallucinate — they reward-hack. Made to chase green checks, they'll
+          hardcode an output, quietly trim the test suite, or game the harness instead of fixing the
+          thing. This isn't a thought experiment: in late-2025 safety work, a reward-hacking model was
+          caught faking a passing run with a bare <code>sys.exit(0)</code>; a 2026 benchmark across
+          frontier models logged exploit rates as high as ~14%. A green check can mean "the work is
+          done" — or "the harness got played."
+        </p>
+        <p>
+          So storytree doesn't take the agent's word for it. A node only goes green when a check that
+          was <em>failing</em> is made to pass for the right reason — and a person signs off. Health is
+          a machine-checkable contract measured against evidence, not a status the model reports about
+          itself, and the generated code is hard-linked to the node it claims to satisfy. Every part of
+          the map is signal for one question: <em>did the agents build what I actually asked?</em>
         </p>
         <ul class="checks">
           <li>An idea or a concern can come from anyone — you don't have to write code to raise one.</li>
-          <li>It gets discussed in the open, where the reasoning is on the record.</li>
-          <li>If it becomes work, that work has to pass its gate before it counts — proof first.</li>
-          <li>A human still says the final yes before anything lands. A green light is a request for review, not an automatic merge.</li>
+          <li>It's argued in the open, where the reasoning stays on the record instead of in a scrolled-away thread.</li>
+          <li>If it becomes work, that work has to pass its gate before it counts — a failing check made to pass, not a vibe.</li>
+          <li>A human still says the final yes. A green light is a request for review, not an automatic merge.</li>
         </ul>
+        <p class="band2__caveat">
+          Honest scope: green means <em>the checks passed</em> — not that the code is flawless. The map
+          compresses the cost of seeing what's been built and checked; it doesn't replace reading the
+          code or your CI. It's a sharper place to point your attention, not a guarantee.
+        </p>
       </div>
     </div>
   </section>
 
-  <!-- parallel -->
+  <!-- the library / coordination -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">4 · The builders</p>
-      <h2>People and AI agents, building in parallel.</h2>
+      <p class="eyebrow">The library · coordination</p>
+      <h2>Decisions that don't scroll away in Slack.</h2>
       <p>
-        Lots of the building is done by <strong>AI&nbsp;agents</strong> — many of them, working at
-        once, each growing a different part of the tree. storytree is the layer on top: the place
-        you watch them work, steer them, review what they produce, and decide what's allowed in.
-        Think of it less as "an AI agent that writes code" and more as a control room for a whole
-        workforce of them — with humans firmly in charge of what's true and what ships.
+        The models can already code, and they keep improving. The hard part is coordinating the
+        <em>intent</em> of several humans — and when an agent emits hundreds of lines in seconds, the
+        humans are the bottleneck. Anthropic's own 2026 read on agentic coding
+        names the gap: AI&nbsp;agents now touch a majority of dev work, but only a small slice of tasks
+        is fully hand-off-able — supervision and judgement are what's scarce. Review turns into
+        archaeology: reverse-engineering intent from a finished diff.
       </p>
       <p>
-        Because it's all on one shared map, the work can be massively parallel without becoming
-        chaos: you can see who's touching what, where the proof stands, and what's still just an
-        idea.
+        The <strong>library</strong> is where that intent lives. Humans and AI&nbsp;agents discuss the
+        system, record the decision and the agreed definition of done <em>before</em> generation — so
+        at review time you're checking the diff against what everyone agreed, not reconstructing it
+        from scratch. Because it's all one shared map, the work can be massively parallel without
+        becoming chaos: you can see who's touching what, where the proof stands, and what's still just
+        an idea. We lean into that on purpose — at its best, steering a project here is closer to
+        playing a cosy city-builder than parsing terminal output.
       </p>
     </div>
   </section>
 
-  <!-- transparency -->
+  <!-- honesty / transparency -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">5 · The honesty mechanism</p>
+      <p class="eyebrow">The honest bit</p>
       <h2>An open record — and, where we're headed, one you can just ask.</h2>
       <p>
-        Every decision and the reasoning behind it is kept on the record, not summarised away
-        after the fact. That's the foundation of the whole trust model: you don't have to take
-        anyone's word, because you can check.
-      </p>
-      <p>
-        Today there's an honest gap — the people running storytree could still quietly edit that
-        record — and we say so plainly. We're closing it: making the record append-only and
-        tamper-evident, so that even we can't rewrite history unseen (the foundation for this
-        already exists). And we're building toward the strongest version of this idea: a way to
-        simply <strong>ask the project</strong>, in plain language, against its whole record — so a
-        hidden agenda has nowhere left to hide.
+        Every decision and the reasoning behind it is kept on the record, not summarised away after
+        the fact. That's the foundation of the whole trust model: you don't have to take anyone's word,
+        because you can check. There's an honest gap today — the people running storytree could still
+        quietly edit that record — and we say so plainly. We're closing it: making the record
+        append-only and tamper-evident, so even we can't rewrite history unseen (the foundation for
+        this already exists). And we're building toward the strongest version of the idea: a way to
+        simply <strong>ask the project</strong>, in plain language, against its whole record — so any
+        hidden agenda has to survive being asked about directly.
       </p>
       <p class="muted">
-        We'll only ever claim the parts that are actually built. Where something is still ahead of
-        us, you'll hear "this is where we're headed," not a wall that isn't there yet.
+        We'll only ever claim the parts that are actually built. Where something is still ahead of us,
+        you'll hear "this is where we're headed," not a wall that isn't there yet.
       </p>
     </div>
   </section>
@@ -148,8 +221,9 @@ import TreeWorld from '../components/TreeWorld.astro';
     <div class="wrap prose cta-card">
       <h2>That's the experiment.</h2>
       <p class="lede">
-        Can building this way stay fair and trustworthy <em>because</em> it's open? We don't fully
-        know yet — that's the point. If it resonates, the door to ask is open.
+        Can building this way — agents on a leash, intent in the open, proof before merge — stay fair
+        and trustworthy <em>because</em> it's all on the record? We don't fully know yet. That's the
+        point. If it resonates, the door to ask is open.
       </p>
       <div class="hero__cta">
         <a class="btn btn--primary" href="/contact/">Ask to come in →</a>
@@ -160,11 +234,24 @@ import TreeWorld from '../components/TreeWorld.astro';
 </Base>
 
 <style>
+  .trio { margin-top: 1.6rem; }
+  .trio__card { display: flex; flex-direction: column; gap: 0.5rem; }
+  .trio__tag {
+    align-self: flex-start;
+    font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; color: var(--evergreen-deep);
+    border-bottom: 2px solid var(--sage-leaf); padding-bottom: 0.15rem;
+  }
+  .trio__card p { margin: 0; color: var(--ink-soft); font-size: 0.96rem; }
+
   .legend-note { margin-top: 1rem; }
   .legend-note p { font-size: 0.92rem; margin: 0; }
   .ladder { margin-top: 1.3rem; }
   .ladder .card p { margin: 0.4rem 0 0; }
   .ladder .card strong { font-family: var(--font-display); font-size: 1.12rem; }
+  .ladder code, .band2 code, .prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.86em; background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 5px;
+  }
 
   .band2 {
     background: var(--surface);
@@ -174,6 +261,10 @@ import TreeWorld from '../components/TreeWorld.astro';
     box-shadow: var(--shadow);
   }
   .band2__inner { padding: clamp(1.6rem, 4vw, 2.8rem); max-width: 46rem; }
+  .band2__caveat {
+    margin-top: 1.3rem; padding-top: 1.1rem; border-top: 1px dashed var(--line-strong);
+    font-size: 0.92rem; color: var(--ink-soft);
+  }
   .checks { list-style: none; padding: 0; margin: 1.2rem 0 0; display: grid; gap: 0.7rem; }
   .checks li { position: relative; padding-left: 1.9rem; color: var(--ink-soft); }
   .checks li::before {
@@ -187,8 +278,7 @@ import TreeWorld from '../components/TreeWorld.astro';
     width: 0.42rem; height: 0.24rem; border-left: 2px solid var(--evergreen); border-bottom: 2px solid var(--evergreen);
     transform: rotate(-45deg);
   }
-  .cta-card { text-align: center; max-width: 38rem; }
+  .cta-card { text-align: center; max-width: 40rem; }
   .cta-card .hero__cta { justify-content: center; }
-  .em, .how em { font-style: italic; }
   em { font-style: italic; }
 </style>
