@@ -1,0 +1,93 @@
+---
+interface Props { active?: string; }
+const { active = '' } = Astro.props;
+
+const links = [
+  { key: 'how', href: '/how-it-works/', label: 'How it works' },
+  { key: 'constitution', href: '/constitution/', label: 'Constitution' },
+  { key: 'contact', href: '/contact/', label: 'Front door' },
+];
+---
+
+<header class="nav">
+  <div class="wrap nav__inner">
+    <a class="brand" href="/" aria-label="storytree home">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 28 28" width="26" height="26" aria-hidden="true">
+          <!-- a tiny sprout: trunk + two crowns -->
+          <path d="M14 26 V15" stroke="#6e533d" stroke-width="2.1" stroke-linecap="round" fill="none"/>
+          <circle cx="14" cy="9.5" r="6.5" fill="#2f6b3f"/>
+          <circle cx="9" cy="14" r="4.4" fill="#55a06a"/>
+          <circle cx="19" cy="14" r="4.4" fill="#6f9a52"/>
+        </svg>
+      </span>
+      <span class="brand__word">storytree</span>
+    </a>
+
+    <button type="button" class="nav__burger" id="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav__links" id="nav-links" aria-label="Primary">
+      {links.map((l) => (
+        <a href={l.href} class={active === l.key ? 'is-active' : ''} aria-current={active === l.key ? 'page' : undefined}>{l.label}</a>
+      ))}
+      <a href="/contact/" class="btn btn--primary nav__cta">Ask to come in</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 62px; }
+  .brand { display: inline-flex; align-items: center; gap: 0.55rem; text-decoration: none; color: var(--ink); }
+  .brand__word { font-family: var(--font-display); font-weight: 600; font-size: 1.28rem; letter-spacing: -0.015em; }
+  .brand__mark { display: inline-flex; }
+  .nav__links { display: flex; align-items: center; gap: 1.4rem; }
+  .nav__links a { text-decoration: none; color: var(--ink-soft); font-weight: 500; font-size: 0.97rem; }
+  .nav__links a:hover { color: var(--ink); }
+  .nav__links a.is-active { color: var(--ink); font-weight: 600; }
+  .nav__cta { color: #fff !important; }
+  .nav__burger { display: none; background: none; border: 0; padding: 10px; margin: -10px; border-radius: 8px; cursor: pointer; }
+
+  @media (max-width: 720px) {
+    .nav__burger { display: inline-flex; flex-direction: column; gap: 5px; }
+    .nav__burger span { width: 22px; height: 2px; background: var(--ink); border-radius: 2px; transition: 0.2s; }
+    .nav__burger[aria-expanded='true'] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav__burger[aria-expanded='true'] span:nth-child(2) { opacity: 0; }
+    .nav__burger[aria-expanded='true'] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    .nav__links {
+      position: absolute; top: 62px; left: 0; right: 0;
+      flex-direction: column; align-items: stretch; gap: 0.2rem;
+      background: var(--surface); border-bottom: 1px solid var(--line);
+      padding: 0.6rem clamp(1.1rem, 4vw, 2.2rem) 1.1rem;
+      box-shadow: var(--shadow);
+      max-height: 0; overflow: hidden; opacity: 0; visibility: hidden;
+      transition: max-height 0.25s ease, opacity 0.2s ease, visibility 0.25s;
+    }
+    .nav__links a { padding: 0.7rem 0.2rem; border-bottom: 1px solid var(--line); }
+    .nav__cta { margin-top: 0.7rem; justify-content: center; border-bottom: 0 !important; }
+    .nav__links.is-open { max-height: 22rem; opacity: 1; visibility: visible; }
+  }
+</style>
+
+<script>
+  const burger = document.getElementById('nav-burger');
+  const menu = document.getElementById('nav-links');
+  if (burger && menu) {
+    const setOpen = (open: boolean) => {
+      menu.classList.toggle('is-open', open);
+      burger.setAttribute('aria-expanded', String(open));
+      burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    };
+    burger.addEventListener('click', () => setOpen(burger.getAttribute('aria-expanded') !== 'true'));
+    // close when a link is chosen, or on Escape
+    menu.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setOpen(false)));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+  }
+</script>

@@ -1,0 +1,194 @@
+---
+import Base from '../layouts/Base.astro';
+import TreeWorld from '../components/TreeWorld.astro';
+---
+
+<Base
+  active="how"
+  title="How storytree works"
+  description="The living story-tree map, the review gates where nothing ships without proof, building in parallel by people and AI agents, and an open record you can check directly."
+>
+  <!-- intro -->
+  <section class="section">
+    <div class="wrap prose">
+      <p class="eyebrow">How it works</p>
+      <h1>A project that grows like a garden.</h1>
+      <p class="lede">
+        The <a href="/constitution/">constitution</a> says what storytree believes. This page is
+        the how: the pieces that turn "build software in the open" from a nice idea into something
+        you can actually watch happen — and check.
+      </p>
+    </div>
+  </section>
+
+  <!-- the living map + tree demo -->
+  <section class="section--tight">
+    <div class="wrap">
+      <div class="prose">
+        <p class="eyebrow">1 · The living map</p>
+        <h2>Every project is a tree of stories.</h2>
+        <p>
+          Instead of a roadmap hidden in someone's head, a storytree project is a living map you
+          can see. Each <strong>story</strong> is a self-contained piece of the software — "the
+          part that sends invitations", "the part that draws the map". As work happens, the map
+          grows: new stories sprout, dependencies form roads between them, and each one changes
+          colour as it earns its place.
+        </p>
+      </div>
+
+      <TreeWorld />
+
+      <div class="prose legend-note">
+        <p class="muted">
+          A made-up example project, shown in storytree's real map view. Hover or tap a tree to
+          read what it is. (This is fictional data — a toy "garden planner" app — not storytree's
+          own roadmap.)
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- the grain -->
+  <section class="section--tight">
+    <div class="wrap prose">
+      <p class="eyebrow">2 · The grain</p>
+      <h2>Big things are made of small, provable things.</h2>
+      <p>
+        Zoom into a story and it's made of smaller pieces, each one small enough to prove on its
+        own. The idea is old and boring and it works: you don't get to call something "done"
+        because you feel good about it — you get to call it done when there's evidence.
+      </p>
+      <div class="grid grid--3 ladder">
+        <div class="card">
+          <span class="dot dot--healthy"></span><strong>Story</strong>
+          <p class="muted">A whole, useful capability — the kind of thing a newcomer can point at. Proven by walking through it end to end, the way a real person would use it.</p>
+        </div>
+        <div class="card">
+          <span class="dot dot--healthy"></span><strong>Capability</strong>
+          <p class="muted">An organ inside a story. Proven by testing its parts wired together, for real — no faking the hard bits.</p>
+        </div>
+        <div class="card">
+          <span class="dot dot--healthy"></span><strong>Contract</strong>
+          <p class="muted">A single behaviour, pinned down by one focused automated test. The smallest brick.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the gates -->
+  <section class="section">
+    <div class="wrap band2">
+      <div class="band2__inner prose">
+        <p class="eyebrow">3 · The gates</p>
+        <h2>Nothing ships without proof.</h2>
+        <p>
+          This is the load-bearing rule. Between "someone proposed this" and "this is part of the
+          software" sits a <strong>gate</strong> — and the gate refuses anything that can't show
+          its working. A piece only turns green when a test that was <em>failing</em> is made to
+          pass for the right reason. No hand-waving a thing into "done"; no quietly marking your
+          own homework.
+        </p>
+        <ul class="checks">
+          <li>An idea or a concern can come from anyone — you don't have to write code to raise one.</li>
+          <li>It gets discussed in the open, where the reasoning is on the record.</li>
+          <li>If it becomes work, that work has to pass its gate before it counts — proof first.</li>
+          <li>A human still says the final yes before anything lands. A green light is a request for review, not an automatic merge.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- parallel -->
+  <section class="section--tight">
+    <div class="wrap prose">
+      <p class="eyebrow">4 · The builders</p>
+      <h2>People and AI agents, building in parallel.</h2>
+      <p>
+        Lots of the building is done by <strong>AI&nbsp;agents</strong> — many of them, working at
+        once, each growing a different part of the tree. storytree is the layer on top: the place
+        you watch them work, steer them, review what they produce, and decide what's allowed in.
+        Think of it less as "an AI agent that writes code" and more as a control room for a whole
+        workforce of them — with humans firmly in charge of what's true and what ships.
+      </p>
+      <p>
+        Because it's all on one shared map, the work can be massively parallel without becoming
+        chaos: you can see who's touching what, where the proof stands, and what's still just an
+        idea.
+      </p>
+    </div>
+  </section>
+
+  <!-- transparency -->
+  <section class="section--tight">
+    <div class="wrap prose">
+      <p class="eyebrow">5 · The honesty mechanism</p>
+      <h2>An open record — and, where we're headed, one you can just ask.</h2>
+      <p>
+        Every decision and the reasoning behind it is kept on the record, not summarised away
+        after the fact. That's the foundation of the whole trust model: you don't have to take
+        anyone's word, because you can check.
+      </p>
+      <p>
+        Today there's an honest gap — the people running storytree could still quietly edit that
+        record — and we say so plainly. We're closing it: making the record append-only and
+        tamper-evident, so that even we can't rewrite history unseen (the foundation for this
+        already exists). And we're building toward the strongest version of this idea: a way to
+        simply <strong>ask the project</strong>, in plain language, against its whole record — so a
+        hidden agenda has nowhere left to hide.
+      </p>
+      <p class="muted">
+        We'll only ever claim the parts that are actually built. Where something is still ahead of
+        us, you'll hear "this is where we're headed," not a wall that isn't there yet.
+      </p>
+    </div>
+  </section>
+
+  <!-- cta -->
+  <section class="section">
+    <div class="wrap prose cta-card">
+      <h2>That's the experiment.</h2>
+      <p class="lede">
+        Can building this way stay fair and trustworthy <em>because</em> it's open? We don't fully
+        know yet — that's the point. If it resonates, the door to ask is open.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn--primary" href="/contact/">Ask to come in →</a>
+        <a class="btn btn--ghost" href="/constitution/">Read what we commit to</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .legend-note { margin-top: 1rem; }
+  .legend-note p { font-size: 0.92rem; margin: 0; }
+  .ladder { margin-top: 1.3rem; }
+  .ladder .card p { margin: 0.4rem 0 0; }
+  .ladder .card strong { font-family: var(--font-display); font-size: 1.12rem; }
+
+  .band2 {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--evergreen);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .band2__inner { padding: clamp(1.6rem, 4vw, 2.8rem); max-width: 46rem; }
+  .checks { list-style: none; padding: 0; margin: 1.2rem 0 0; display: grid; gap: 0.7rem; }
+  .checks li { position: relative; padding-left: 1.9rem; color: var(--ink-soft); }
+  .checks li::before {
+    content: ""; position: absolute; left: 0; top: 0.35em;
+    width: 1.15rem; height: 1.15rem; border-radius: 999px;
+    background: var(--evergreen-soft);
+    box-shadow: inset 0 0 0 2px var(--evergreen);
+  }
+  .checks li::after {
+    content: ""; position: absolute; left: 0.34rem; top: 0.62em;
+    width: 0.42rem; height: 0.24rem; border-left: 2px solid var(--evergreen); border-bottom: 2px solid var(--evergreen);
+    transform: rotate(-45deg);
+  }
+  .cta-card { text-align: center; max-width: 38rem; }
+  .cta-card .hero__cta { justify-content: center; }
+  .em, .how em { font-style: italic; }
+  em { font-style: italic; }
+</style>

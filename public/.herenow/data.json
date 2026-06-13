@@ -1,0 +1,14 @@
+{
+  "collections": {
+    "submissions": {
+      "fields": {
+        "name": { "type": "string", "required": false, "maxLength": 120, "trim": true },
+        "email": { "type": "email", "required": true },
+        "message": { "type": "string", "required": true, "maxLength": 2000, "trim": true },
+        "source": { "type": "string", "required": false, "maxLength": 60, "trim": true }
+      },
+      "access": { "read": "owner", "insert": "public", "update": "owner", "delete": "owner" },
+      "rateLimit": "8/hour/ip"
+    }
+  }
+}

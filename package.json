@@ -1,0 +1,16 @@
+{
+  "name": "storytree-web",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The public front door for storytree — an experiment in building software out in the open.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "publish:here": "node scripts/publish-herenow.mjs"
+  },
+  "dependencies": {
+    "astro": "^5.13.0"
+  }
+}

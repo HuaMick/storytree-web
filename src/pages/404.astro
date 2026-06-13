@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Not found — storytree" description="That path doesn't exist (yet).">
+  <section class="section nf">
+    <div class="wrap prose">
+      <p class="eyebrow">404</p>
+      <h1>This path hasn't grown yet.</h1>
+      <p class="lede">
+        The page you're after isn't here — maybe it was never planted, maybe it's still a seed.
+        Either way, the map is back this way.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn--primary" href="/">Back to the start →</a>
+        <a class="btn btn--ghost" href="/how-it-works/">See how it works</a>
+      </div>
+    </div>
+  </section>
+</Base>
+<style>
+  .nf { padding-block: clamp(4rem, 12vw, 8rem); }
+  .nf .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.4rem; }
+</style>

@@ -1,0 +1,23 @@
+# build output
+dist/
+# astro
+.astro/
+# deps
+node_modules/
+# here.now publish output (contains a one-time claim token)
+publish-info.json
+# local report/dev artifacts — not part of the public site
+screenshots/
+# dev-only helpers that borrow the private sibling repo's Playwright/chromium
+scripts/shots.mjs
+scripts/make-og.mjs
+# os / editor
+.DS_Store
+Thumbs.db
+*.log
+# never commit anything sensitive — this repo is (or will be) public
+.env
+.env.*
+*.pem
+*.key
+secrets.json

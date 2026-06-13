@@ -1,0 +1,148 @@
+/* ---------------------------------------------------------------------------
+   storytree-web design system
+   Warm, organic, "a garden you can watch grow." Palette borrowed in spirit from
+   the studio's Dorfromantik hex world (sage terrain, amber/brown growth stages,
+   evergreen = proven). Re-authored here; nothing copied from private source.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* surfaces — warm cream, not clinical white */
+  --bg: #faf4ee;
+  --bg-2: #f3e7da;
+  --surface: #fffdfa;
+  --surface-2: #f6ede2;
+  --line: #e8ddcf;
+  --line-strong: #d8c8b4;
+
+  /* ink */
+  --ink: #221f1a;
+  --ink-soft: #5d564c;
+  --ink-faint: #6e665a; /* AA on cream (~4.8:1) — carries tooltip + form meta text */
+
+  /* brand — evergreen "proven" green is the through-line */
+  --evergreen: #2f6b3f;
+  --evergreen-deep: #245031;
+  --evergreen-soft: #e7f1e6;
+  --sage: #6f9a52;
+  --sage-leaf: #a9c87f;
+
+  /* growth-stage accents (the lifecycle hues from the world) */
+  --amber: #9a5a1c;     /* proposed — young, iterating (AA as small uppercase text on cream) */
+  --amber-soft: #f7ead6;
+  --brown: #7d5f3b;     /* mapped — brownfield */
+  --crimson: #9f2d22;   /* unhealthy — withered */
+  --wheat: #d6b271;
+
+  /* terrain (used in art + subtle texture) */
+  --board: #faf2ed;
+  --road: #a98e5f;
+
+  /* type */
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+
+  /* scale */
+  --maxw: 72rem;
+  --maxw-prose: 42rem;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-sm: 0 1px 2px rgba(40, 30, 15, 0.05), 0 1px 8px rgba(40, 30, 15, 0.04);
+  --shadow: 0 4px 14px rgba(50, 35, 15, 0.07), 0 12px 40px rgba(50, 35, 15, 0.06);
+}
+
+/* ---- reset-ish ---- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* a faint organic wash so the page doesn't read as a flat slab */
+  background-image:
+    radial-gradient(1100px 620px at 78% -8%, rgba(169, 200, 127, 0.20), transparent 60%),
+    radial-gradient(900px 560px at 6% 4%, rgba(214, 178, 113, 0.16), transparent 55%);
+  background-attachment: fixed;
+}
+img, svg { max-width: 100%; height: auto; display: block; }
+a { color: var(--evergreen); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { color: var(--evergreen-deep); }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 560;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 0.5em;
+  font-optical-sizing: auto;
+}
+h1 { font-size: clamp(2.4rem, 5.2vw, 3.9rem); font-weight: 580; }
+h2 { font-size: clamp(1.7rem, 3.4vw, 2.5rem); }
+h3 { font-size: clamp(1.18rem, 2vw, 1.4rem); }
+p { margin: 0 0 1.1em; }
+strong { font-weight: 650; color: var(--ink); }
+
+/* ---- layout helpers ---- */
+.wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: clamp(1.1rem, 4vw, 2.2rem); }
+.prose { max-width: var(--maxw-prose); }
+.section { padding-block: clamp(3.2rem, 8vw, 6rem); }
+.section--tight { padding-block: clamp(2.2rem, 5vw, 3.4rem); }
+.eyebrow {
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin: 0 0 0.9rem;
+}
+.lede { font-size: clamp(1.12rem, 2vw, 1.32rem); line-height: 1.6; color: var(--ink-soft); }
+.muted { color: var(--ink-soft); }
+
+/* ---- buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: var(--font-body); font-weight: 600; font-size: 0.98rem;
+  padding: 0.72rem 1.3rem; border-radius: 999px;
+  text-decoration: none; cursor: pointer; border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn--primary { background: var(--evergreen); color: #fff; box-shadow: var(--shadow-sm); }
+.btn--primary:hover { background: var(--evergreen-deep); color: #fff; transform: translateY(-1px); box-shadow: var(--shadow); }
+.btn--ghost { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+.btn--ghost:hover { color: var(--ink); border-color: var(--brown); transform: translateY(-1px); background: var(--surface); }
+
+/* ---- cards ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+.grid { display: grid; gap: 1.1rem; }
+@media (min-width: 720px) { .grid--2 { grid-template-columns: 1fr 1fr; } .grid--3 { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---- chips / status dots ---- */
+.dot { display: inline-block; width: 0.62em; height: 0.62em; border-radius: 999px; vertical-align: 0.04em; margin-right: 0.45em; }
+.dot--healthy { background: var(--evergreen); }
+.dot--proposed { background: var(--amber); }
+.dot--mapped { background: var(--brown); }
+.dot--unhealthy { background: var(--crimson); }
+
+/* ---- divider ---- */
+.rule { height: 1px; background: linear-gradient(90deg, transparent, var(--line-strong), transparent); border: 0; margin: 0; }
+
+/* ---- skip link / a11y ---- */
+.skip { position: absolute; left: -999px; top: 0; background: var(--evergreen); color: #fff; padding: 0.6rem 1rem; border-radius: 0 0 var(--radius-sm) 0; z-index: 100; }
+.skip:focus { left: 0; color: #fff; }
+:focus-visible { outline: 2.5px solid var(--amber); outline-offset: 2px; border-radius: 3px; }

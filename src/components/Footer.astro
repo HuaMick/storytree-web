@@ -1,0 +1,34 @@
+---
+const year = 2026;
+---
+<footer class="foot">
+  <hr class="rule" />
+  <div class="wrap foot__inner">
+    <div class="foot__brand">
+      <span class="foot__word">storytree</span>
+      <p class="muted foot__tag">Software, built in the open. An early, solo experiment — you're welcome to watch.</p>
+    </div>
+    <nav class="foot__links" aria-label="Footer">
+      <a href="/">Home</a>
+      <a href="/how-it-works/">How it works</a>
+      <a href="/constitution/">Constitution</a>
+      <a href="/contact/">Front door</a>
+    </nav>
+  </div>
+  <div class="wrap foot__base">
+    <p class="muted">© {year} storytree · These are current intentions, not legal guarantees — and they'll change as we learn.</p>
+  </div>
+</footer>
+
+<style>
+  .foot { margin-top: 2rem; }
+  .foot__inner { display: flex; flex-wrap: wrap; gap: 1.6rem 2.4rem; justify-content: space-between; padding-block: 2.4rem 1.2rem; }
+  .foot__brand { max-width: 26rem; }
+  .foot__word { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; }
+  .foot__tag { margin: 0.35rem 0 0; font-size: 0.95rem; }
+  .foot__links { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; align-items: flex-start; }
+  .foot__links a { text-decoration: none; color: var(--ink-soft); font-size: 0.95rem; }
+  .foot__links a:hover { color: var(--ink); }
+  .foot__base { padding-bottom: 2.4rem; }
+  .foot__base p { font-size: 0.85rem; margin: 0; }
+</style>
