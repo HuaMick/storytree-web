@@ -18,7 +18,7 @@ Most projects ask you to trust the people running them. We're trying to show you
 
 This is the part that has to be real, or none of the rest is.
 
-You don't have to take our word — you can check the record. Every commitment above cashes out to something you can go and verify for yourself. Today there's an honest gap: we could still quietly edit that record, so for now "check us" partly rests on trust. We're closing it — making the record append-only and tamper-evident, so that even the people running storytree can't change it unseen (the foundation for this already exists). And we're building toward the strongest version: a way to simply *ask* the project — in plain language, against its whole record — so a hidden agenda has nowhere left to hide. Until each of those is real, we'll say so plainly rather than imply a wall that isn't built yet.
+You don't have to take our word — you can check the record. Every commitment above cashes out to something you can go and verify for yourself. There's an honest gap today: we could still quietly edit that record, so for now "check us" partly rests on trust. We'd rather name that than paper over it — and closing it is what the [roadmap](/roadmap/) is for: what's built, what's being built now, and what's honestly still ahead. Until each piece is real, we'll say so plainly rather than imply a wall that isn't built yet.
 
 ## Where we are right now
 
