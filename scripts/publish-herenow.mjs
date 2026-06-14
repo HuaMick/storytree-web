@@ -1,15 +1,27 @@
 #!/usr/bin/env node
-// Publish ./dist to here.now using the 3-step anonymous API:
-//   1. POST /api/v1/publish        (declare files -> get presigned PUT urls)
-//   2. PUT each presigned url       (upload bytes)
-//   3. POST <finalizeUrl>           (go live)
-// Anonymous publishes live 24h and return a one-time claimUrl (capture it!).
-import { readFileSync, writeFileSync, statSync, readdirSync } from 'node:fs';
+// Publish ./dist to here.now. Two modes, auto-selected:
+//
+//   • UPDATE the live site in place (account API key + known slug):
+//       PUT /api/v1/publish/:slug   with `Authorization: Bearer <hnk_…>`
+//     This is how the claimed, permanent front-door site gets new content. No new URL.
+//
+//   • CREATE a throwaway preview (no API key):
+//       POST /api/v1/publish        anonymous → a fresh URL, live 24h, with a one-time claimUrl.
+//
+// Both modes use the same 3 steps: declare files → upload to presigned URLs → finalize.
+//
+// Credentials & target (env wins, then on-disk):
+//   HERENOW_API_KEY   account key (hnk_…); else ~/.herenow/credentials  (JSON {apiKey|token|key} or raw)
+//   HERENOW_SLUG      the site slug to update; else the `slug` saved in publish-info.json by a prior run
+// With a key but no slug, an authenticated POST creates a NEW account-owned permanent site (slug saved).
+import { readFileSync, writeFileSync, statSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative, sep, extname } from 'node:path';
+import { homedir } from 'node:os';
 
-const API = 'https://here.now/api/v1/publish';
+const ORIGIN = 'https://here.now';
 const DIST = new URL('../dist/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const ROOT = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const INFO = join(ROOT, 'publish-info.json');
 
 const CT = {
   '.html': 'text/html; charset=utf-8',
@@ -44,6 +56,36 @@ function walk(dir, base = dir, out = []) {
   return out;
 }
 
+// API key: env first, then here.now's conventional ~/.herenow/credentials.
+function readApiKey() {
+  if (process.env.HERENOW_API_KEY) return process.env.HERENOW_API_KEY.trim();
+  const cred = join(homedir(), '.herenow', 'credentials');
+  if (existsSync(cred)) {
+    const raw = readFileSync(cred, 'utf8').trim();
+    try {
+      const j = JSON.parse(raw);
+      const k = j.apiKey ?? j.token ?? j.key ?? '';
+      return String(k).trim() || null;
+    } catch {
+      return raw || null;
+    }
+  }
+  return null;
+}
+
+// Slug of the site to update: env first, then the one a prior run saved.
+function readSlug() {
+  if (process.env.HERENOW_SLUG) return process.env.HERENOW_SLUG.trim();
+  if (existsSync(INFO)) {
+    try {
+      return JSON.parse(readFileSync(INFO, 'utf8')).slug ?? null;
+    } catch {
+      /* ignore a malformed info file */
+    }
+  }
+  return null;
+}
+
 async function main() {
   let files;
   try {
@@ -61,13 +103,29 @@ async function main() {
     console.warn('⚠  .herenow/data.json not found in dist — contact form storage will be inert.');
   }
 
-  const manifest = files.map((f) => ({ path: f.rel, size: f.size, contentType: ctFor(f.rel) }));
-  console.log(`Publishing ${manifest.length} files (${(manifest.reduce((a, f) => a + f.size, 0) / 1024).toFixed(0)} KB)…`);
+  const apiKey = readApiKey();
+  const slug = readSlug();
+  const update = Boolean(apiKey && slug); // PUT in place vs POST a new site
+  const authHeaders = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 
-  // Step 1
-  const initRes = await fetch(API, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-HereNow-Client': 'storytree-web/publish' },
+  const initUrl = update ? `${ORIGIN}/api/v1/publish/${encodeURIComponent(slug)}` : `${ORIGIN}/api/v1/publish`;
+  const method = update ? 'PUT' : 'POST';
+
+  if (update) console.log(`Updating live site "${slug}" in place (authenticated)…`);
+  else if (apiKey) console.log('Creating a new account-owned permanent site (authenticated)…');
+  else console.log('Publishing a new anonymous site (live 24h — set HERENOW_API_KEY + HERENOW_SLUG to update the real one)…');
+
+  const manifest = files.map((f) => ({ path: f.rel, size: f.size, contentType: ctFor(f.rel) }));
+  console.log(`  ${manifest.length} files (${(manifest.reduce((a, f) => a + f.size, 0) / 1024).toFixed(0)} KB)…`);
+
+  // Step 1 — declare files, get presigned upload targets
+  const initRes = await fetch(initUrl, {
+    method,
+    headers: {
+      'content-type': 'application/json',
+      'X-HereNow-Client': 'storytree-web/publish',
+      ...authHeaders,
+    },
     body: JSON.stringify({
       files: manifest,
       viewer: {
@@ -77,7 +135,15 @@ async function main() {
     }),
   });
   if (!initRes.ok) {
-    console.error('publish init failed:', initRes.status, await initRes.text());
+    const body = await initRes.text();
+    if (initRes.status === 401 || initRes.status === 403) {
+      console.error(`publish ${method} unauthorized (${initRes.status}). The API key is missing, wrong, or lacks rights to "${slug}".`);
+      console.error('Get a key at https://here.now/dashboard and export HERENOW_API_KEY (+ HERENOW_SLUG for the site).');
+    } else if (initRes.status === 404 && update) {
+      console.error(`site "${slug}" not found (404) — check HERENOW_SLUG / publish-info.json.`);
+    } else {
+      console.error(`publish init failed:`, initRes.status, body);
+    }
     process.exit(1);
   }
   const init = await initRes.json();
@@ -103,13 +169,13 @@ async function main() {
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, uploads.length) }, worker));
-  process.stdout.write('\n');
+  if (uploads.length) process.stdout.write('\n');
   if (init.upload?.skipped?.length) console.log(`  (${init.upload.skipped.length} unchanged, skipped)`);
 
-  // Step 3
+  // Step 3 — finalize (authenticated for owned sites)
   const finRes = await fetch(init.upload.finalizeUrl, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...authHeaders },
     body: JSON.stringify({ versionId: init.upload.versionId }),
   });
   if (!finRes.ok) {
@@ -120,14 +186,15 @@ async function main() {
 
   const info = {
     siteUrl: fin.siteUrl ?? init.siteUrl,
-    slug: fin.slug ?? init.slug,
+    slug: fin.slug ?? init.slug ?? slug,
+    mode: update ? 'update' : apiKey ? 'create-owned' : 'create-anonymous',
     claimUrl: init.claimUrl,
     claimToken: init.claimToken,
     expiresAt: init.expiresAt,
-    anonymous: init.anonymous,
+    anonymous: init.anonymous ?? !apiKey,
     publishedFiles: manifest.length,
   };
-  writeFileSync(join(ROOT, 'publish-info.json'), JSON.stringify(info, null, 2));
+  writeFileSync(INFO, JSON.stringify(info, null, 2));
 
   console.log('\n──────────────────────────────────────────────');
   console.log('  LIVE:  ' + info.siteUrl);
@@ -135,6 +202,8 @@ async function main() {
     console.log('  Expires (anonymous, 24h): ' + info.expiresAt);
     console.log('  CLAIM (make permanent, one-time link):');
     console.log('  ' + info.claimUrl);
+  } else {
+    console.log(`  Updated in place — same URL, no claim needed (slug: ${info.slug}).`);
   }
   console.log('──────────────────────────────────────────────');
   console.log('  (details saved to publish-info.json — gitignored)');

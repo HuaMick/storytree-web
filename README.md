@@ -33,13 +33,32 @@ npm run preview    # serve the build
 
 ## Publish
 
+`npm run publish:here` auto-selects one of two modes:
+
+**Update the live site in place** (the real front door) — needs your here.now account API key and
+the site's slug:
+
 ```bash
+export HERENOW_API_KEY=hnk_…     # from https://here.now/dashboard (or ~/.herenow/credentials)
+export HERENOW_SLUG=<your-slug>  # only needed the first time; saved to publish-info.json after
 npm run build
-npm run publish:here   # publishes ./dist to here.now (anonymous = 24h; claim to keep)
+npm run publish:here             # PUT /api/v1/publish/:slug — same URL, no new claim link
 ```
 
-The publish script prints the live URL and a one-time **claim link** (make a publish permanent by
-claiming it). Claiming a site also activates the contact form's storage — see below.
+The slug is remembered in `publish-info.json` (gitignored) after the first run, so later updates
+just need `HERENOW_API_KEY`. With a key but no slug, the first publish creates a new
+account-owned permanent site.
+
+**Anonymous preview** — no key set:
+
+```bash
+npm run build
+npm run publish:here             # POST /api/v1/publish — a throwaway URL, live 24h
+```
+
+This prints the preview URL and a one-time **claim link** (claiming makes it permanent and
+activates the contact form's storage — see below). Use it to eyeball a build; it does **not** touch
+the live site.
 
 ## The contact form
 
