@@ -1,0 +1,69 @@
+name: Deploy to here.now
+
+# Builds the site and publishes it to the one canonical, claimed here.now Site on
+# every push to main. Manual re-runs are available via "Run workflow" (workflow_dispatch).
+#
+# Requires one repo secret: HERENOW_TOKEN — an hnk_ API key for the account that owns
+# the canonical Site. The Site slug is public and lives in herenow.json (not a secret).
+# See README.md ("Continuous deploy") for the one-time setup.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys race; a newer push supersedes an in-flight one.
+concurrency:
+  group: deploy-herenow
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert expected pages built
+        run: |
+          set -euo pipefail
+          expected=(
+            "dist/index.html"
+            "dist/how-it-works/index.html"
+            "dist/constitution/index.html"
+            "dist/contact/index.html"
+            "dist/roadmap/index.html"
+            "dist/404.html"
+            "dist/.herenow/data.json"
+          )
+          missing=0
+          for f in "${expected[@]}"; do
+            if [ ! -f "$f" ]; then echo "::error::missing expected build output: $f"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Build did not produce the expected pages — refusing to publish."; exit 1
+          fi
+          echo "All expected pages present."
+
+      - name: Publish to here.now
+        env:
+          HERENOW_TOKEN: ${{ secrets.HERENOW_TOKEN }}
+        run: |
+          if [ -z "${HERENOW_TOKEN}" ]; then
+            echo "::error::HERENOW_TOKEN secret is not set — add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          npm run publish:here

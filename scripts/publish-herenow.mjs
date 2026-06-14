@@ -1,15 +1,45 @@
 #!/usr/bin/env node
-// Publish ./dist to here.now using the 3-step anonymous API:
-//   1. POST /api/v1/publish        (declare files -> get presigned PUT urls)
-//   2. PUT each presigned url       (upload bytes)
-//   3. POST <finalizeUrl>           (go live)
-// Anonymous publishes live 24h and return a one-time claimUrl (capture it!).
-import { readFileSync, writeFileSync, statSync, readdirSync } from 'node:fs';
+// Publish ./dist to here.now. Two modes, auto-selected by whether a token is present:
+//
+//   ANONYMOUS (no token) — the local/preview flow:
+//     1. POST /api/v1/publish          (declare files -> get presigned PUT urls)
+//     2. PUT each presigned url         (upload bytes)
+//     3. POST <finalizeUrl>             (go live)
+//   Anonymous publishes live 24h and return a one-time claimUrl (capture it!).
+//
+//   AUTHENTICATED (HERENOW_TOKEN set) — the CI / permanent-site flow:
+//     1. PUT  /api/v1/publish/<slug>            (Bearer auth, declare files)
+//     2. PUT each presigned url                 (upload bytes)
+//     3. POST /api/v1/publish/<slug>/finalize   (Bearer auth, go live)
+//   Updates the existing, claimed, permanent Site in place — the URL never changes
+//   and never expires. The slug is public (it's in the URL) and is read from
+//   $HERENOW_SLUG or the committed herenow.json. The token is secret — pass it via
+//   the HERENOW_TOKEN env var (a GitHub Actions secret in CI), never commit it.
+import { readFileSync, writeFileSync, statSync, readdirSync, existsSync } from 'node:fs';
 import { join, relative, sep, extname } from 'node:path';
 
-const API = 'https://here.now/api/v1/publish';
+const API_ROOT = process.env.HERENOW_API ?? 'https://here.now';
 const DIST = new URL('../dist/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const ROOT = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+
+const TOKEN = (process.env.HERENOW_TOKEN ?? '').trim();
+const AUTHED = TOKEN.length > 0;
+
+// The canonical Site slug (public): env wins, else herenow.json at the repo root.
+function readSlug() {
+  if (process.env.HERENOW_SLUG) return process.env.HERENOW_SLUG.trim();
+  const cfgPath = join(ROOT, 'herenow.json');
+  if (existsSync(cfgPath)) {
+    try {
+      const slug = JSON.parse(readFileSync(cfgPath, 'utf8')).slug;
+      if (typeof slug === 'string' && slug.trim()) return slug.trim();
+    } catch {
+      /* fall through to the error below */
+    }
+  }
+  return '';
+}
+const SLUG = readSlug();
 
 const CT = {
   '.html': 'text/html; charset=utf-8',
@@ -44,7 +74,21 @@ function walk(dir, base = dir, out = []) {
   return out;
 }
 
+const jsonHeaders = () => ({
+  'content-type': 'application/json',
+  'X-HereNow-Client': 'storytree-web/publish',
+  ...(AUTHED ? { authorization: `Bearer ${TOKEN}` } : {}),
+});
+
 async function main() {
+  if (AUTHED && !SLUG) {
+    console.error(
+      'HERENOW_TOKEN is set (authenticated mode) but no Site slug is configured.\n' +
+        'Set $HERENOW_SLUG or add { "slug": "<your-site>" } to herenow.json.',
+    );
+    process.exit(1);
+  }
+
   let files;
   try {
     files = walk(DIST);
@@ -62,12 +106,18 @@ async function main() {
   }
 
   const manifest = files.map((f) => ({ path: f.rel, size: f.size, contentType: ctFor(f.rel) }));
-  console.log(`Publishing ${manifest.length} files (${(manifest.reduce((a, f) => a + f.size, 0) / 1024).toFixed(0)} KB)…`);
+  const kb = (manifest.reduce((a, f) => a + f.size, 0) / 1024).toFixed(0);
+  console.log(
+    AUTHED
+      ? `Updating "${SLUG}" — ${manifest.length} files (${kb} KB), authenticated…`
+      : `Publishing ${manifest.length} files (${kb} KB), anonymous (24h preview)…`,
+  );
 
-  // Step 1
-  const initRes = await fetch(API, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'X-HereNow-Client': 'storytree-web/publish' },
+  // Step 1 — declare files. POST creates an anonymous Site; PUT updates the owned one.
+  const initUrl = AUTHED ? `${API_ROOT}/api/v1/publish/${SLUG}` : `${API_ROOT}/api/v1/publish`;
+  const initRes = await fetch(initUrl, {
+    method: AUTHED ? 'PUT' : 'POST',
+    headers: jsonHeaders(),
     body: JSON.stringify({
       files: manifest,
       viewer: {
@@ -77,14 +127,14 @@ async function main() {
     }),
   });
   if (!initRes.ok) {
-    console.error('publish init failed:', initRes.status, await initRes.text());
+    console.error(`publish ${AUTHED ? 'update' : 'init'} failed:`, initRes.status, await initRes.text());
     process.exit(1);
   }
   const init = await initRes.json();
   const uploads = init.upload?.uploads ?? [];
   const byPath = new Map(files.map((f) => [f.rel, f.abs]));
 
-  // Step 2 — upload in small concurrent batches
+  // Step 2 — upload bytes to the presigned URLs (these are storage URLs; no Bearer).
   let done = 0;
   const queue = [...uploads];
   const worker = async () => {
@@ -106,10 +156,12 @@ async function main() {
   process.stdout.write('\n');
   if (init.upload?.skipped?.length) console.log(`  (${init.upload.skipped.length} unchanged, skipped)`);
 
-  // Step 3
-  const finRes = await fetch(init.upload.finalizeUrl, {
+  // Step 3 — finalize. Use the documented API endpoint when authenticated (so the
+  // Bearer token applies); use the presigned finalizeUrl the API handed us when anonymous.
+  const finalizeUrl = AUTHED ? `${API_ROOT}/api/v1/publish/${SLUG}/finalize` : init.upload.finalizeUrl;
+  const finRes = await fetch(finalizeUrl, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: jsonHeaders(),
     body: JSON.stringify({ versionId: init.upload.versionId }),
   });
   if (!finRes.ok) {
@@ -120,18 +172,22 @@ async function main() {
 
   const info = {
     siteUrl: fin.siteUrl ?? init.siteUrl,
-    slug: fin.slug ?? init.slug,
+    slug: fin.slug ?? init.slug ?? SLUG,
+    versionId: fin.currentVersionId ?? init.upload?.versionId,
+    authenticated: AUTHED,
     claimUrl: init.claimUrl,
     claimToken: init.claimToken,
     expiresAt: init.expiresAt,
-    anonymous: init.anonymous,
+    anonymous: init.anonymous ?? !AUTHED,
     publishedFiles: manifest.length,
   };
   writeFileSync(join(ROOT, 'publish-info.json'), JSON.stringify(info, null, 2));
 
   console.log('\n──────────────────────────────────────────────');
   console.log('  LIVE:  ' + info.siteUrl);
-  if (info.anonymous) {
+  if (AUTHED) {
+    console.log('  Mode:  authenticated update (permanent, slug "' + info.slug + '")');
+  } else if (info.anonymous) {
     console.log('  Expires (anonymous, 24h): ' + info.expiresAt);
     console.log('  CLAIM (make permanent, one-time link):');
     console.log('  ' + info.claimUrl);

@@ -35,11 +35,34 @@ npm run preview    # serve the build
 
 ```bash
 npm run build
-npm run publish:here   # publishes ./dist to here.now (anonymous = 24h; claim to keep)
+npm run publish:here   # publishes ./dist to here.now
 ```
 
-The publish script prints the live URL and a one-time **claim link** (make a publish permanent by
-claiming it). Claiming a site also activates the contact form's storage — see below.
+The publish script ([`scripts/publish-herenow.mjs`](scripts/publish-herenow.mjs)) has two modes,
+chosen automatically by whether `HERENOW_TOKEN` is set:
+
+- **Anonymous** (no token) — a 24h preview. Prints the live URL and a one-time **claim link**.
+  Claiming a site makes it permanent **and** activates the contact form's storage (see below).
+- **Authenticated** (`HERENOW_TOKEN` set) — updates the one permanent, claimed Site **in place**.
+  The URL never changes and never expires. The Site slug is public and lives in
+  [`herenow.json`](herenow.json); the token is secret and is read from the environment.
+
+## Continuous deploy
+
+Every push to `main` rebuilds the site and updates the canonical Site automatically
+([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)). There is exactly **one** live URL,
+and it always reflects `main`.
+
+**One-time setup** (already done if the badge below is green):
+
+1. **Get an API key** for the account that owns the Site (here.now → account → API keys, `hnk_…`).
+2. **Claim the canonical Site** so it's permanent (the publish script's claim link, or
+   `POST /api/v1/publish/<slug>/claim`). Put its slug in [`herenow.json`](herenow.json).
+3. **Store the key as a repo secret** named `HERENOW_TOKEN`
+   (Settings → Secrets and variables → Actions). Never commit it.
+
+After that, deploys are hands-off. To deploy on demand without a push, use **Run workflow** on the
+*Deploy to here.now* action (`workflow_dispatch`).
 
 ## The contact form
 

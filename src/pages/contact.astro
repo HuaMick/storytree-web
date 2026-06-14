@@ -108,7 +108,7 @@ import Base from '../layouts/Base.astro';
       const original = btn.textContent;
       btn.textContent = 'Sending…';
       try {
-        const res = await fetch('./.herenow/data/submissions', {
+        const res = await fetch('/.herenow/data/submissions', {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
           body: JSON.stringify(data),
