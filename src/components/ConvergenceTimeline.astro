@@ -1,0 +1,158 @@
+---
+// ---------------------------------------------------------------------------
+// ConvergenceTimeline — a light vertical timeline of the field independently
+// converging on structured "attention surfaces" for agents. Dates and events
+// trace to primary sources (linked). The point it makes: a tight cluster in
+// H2-2025, which is the honest backdrop storytree sits inside — not a priority
+// claim. Soft dates (virality / split-vote) are flagged, not smoothed over.
+// Source: docs/research/three-surfaces-landscape/convergence-timeline.md.
+// ---------------------------------------------------------------------------
+
+interface Event {
+  date: string;
+  title: string;
+  href: string;
+  gloss: string;
+  theme: string;
+  cluster?: boolean;   // part of the H2-2025 convergence cluster
+  soft?: boolean;      // date is inferred / split-vote — hedged
+}
+
+const events: Event[] = [
+  {
+    date: '19 Dec 2024',
+    title: '“Building effective agents”',
+    href: 'https://www.anthropic.com/research/building-effective-agents',
+    gloss: 'Anthropic argues for simple, composable patterns on the raw model API over heavyweight frameworks — the early “own the loop” signal.',
+    theme: 'Own the loop',
+  },
+  {
+    date: '7 Jul 2025',
+    title: 'tdd-guard',
+    href: 'https://github.com/nizos/tdd-guard',
+    gloss: 'A harness that blocks implementation until a failing test exists — a verifier the model can’t talk its way around.',
+    theme: 'Harness-enforced proof',
+    cluster: true,
+    soft: true,
+  },
+  {
+    date: '14 Jul 2025',
+    title: 'AWS Kiro',
+    href: 'https://kiro.dev/blog/introducing-kiro/',
+    gloss: 'A spec-driven IDE whose generated tasks hard-link back to spec documents — intent as an attention surface.',
+    theme: 'Spec-driven',
+    cluster: true,
+  },
+  {
+    date: '14 Jul 2025',
+    title: 'Ralph',
+    href: 'https://ghuntley.com/ralph/',
+    gloss: 'Geoffrey Huntley’s canonical recipe for running a coding agent in an unattended loop.',
+    theme: 'Agentic loops',
+    cluster: true,
+  },
+  {
+    date: '2 Sep 2025',
+    title: 'Spec Kit',
+    href: 'https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/',
+    gloss: 'GitHub open-sources a four-phase spec-driven workflow as a toolkit.',
+    theme: 'Spec-driven',
+    cluster: true,
+  },
+  {
+    date: '29 Sep 2025',
+    title: '“Effective context engineering”',
+    href: 'https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents',
+    gloss: 'Names context engineering as a discipline — curating what enters the model’s limited attention, and reducing abstraction rather than dumping more.',
+    theme: 'A name for the work',
+    cluster: true,
+  },
+  {
+    date: '16 Oct 2025',
+    title: 'Agent Skills',
+    href: 'https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills',
+    gloss: 'Loadable, progressively-disclosed capability units — a productized knowledge/library surface.',
+    theme: 'Library surface',
+    cluster: true,
+  },
+  {
+    date: '4 Nov 2025',
+    title: '“Code execution with MCP”',
+    href: 'https://www.anthropic.com/engineering/code-execution-with-mcp',
+    gloss: 'Names the tool-call-overhead problem and steers agents toward executing code over heavy tool surfaces.',
+    theme: 'Code-as-tooling',
+    cluster: true,
+  },
+  {
+    date: '~Jan 2026',
+    title: 'Ralph goes mainstream',
+    href: 'https://www.theregister.com/2026/01/27/ralph_wiggum_claude_loops/',
+    gloss: 'The unattended-loop technique hits the mainstream press — the inflection, not the invention.',
+    theme: 'Agentic loops',
+    soft: true,
+  },
+];
+---
+
+<div class="ctl">
+  <ol class="ctl__list">
+    {events.map((e) => (
+      <li class={`ctl__item${e.cluster ? ' is-cluster' : ''}`}>
+        <span class="ctl__dot" data-soft={e.soft ? 'true' : 'false'} aria-hidden="true"></span>
+        <div class="ctl__body">
+          <p class="ctl__date">
+            {e.date}{e.soft && <span class="ctl__softtag" title="Inferred or split-vote date — softer than a hard release datestamp">approx.</span>}
+          </p>
+          <h3 class="ctl__title"><a href={e.href} target="_blank" rel="noopener">{e.title}</a></h3>
+          <p class="ctl__gloss">{e.gloss}</p>
+          <span class="ctl__theme">{e.theme}</span>
+        </div>
+      </li>
+    ))}
+  </ol>
+  <p class="ctl__foot muted">
+    The striking part is the cluster: within roughly five months in the second half of 2025, several
+    independent teams pulled state <em>out</em> of the prompt and into structured, addressable surfaces.
+    storytree sits inside that convergence — it isn’t a claim about who got there first. Dates tied to
+    “went mainstream” (rather than a hard release) are softer, and marked.
+  </p>
+</div>
+
+<style>
+  .ctl { margin: 1.6rem 0 0; }
+  .ctl__list { list-style: none; margin: 0; padding: 0; position: relative; }
+  /* the spine */
+  .ctl__list::before {
+    content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px;
+    background: linear-gradient(180deg, var(--line-strong), var(--sage-leaf) 40% 70%, var(--line-strong));
+  }
+  .ctl__item { position: relative; padding: 0 0 1.5rem 2.1rem; }
+  .ctl__item:last-child { padding-bottom: 0; }
+  .ctl__dot {
+    position: absolute; left: 0; top: 4px; width: 16px; height: 16px; border-radius: 999px;
+    background: var(--surface); border: 3px solid var(--sage); box-sizing: border-box;
+  }
+  .is-cluster .ctl__dot { border-color: var(--evergreen); background: var(--evergreen-soft); }
+  .ctl__dot[data-soft='true'] { border-style: dashed; border-color: var(--line-strong); background: var(--surface); }
+
+  .ctl__date {
+    margin: 0; font-family: var(--font-body); font-size: 0.78rem; font-weight: 650;
+    letter-spacing: 0.04em; color: var(--amber); text-transform: uppercase;
+  }
+  .ctl__softtag {
+    margin-left: 0.5em; font-weight: 600; font-size: 0.66rem; letter-spacing: 0.06em;
+    color: var(--ink-faint); border: 1px solid var(--line-strong); border-radius: 999px;
+    padding: 0.02em 0.45em; text-transform: none;
+  }
+  .ctl__title { margin: 0.15rem 0 0.25rem; font-size: 1.12rem; }
+  .ctl__title a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+  .ctl__title a:hover { color: var(--evergreen-deep); border-color: var(--evergreen); }
+  .ctl__gloss { margin: 0 0 0.4rem; color: var(--ink-soft); font-size: 0.95rem; max-width: 40rem; }
+  .ctl__theme {
+    display: inline-block; font-size: 0.72rem; font-weight: 650; letter-spacing: 0.03em;
+    color: var(--evergreen-deep); background: var(--evergreen-soft);
+    border-radius: 999px; padding: 0.1rem 0.6rem;
+  }
+  .ctl__foot { margin-top: 1.4rem; font-size: 0.92rem; max-width: 44rem; }
+  .ctl__foot em { font-style: italic; }
+</style>

@@ -1,0 +1,156 @@
+{
+  "project": "Cohoot",
+  "tagline": "a fictional team-chat platform",
+  "note": "Fictional demo data — a made-up team chat platform called Cohoot. Not a real product, company, or storytree's own roadmap. Every service name, status, verdict and session here is invented to show what this kind of observability map looks like on a believable backend.",
+  "stories": [
+    {
+      "id": "identity",
+      "title": "Accounts & Auth",
+      "outcome": "People sign in with a password or company SSO and stay signed in securely.",
+      "status": "healthy",
+      "witness": "human",
+      "dependsOn": [],
+      "verdict": { "outcome": "pass", "at": "2026-06-13T22:10:00Z" },
+      "capabilities": [
+        { "id": "id-signup", "title": "Sign-up", "status": "healthy", "contracts": 6 },
+        { "id": "id-login", "title": "Login & SSO", "status": "healthy", "contracts": 8, "dependsOn": ["id-signup"] },
+        { "id": "id-sessions", "title": "Session tokens", "status": "healthy", "contracts": 5, "dependsOn": ["id-login"] },
+        { "id": "id-mfa", "title": "Two-factor", "status": "mapped", "contracts": 4, "dependsOn": ["id-login"] }
+      ]
+    },
+    {
+      "id": "message-store",
+      "title": "Message Store",
+      "outcome": "Every message is written durably and read back fast.",
+      "status": "healthy",
+      "witness": "machine",
+      "dependsOn": [],
+      "verdict": { "outcome": "pass", "at": "2026-06-11T16:00:00Z" },
+      "capabilities": [
+        { "id": "qs-write", "title": "Write path", "status": "healthy", "contracts": 9 },
+        { "id": "qs-read", "title": "Read path", "status": "healthy", "contracts": 6, "dependsOn": ["qs-write"] },
+        { "id": "qs-shard", "title": "Per-org sharding", "status": "mapped", "contracts": 5, "dependsOn": ["qs-write"] }
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Channels & Membership",
+      "outcome": "Teams create channels and decide who is in each one.",
+      "status": "healthy",
+      "witness": "human",
+      "dependsOn": ["identity"],
+      "verdict": { "outcome": "pass", "at": "2026-06-12T11:00:00Z" },
+      "capabilities": [
+        { "id": "ch-create", "title": "Create & archive", "status": "healthy", "contracts": 6 },
+        { "id": "ch-membership", "title": "Membership", "status": "healthy", "contracts": 5, "dependsOn": ["ch-create"] },
+        { "id": "ch-private", "title": "Private channels", "status": "mapped", "contracts": 4, "dependsOn": ["ch-create"] }
+      ]
+    },
+    {
+      "id": "notifications",
+      "title": "Notifications",
+      "outcome": "The right person gets an in-app or email nudge at the right moment.",
+      "status": "mapped",
+      "witness": "machine",
+      "dependsOn": ["identity"],
+      "capabilities": [
+        { "id": "nt-inapp", "title": "In-app", "status": "healthy", "contracts": 3, "verdict": { "outcome": "pass", "at": "2026-06-10T08:00:00Z" } },
+        { "id": "nt-email", "title": "Email digests", "status": "mapped", "contracts": 3, "dependsOn": ["nt-inapp"] }
+      ]
+    },
+    {
+      "id": "billing",
+      "title": "Billing & Seats",
+      "outcome": "Customers are billed accurately for seats, with proration and clean invoices.",
+      "status": "building",
+      "witness": "human",
+      "dependsOn": ["identity"],
+      "capabilities": [
+        { "id": "bl-seats", "title": "Seat metering", "status": "building", "contracts": 7 },
+        { "id": "bl-proration", "title": "Proration", "status": "building", "contracts": 6, "dependsOn": ["bl-seats"] },
+        { "id": "bl-invoices", "title": "Invoices", "status": "mapped", "contracts": 5, "dependsOn": ["bl-seats"] },
+        { "id": "bl-reconcile", "title": "Reconciliation", "status": "proposed", "contracts": 4, "dependsOn": ["bl-proration"] }
+      ]
+    },
+    {
+      "id": "messaging",
+      "title": "Send & Receive Messages",
+      "outcome": "People post and read messages in a channel — the most exercised path in the system.",
+      "status": "healthy",
+      "witness": "human",
+      "dependsOn": ["channels", "message-store"],
+      "verdict": { "outcome": "pass", "at": "2026-06-13T20:00:00Z" },
+      "capabilities": [
+        { "id": "msg-compose", "title": "Compose & send", "status": "healthy", "contracts": 12 },
+        { "id": "msg-edit", "title": "Edit & delete", "status": "healthy", "contracts": 9, "dependsOn": ["msg-compose"] },
+        { "id": "msg-history", "title": "Scrollback", "status": "healthy", "contracts": 8, "dependsOn": ["msg-compose"] },
+        { "id": "msg-reactions", "title": "Reactions & markdown", "status": "healthy", "contracts": 7, "dependsOn": ["msg-compose"] },
+        { "id": "msg-threads", "title": "Threads", "status": "mapped", "contracts": 6, "dependsOn": ["msg-compose"] }
+      ]
+    },
+    {
+      "id": "fanout",
+      "title": "Real-Time Fanout",
+      "outcome": "New messages reach every connected client over live WebSockets.",
+      "status": "unhealthy",
+      "witness": "machine",
+      "dependsOn": ["messaging"],
+      "verdict": { "outcome": "fail", "at": "2026-06-14T09:05:00Z" },
+      "capabilities": [
+        { "id": "gf-sockets", "title": "Socket sessions", "status": "healthy", "contracts": 7, "verdict": { "outcome": "pass", "at": "2026-06-08T12:00:00Z" } },
+        { "id": "gf-subscribe", "title": "Channel subscriptions", "status": "mapped", "contracts": 8, "dependsOn": ["gf-sockets"] },
+        { "id": "gf-reconnect", "title": "Reconnect storm handling", "status": "unhealthy", "contracts": 9, "dependsOn": ["gf-sockets"], "verdict": { "outcome": "fail", "at": "2026-06-14T09:05:00Z" } },
+        { "id": "gf-backpressure", "title": "Backpressure tuning", "status": "unhealthy", "contracts": 6, "dependsOn": ["gf-reconnect"], "verdict": { "outcome": "fail", "at": "2026-06-14T08:40:00Z" } }
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Message Search",
+      "outcome": "People search their whole message history and find the right result fast.",
+      "status": "building",
+      "witness": "machine",
+      "dependsOn": ["messaging"],
+      "capabilities": [
+        { "id": "se-index", "title": "Index pipeline", "status": "building", "contracts": 8 },
+        { "id": "se-query", "title": "Query parsing", "status": "building", "contracts": 6, "dependsOn": ["se-index"] },
+        { "id": "se-rank", "title": "Relevance ranking", "status": "proposed", "contracts": 5, "dependsOn": ["se-query"] },
+        { "id": "se-backfill", "title": "Legacy backfill", "status": "building", "contracts": 4, "dependsOn": ["se-index"] }
+      ]
+    },
+    {
+      "id": "presence",
+      "title": "Presence & Typing",
+      "outcome": "People see who is online and who is typing, in near real time.",
+      "status": "unhealthy",
+      "witness": "machine",
+      "dependsOn": ["fanout"],
+      "verdict": { "outcome": "fail", "at": "2026-06-14T09:12:00Z" },
+      "capabilities": [
+        { "id": "pl-online", "title": "Online / away", "status": "unhealthy", "contracts": 5, "verdict": { "outcome": "fail", "at": "2026-06-14T09:12:00Z" } },
+        { "id": "pl-typing", "title": "Typing indicators", "status": "unhealthy", "contracts": 4, "dependsOn": ["pl-online"], "verdict": { "outcome": "fail", "at": "2026-06-14T09:00:00Z" } },
+        { "id": "pl-heartbeat", "title": "Heartbeat", "status": "mapped", "contracts": 3, "dependsOn": ["pl-online"] }
+      ]
+    },
+    {
+      "id": "huddles",
+      "title": "Huddles — Voice & Screen-share",
+      "outcome": "Teammates jump into a quick voice call and share a screen in a channel.",
+      "status": "building",
+      "witness": "human",
+      "dependsOn": ["fanout", "channels"],
+      "capabilities": [
+        { "id": "hd-signaling", "title": "WebRTC signaling", "status": "building", "contracts": 8 },
+        { "id": "hd-sfu", "title": "SFU media routing", "status": "building", "contracts": 7, "dependsOn": ["hd-signaling"] },
+        { "id": "hd-screenshare", "title": "Screen-share", "status": "proposed", "contracts": 5, "dependsOn": ["hd-sfu"] },
+        { "id": "hd-recording", "title": "Call recording", "status": "proposed", "contracts": 4, "dependsOn": ["hd-sfu"] }
+      ]
+    }
+  ],
+  "sessions": [
+    { "id": "agent-a3f", "branch": "feat/search-index", "workingOn": "building the search index pipeline", "band": "fresh", "nodes": ["se-index", "search"] },
+    { "id": "priya", "branch": "feat/huddles-sfu", "workingOn": "wiring the SFU media path", "band": "fresh", "nodes": ["hd-sfu", "huddles"] },
+    { "id": "agent-c92", "branch": "feat/seat-metering", "workingOn": "seat metering and proration", "band": "fresh", "nodes": ["bl-seats", "billing"] },
+    { "id": "rowan", "branch": "fix/fanout-backpressure", "workingOn": "triaging the Monday reconnect storm", "band": "fresh", "nodes": ["gf-backpressure", "fanout"] },
+    { "id": "agent-7d1", "branch": "exp/search-backfill", "workingOn": "backfilling the legacy index", "band": "stale", "nodes": ["se-backfill"] }
+  ]
+}

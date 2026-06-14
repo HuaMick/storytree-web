@@ -121,8 +121,8 @@ async function main() {
     body: JSON.stringify({
       files: manifest,
       viewer: {
-        title: 'storytree — software, built in the open',
-        description: 'An experiment in building software out in the open — by people and AI agents at once.',
+        title: 'storytree — software you can watch grow',
+        description: 'For people building with AI agents: a live map of your system, a library where intent is decided, and a harness that holds the agents to it.',
       },
     }),
   });

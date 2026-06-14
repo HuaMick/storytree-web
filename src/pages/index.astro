@@ -1,176 +1,72 @@
 ---
 import Base from '../layouts/Base.astro';
-import HeroScene from '../components/HeroScene.astro';
+import TreeWorld from '../components/TreeWorld.astro';
 ---
 
 <Base active="home">
-  <!-- ───────────────────────── hero ───────────────────────── -->
+  <!-- ───────────────────────── hero: a quick intro ───────────────────────── -->
   <section class="hero section">
-    <div class="wrap hero__grid">
-      <div class="hero__copy">
-        <p class="eyebrow">An experiment in building software</p>
-        <h1>Software you can<br />watch grow.</h1>
-        <p class="lede">
-          storytree is a small experiment with a big question at its centre: can software be
-          built out in the open — by many people and AI&nbsp;agents at once, including people who've
-          never written a line of code — and stay fair and trustworthy <em>because</em> of that
-          openness, not in spite of it?
+    <div class="wrap hero__copy">
+      <p class="eyebrow">An experiment in building software with AI agents</p>
+      <h1>Software you can watch grow.</h1>
+      <p class="hero__disclaimer">
+        An honest heads-up: this site was written by AI&nbsp;agents. storytree is a one-person project
+        right now — I'm a solo dev and a dad to a 3-year-old, short on spare hours and no great writer,
+        so I've leaned on the very tools I'm building to put it into words and min-max the time I've
+        got. The ideas are mine; the prose is the machine's.
+      </p>
+      <p class="lede">
+        Building with AI&nbsp;agents is fast — and a blur. The code writes itself; the hard part is
+        <em>seeing</em> what it built, trusting it, and keeping humans and agents pointed the same way.
+        storytree turns a project into a living map.
+      </p>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── the live map, front and centre ───────────────────────── -->
+  <section class="section--tight">
+    <div class="wrap">
+      <p class="demo-lead">
+        Here's a whole system in storytree's map view — a made-up team-chat backend. Bigger trees have
+        more behind them; red is where a check is failing. <strong>Hover or tap a tree</strong> to
+        inspect a story, or click to pin it and light up everything it depends on.
+      </p>
+      <TreeWorld />
+
+      <div class="dive prose">
+        <p>
+          That's the shape of it — a project grows as a map you can read instead of a wall of diffs,
+          and the work stays out in the open where it can be checked. There's a lot more underneath:
+          how the proof gates work, why a <a href="/landscape/">map of <em>intent</em> beats a mirror
+          of the code</a>, and what we're trying to prove by building this way.
         </p>
         <div class="hero__cta">
           <a class="btn btn--primary" href="/how-it-works/">See how it works →</a>
-          <a class="btn btn--ghost" href="/constitution/">Read the constitution</a>
+          <a class="btn btn--ghost" href="/get-involved/">Why this exists · get involved</a>
         </div>
         <p class="hero__note muted">
           Small on purpose. Invite-only for now — but the door to ask is wide open.
         </p>
-      </div>
-      <div class="hero__art">
-        <HeroScene />
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────────────────────── the idea ───────────────────────── -->
-  <section class="section--tight">
-    <div class="wrap prose">
-      <p class="lede">
-        Picture a city you can watch being built — not from a press release months later,
-        but live, brick by brick, with the reasoning behind every decision out where you can
-        read it. That's the shape of storytree: a project grows as a living map of
-        <strong>stories</strong>, and anyone can watch it happen.
-      </p>
-    </div>
-  </section>
-
-  <!-- ───────────────────────── three pillars ───────────────────────── -->
-  <section class="section--tight">
-    <div class="wrap">
-      <div class="grid grid--3">
-        <article class="card pillar">
-          <div class="pillar__icon" aria-hidden="true">
-            <svg viewBox="0 0 40 40" width="40" height="40">
-              <circle cx="20" cy="20" r="17" fill="var(--evergreen-soft)"/>
-              <circle cx="13" cy="17" r="4.5" fill="#2f6b3f"/>
-              <circle cx="27" cy="14" r="4.5" fill="#55a06a"/>
-              <circle cx="22" cy="27" r="4.5" fill="#b06a24"/>
-              <path d="M13 17 L27 14 M13 17 L22 27" stroke="#a98e5f" stroke-width="1.6"/>
-            </svg>
-          </div>
-          <h3>Many builders, at once</h3>
-          <p class="muted">
-            People and AI&nbsp;agents work side by side, in parallel, fast. Software shouldn't be a
-            black box a handful of people disappear into — it can be a shared, watchable space.
-          </p>
-        </article>
-
-        <article class="card pillar">
-          <div class="pillar__icon" aria-hidden="true">
-            <svg viewBox="0 0 40 40" width="40" height="40">
-              <circle cx="20" cy="20" r="17" fill="var(--evergreen-soft)"/>
-              <path d="M12 20.5 l5 5 l11 -12" fill="none" stroke="#2f6b3f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <h3>Nothing ships without proof</h3>
-          <p class="muted">
-            Ideas and concerns are raised in the open, discussed, and — once they pass real
-            review gates and a person signs off — become working software. Good intentions aren't
-            enough; the work has to earn its place.
-          </p>
-        </article>
-
-        <article class="card pillar">
-          <div class="pillar__icon" aria-hidden="true">
-            <svg viewBox="0 0 40 40" width="40" height="40">
-              <circle cx="20" cy="20" r="17" fill="var(--evergreen-soft)"/>
-              <circle cx="20" cy="20" r="9" fill="none" stroke="#2f6b3f" stroke-width="2.6"/>
-              <circle cx="20" cy="20" r="2.6" fill="#b06a24"/>
-              <path d="M20 4 V9 M20 31 V36 M4 20 H9 M31 20 H36" stroke="#2f6b3f" stroke-width="2.2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <h3>You don't have to trust us</h3>
-          <p class="muted">
-            The decisions, the reasoning, and the record are open and meant to be checked. The
-            strongest version of that — being able to simply <em>ask</em> the project against its
-            whole record — isn't built yet; it's on the <a href="/roadmap/">roadmap</a>.
-          </p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────────────────────── the bet ───────────────────────── -->
-  <section class="section">
-    <div class="wrap band">
-      <div class="band__inner">
-        <p class="eyebrow">The bet</p>
-        <h2>An open record is a stronger foundation for trust than promises.</h2>
-        <p class="lede">
-          Most projects ask you to trust the people running them. We're trying to show you
-          don't have to. A complete, open record you can interrogate directly can make a project
-          genuinely fairer to everyone it touches — the people who use it, the people who build
-          it, and the people affected by it. If that works, it's a way of building that more
-          people can take part in. If it doesn't, you'll be able to see that too.
-        </p>
-        <a class="btn btn--primary" href="/how-it-works/">How the pieces fit together →</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ───────────────────────── front door ───────────────────────── -->
-  <section class="section--tight">
-    <div class="wrap prose front">
-      <p class="eyebrow">Where we are right now</p>
-      <h2>Early, honest, and growing slowly.</h2>
-      <p>
-        storytree isn't open source yet — it's not ready to be. Taking part is invite-only while
-        we iterate out the rough edges and build the guardrails real openness needs. Today one
-        person still decides what gets built next — we're honest that "your voice counts" isn't
-        yet "your vote counts." But this website is the open front door: you're welcome to watch,
-        to ask hard questions, and to tell us where we're wrong — that last one especially.
-      </p>
-      <div class="hero__cta">
-        <a class="btn btn--primary" href="/contact/">Ask to come in</a>
-        <a class="btn btn--ghost" href="/roadmap/">See what's built, and what's next</a>
       </div>
     </div>
   </section>
 </Base>
 
 <style>
-  .hero { padding-top: clamp(2.4rem, 6vw, 4.4rem); }
-  .hero__grid { display: grid; gap: clamp(1.8rem, 4vw, 3rem); align-items: center; }
-  @media (min-width: 860px) { .hero__grid { grid-template-columns: 1.05fr 1fr; } }
-  .hero__copy h1 { margin-top: 0.2rem; }
-  .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.6rem; }
-  .hero__note { margin-top: 1.3rem; font-size: 0.95rem; }
+  .hero { padding-top: clamp(2.4rem, 6vw, 4.4rem); padding-bottom: clamp(0.8rem, 2.5vw, 1.4rem); }
+  .hero__copy { max-width: 50rem; }
+  .hero__copy h1 { margin-top: 0.2rem; margin-bottom: 0.55rem; }
+  .hero__disclaimer {
+    max-width: 42rem; margin: 0 0 1.2rem; font-size: 0.85rem; line-height: 1.55;
+    color: var(--ink-faint); border-left: 3px solid var(--line-strong); padding-left: 0.9rem;
+  }
   .hero em { font-style: italic; color: var(--ink); }
 
-  .pillar { display: flex; flex-direction: column; }
-  .pillar__icon { margin-bottom: 0.7rem; }
-  .pillar h3 { margin-bottom: 0.35rem; }
-  .pillar p { margin-bottom: 0; }
+  .demo-lead { max-width: 44rem; color: var(--ink-soft); font-size: 1.02rem; margin: 0 0 0.5rem; }
+  .demo-lead strong { color: var(--ink); }
 
-  .band {
-    background: linear-gradient(135deg, #2f6b3f 0%, #245031 100%);
-    border-radius: calc(var(--radius) + 4px);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    position: relative;
-  }
-  .band::after {
-    content: ""; position: absolute; inset: 0;
-    background:
-      radial-gradient(420px 300px at 92% -20%, rgba(169,200,127,0.30), transparent 60%),
-      radial-gradient(360px 260px at 0% 120%, rgba(214,178,113,0.22), transparent 60%);
-    pointer-events: none;
-  }
-  .band__inner { position: relative; padding: clamp(2rem, 5vw, 3.4rem); max-width: 46rem; }
-  .band .eyebrow { color: #f2cd92; }
-  .band h2, .band .lede { color: #fdf6ec; }
-  .band .lede { color: #e7ecdf; }
-  .band h2 { margin-bottom: 0.7rem; }
-  .band .btn--primary { background: #fffdfa; color: var(--evergreen-deep); margin-top: 0.4rem; }
-  .band .btn--primary:hover { background: #fff; color: var(--evergreen-deep); }
-
-  .front h2 { margin-top: 0.2rem; }
+  .dive { margin-top: 1.9rem; max-width: 44rem; }
+  .dive em { font-style: italic; }
+  .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.2rem; }
+  .hero__note { margin-top: 1.1rem; font-size: 0.95rem; }
 </style>
