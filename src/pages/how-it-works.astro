@@ -81,7 +81,7 @@ import TreeWorld from '../components/TreeWorld.astro';
       <div class="band2__inner prose">
         <p class="eyebrow">3 · The gates</p>
         <h2>Nothing ships without proof.</h2>
-        <p>
+        <p data-grounds="ADR-0020,ADR-0040">
           This is the load-bearing rule. Between "someone proposed this" and "this is part of the
           software" sits a <strong>gate</strong> — and the gate refuses anything that can't show
           its working. A piece only turns green when a test that was <em>failing</em> is made to
@@ -92,7 +92,8 @@ import TreeWorld from '../components/TreeWorld.astro';
           <li>An idea or a concern can come from anyone — you don't have to write code to raise one.</li>
           <li>It gets discussed in the open, where the reasoning is on the record.</li>
           <li>If it becomes work, that work has to pass its gate before it counts — proof first.</li>
-          <li>A human still says the final yes before anything lands. A green light is a request for review, not an automatic merge.</li>
+          <li data-grounds="ADR-0020">The check is run by a different actor than the one who did the work — whatever writes the failing test isn't what makes it pass, and neither gets to sign off its own result. That separation, not someone eyeballing every line, is what makes "green" mean something.</li>
+          <li data-grounds="ADR-0040,ADR-0030">People stay in charge of what's worth building and what's allowed out. Some things still want a person to walk through them; others are proven end to end by machine — and as this grows, the usual safety nets (feature flags, staged and beta rollouts, real-user feedback) catch what slips, because people hallucinate at scale too.</li>
         </ul>
       </div>
     </div>
@@ -108,7 +109,7 @@ import TreeWorld from '../components/TreeWorld.astro';
         once, each growing a different part of the tree. storytree is the layer on top: the place
         you watch them work, steer them, review what they produce, and decide what's allowed in.
         Think of it less as "an AI agent that writes code" and more as a control room for a whole
-        workforce of them — with humans firmly in charge of what's true and what ships.
+        workforce of them — with humans firmly in charge of what's worth building and what ships.
       </p>
       <p>
         Because it's all on one shared map, the work can be massively parallel without becoming
