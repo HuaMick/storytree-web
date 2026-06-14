@@ -1,297 +1,473 @@
 ---
-import data from '../data/mockTree.json';
-
 // ---------------------------------------------------------------------------
-// TreeWorld — a self-contained, original rendering of storytree's "story world"
-// map, driven entirely by curated mock JSON (a fictional garden-planner app).
-// Hand-authored SVG; the palette is borrowed in spirit from the studio's
-// Dorfromantik world, but no private source is copied. Pixels only.
+// TreeWorld — an interactive, build-time-rendered "story world" map of a
+// fictional software system. Recreates the depth and game-feel of storytree's
+// real studio view (a Dorfromantik-style hex world of status-coloured story
+// trees, garden-flora capabilities, dependency roads, witness signposts,
+// fresh-verdict blooms and live-session wisps) in fully ORIGINAL SVG, driven
+// only by fictional mock JSON. Nothing here copies private studio source.
 // ---------------------------------------------------------------------------
+import data from '../data/mockSystem.json';
+import { buildWorld } from '../lib/world';
+import { renderWorld } from '../lib/worldSvg';
 
-type Status = 'healthy' | 'mapped' | 'proposed' | 'unhealthy';
+const world = buildWorld(data as any);
+const svg = renderWorld(world);
 
-const COLORS: Record<Status, { lo: string; mid: string; hi: string; top: string }> = {
-  healthy:   { lo: '#2f6b3f', mid: '#3d7a4d', hi: '#55a06a', top: '#6f9a52' },
-  mapped:    { lo: '#7d5f3b', mid: '#8d6b42', hi: '#a8854f', top: '#bb9a63' },
-  proposed:  { lo: '#b06a24', mid: '#c98a3e', hi: '#e09a4b', top: '#ecb56b' },
-  unhealthy: { lo: '#9f2d22', mid: '#b8402f', hi: '#c75545', top: '#d98575' },
-};
-const GRASS = ['#a9c87f', '#9fc174', '#b2cf8b'];
-
-const SQUASH = 0.72;
-const DEPTH = 13;
-
-function hexTop(cx: number, cy: number, r: number) {
-  const h = r * SQUASH;
-  return `${cx - r},${cy} ${cx - r * 0.5},${cy - h} ${cx + r * 0.5},${cy - h} ${cx + r},${cy} ${cx + r * 0.5},${cy + h} ${cx - r * 0.5},${cy + h}`;
-}
-function hexSide(cx: number, cy: number, r: number, depth: number) {
-  const h = r * SQUASH;
-  return `${cx + r},${cy} ${cx + r * 0.5},${cy + h} ${cx - r * 0.5},${cy + h} ${cx - r * 0.5},${cy + h + depth} ${cx + r * 0.5},${cy + h + depth} ${cx + r},${cy + depth}`;
-}
-
-const pos: Record<string, { x: number; y: number }> = {};
-for (const s of data.stories) pos[s.id] = { x: s.x, y: s.y };
-
-const edges = data.stories.flatMap((s) =>
-  (s.dependsOn ?? []).map((p) => {
-    const a = pos[p]!;
-    const b = { x: s.x, y: s.y };
-    const my = (a.y + b.y) / 2;
-    return { d: `M ${a.x} ${a.y} C ${a.x} ${my}, ${b.x} ${my}, ${b.x} ${b.y}` };
-  })
+const titleById = new Map(world.territories.map((t) => [t.id, t.title]));
+const blob = Object.fromEntries(
+  world.territories.map((t) => [
+    t.id,
+    {
+      title: t.title,
+      outcome: t.outcome,
+      vis: t.vis,
+      witness: t.witness,
+      capCount: t.capCount,
+      contractTotal: t.contractTotal,
+      deps: t.deps.map((d) => titleById.get(d) ?? d),
+      caps: t.caps.map((c) => ({ title: c.title, status: c.status, contracts: c.contracts })),
+      dag: t.capDag,
+      sessions: t.sessions,
+      ancestors: t.ancestors,
+      descendants: t.descendants,
+    },
+  ]),
 );
+const blobJson = JSON.stringify(blob).replace(/</g, '\\u003c');
+const stats = world.stats;
 
-const nodes = data.stories
-  .map((s, i) => {
-    const st = s.status as Status;
-    const c = COLORS[st] ?? COLORS.proposed;
-    const r = 56 * (s.scale ?? 1);
-    const grass = GRASS[i % GRASS.length];
-    const floraXs = [-34, 34, -8];
-    const flora = s.capabilities.slice(0, 3).map((_, k) => ({ fx: s.x + floraXs[k % 3]!, fy: s.y + (k === 2 ? 24 : 14) }));
-    return {
-      ...s,
-      st,
-      c,
-      r,
-      grass,
-      flora,
-      isSeal: s.status === 'healthy' && s.witness === 'human',
-      capCount: s.capabilities.length,
-      capList: s.capabilities.map((cap) => `${cap.title} · ${cap.status}`).join('\n'),
-    };
-  })
-  .sort((a, b) => a.y - b.y);
-
-const legend = [
-  { label: 'Proven', cls: 'healthy' },
-  { label: 'Brought in', cls: 'mapped' },
-  { label: 'Proposed', cls: 'proposed' },
+const filters = [
+  { key: 'healthy', label: 'Proven' },
+  { key: 'mapped', label: 'Mapped' },
+  { key: 'proposed', label: 'Building' },
+  { key: 'unhealthy', label: 'Needs attention' },
 ];
 ---
 
-<figure class="tw" id="treeworld">
-  <div class="tw__stage">
-    <svg viewBox={data.viewBox} role="img" aria-label="A map of a fictional garden-planner project as a world of trees, where each tree is a story and its colour shows whether it is proven, brought in, or just proposed.">
-      <defs>
-        <radialGradient id="tw-board" cx="50%" cy="42%" r="75%">
-          <stop offset="0" stop-color="#fbf3ea" />
-          <stop offset="1" stop-color="#f1e0d2" />
-        </radialGradient>
-        <filter id="tw-soft" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#5a3f1f" flood-opacity="0.10" />
-        </filter>
-      </defs>
-
-      <rect x="0" y="0" width="960" height="600" fill="url(#tw-board)" />
-
-      <!-- roads: dependency edges -->
-      <g class="tw-roads">
-        {edges.map((e) => (
-          <>
-            <path d={e.d} fill="none" stroke="#cdb285" stroke-width="11" stroke-linecap="round" opacity="0.5" />
-            <path d={e.d} fill="none" stroke="#a98e5f" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 11" opacity="0.7" />
-          </>
-        ))}
-      </g>
-
-      <!-- nodes, back-to-front -->
-      {nodes.map((n) => (
-        <g class="tw-node" id={`node-${n.id}`}>
-          <polygon points={hexSide(n.x, n.y, n.r, DEPTH)} fill="#87985f" />
-          <polygon points={hexTop(n.x, n.y, n.r)} fill={n.grass} stroke="#86a05f" stroke-width="1" filter="url(#tw-soft)" />
-
-          {/* flora = capabilities */}
-          {n.flora.map((f) => (
-            <g class="tw-flora">
-              <path d={`M ${f.fx} ${f.fy} v -11`} stroke="#5d8a46" stroke-width="2.1" stroke-linecap="round" />
-              <circle cx={f.fx} cy={f.fy - 12} r="4.6" fill={n.c.hi} />
-              <circle cx={f.fx} cy={f.fy - 12} r="1.9" fill="#f7ecd2" />
-            </g>
-          ))}
-
-          {/* the story tree */}
-          <g class="tw-crown" style={`transform: translate(${n.x}px, ${n.y}px) scale(${n.scale ?? 1}); animation-delay: ${(n.y % 7) * 0.4}s;`}>
-            <rect x="-4.5" y="-42" width="9" height="48" rx="4" fill="#6e533d" />
-            <circle cx="0" cy="-56" r="25" fill={n.c.lo} />
-            <circle cx="-17" cy="-43" r="16" fill={n.c.mid} />
-            <circle cx="17" cy="-43" r="16" fill={n.c.hi} />
-            <circle cx="2" cy="-70" r="11" fill={n.c.top} />
-          </g>
-
-          {/* human-witness seal on proven stories */}
-          {n.isSeal && (
-            <g class="tw-seal" transform={`translate(${n.x + n.r * 0.5}, ${n.y - 4})`}>
-              <rect x="-1.6" y="-22" width="3.4" height="26" rx="1.6" fill="#8a6f4c" />
-              <circle cx="0" cy="-28" r="8.5" fill="#fffdfa" stroke="#2f6b3f" stroke-width="2.4" />
-              <path d="M -3.6 -28 l 2.6 2.6 l 4.6 -5.4" fill="none" stroke="#2f6b3f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </g>
-          )}
-        </g>
-      ))}
-
-      <!-- transparent hit targets on a top layer so hover always works -->
-      <g class="tw-hits">
-        {nodes.map((n) => (
-          <rect
-            class="tw-hit"
-            x={n.x - n.r}
-            y={n.y - 98 * (n.scale ?? 1)}
-            width={n.r * 2}
-            height={98 * (n.scale ?? 1) + n.r * SQUASH + DEPTH}
-            rx="18"
-            fill="transparent"
-            tabindex="0"
-            role="button"
-            data-id={n.id}
-            data-title={n.title}
-            data-outcome={n.outcome}
-            data-status={n.st}
-            data-caps={`${n.capCount} ${n.capCount === 1 ? 'capability' : 'capabilities'}`}
-            aria-label={`${n.title}: ${n.outcome} — ${n.st}, ${n.capCount} capabilities`}
-          />
-        ))}
-      </g>
-    </svg>
-
-    <!-- tooltip -->
-    <div class="tw-tip" hidden role="status" aria-live="polite">
-      <div class="tw-tip__head">
-        <span class="tw-tip__dot"></span>
-        <span class="tw-tip__title"></span>
-      </div>
-      <p class="tw-tip__outcome"></p>
-      <p class="tw-tip__meta"><span class="tw-tip__status"></span> · <span class="tw-tip__caps"></span></p>
+<figure class="tw-root" id="tw-root">
+  <div class="tw-toolbar">
+    <div class="tw-title">
+      <span class="tw-live" aria-hidden="true"></span>
+      <strong>{world.project}</strong>
+      <span class="tw-tagline">— {data.tagline}</span>
+    </div>
+    <div class="tw-stats" aria-label="system summary">
+      <span><b>{stats.stories}</b> stories</span>
+      <span><b>{stats.caps}</b> capabilities</span>
+      <span><b>{stats.contracts}</b> tests</span>
+      <span class="s-healthy"><b>{stats.proven}</b> proven</span>
+      <span class="s-unhealthy"><b>{stats.unhealthy}</b> need attention</span>
+      <span class="s-live"><b>{stats.sessions}</b> working now</span>
     </div>
   </div>
 
-  <figcaption class="tw__legend">
-    {legend.map((l) => (
-      <span class="tw__leg"><span class={`dot dot--${l.cls}`}></span>{l.label}</span>
+  <div class="tw-filters" role="group" aria-label="Show or hide stories by status">
+    <span class="tw-filters-label">show:</span>
+    {filters.map((flt) => (
+      <button type="button" class={`tw-chip s-${flt.key}`} data-filter={flt.key} aria-pressed="true">
+        <span class="tw-chip-dot" aria-hidden="true"></span>{flt.label}
+      </button>
     ))}
-    <span class="tw__leg tw__leg--seal"><span class="tw__sealmark" aria-hidden="true">✓</span>Signed off by a person</span>
-    <span class="tw__hint">Hover or tap a tree</span>
+  </div>
+
+  <div class="tw-body">
+    <div class="tw-stage" role="group" aria-label="Interactive map of the Cohoot system — its stories are focusable below.">
+      <Fragment set:html={svg} />
+    </div>
+
+    <aside class="tw-inspector" id="tw-inspector" data-state="overview">
+      <div class="tw-ov" id="tw-ov">
+        <p class="tw-ov-eyebrow">The map</p>
+        <p class="tw-ov-lead">
+          A whole system at a glance. Each tree is a <strong>story</strong> — one slice of the
+          product. Its colour is its health, the garden around it is its capabilities, and the
+          roads are what it depends on.
+        </p>
+        <ul class="tw-key">
+          <li><span class="dot s-healthy"></span><span><strong>Proven</strong> — a failing test was made to pass, and a person signed off.</span></li>
+          <li><span class="dot s-mapped"></span><span><strong>Mapped</strong> — real and in use, but not proven here yet.</span></li>
+          <li><span class="dot s-proposed"></span><span><strong>Proposed / building</strong> — agents and people are on it now.</span></li>
+          <li><span class="dot s-unhealthy"></span><span><strong>Needs attention</strong> — a check is failing. This is where focus goes next.</span></li>
+        </ul>
+        <p class="tw-ov-hint">Hover or tap any tree to inspect a story.</p>
+      </div>
+
+      <div class="tw-story" id="tw-story" hidden>
+        <div class="tw-story-head">
+          <span class="tw-badge" id="tw-d-badge"></span>
+          <button type="button" class="tw-close" id="tw-d-close" aria-label="Back to the whole map">show all ✕</button>
+        </div>
+        <h3 id="tw-d-title"></h3>
+        <p class="tw-d-outcome" id="tw-d-outcome"></p>
+        <p class="tw-d-deps" id="tw-d-deps"></p>
+        <div class="tw-d-sessions" id="tw-d-sessions"></div>
+        <p class="tw-d-capn" id="tw-d-capn"></p>
+        <div class="tw-d-dag" id="tw-d-dag" aria-hidden="true"></div>
+        <ul class="tw-d-caps" id="tw-d-caps"></ul>
+      </div>
+    </aside>
+  </div>
+
+  <figcaption class="tw-legend">
+    <span class="tw-leg"><span class="tw-leg-sign" aria-hidden="true"></span>signed off by a person</span>
+    <span class="tw-leg"><span class="tw-leg-bloom" aria-hidden="true"></span>just passed its check</span>
+    <span class="tw-leg"><span class="tw-leg-wisp" aria-hidden="true"></span>someone working here now</span>
+    <span class="tw-leg-hint">Hover or tap a tree · click to pin · this is invented data</span>
   </figcaption>
+
+  <script type="application/json" id="tw-data" set:html={blobJson}></script>
 </figure>
 
-<style>
-  .tw {
-    margin: 1.5rem 0 0;
-    background: linear-gradient(180deg, #fbf3ea, #f5e8d9);
+<style is:global>
+  /* ---- shell ---- */
+  .tw-root {
+    margin: 1.6rem 0 0;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     overflow: hidden;
-  }
-  .tw__stage { position: relative; }
-  .tw__stage svg { width: 100%; height: auto; display: block; }
-
-  .tw-node { transition: transform 0.2s ease; transform-box: fill-box; transform-origin: center bottom; }
-  .tw-node.is-active { transform: translateY(-6px) scale(1.035); }
-
-  .tw-crown { transform-box: fill-box; transform-origin: bottom center; animation: tw-sway 6.5s ease-in-out infinite; }
-  @keyframes tw-sway { 0%, 100% { rotate: -1deg; } 50% { rotate: 1deg; } }
-
-  .tw-hit { cursor: pointer; outline: none; }
-  .tw-hit:focus-visible { outline: 2.5px solid var(--amber); outline-offset: -4px; border-radius: 18px; }
-
-  /* tooltip */
-  .tw-tip {
-    position: absolute; z-index: 5; left: 0; top: 0;
-    transform: translate(-50%, calc(-100% - 14px));
-    width: min(19rem, 74vw);
     background: var(--surface);
-    border: 1px solid var(--line-strong);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    padding: 0.8rem 0.95rem;
-    pointer-events: none;
   }
-  .tw-tip[hidden] { display: none; }
-  .tw-tip::after {
-    content: ""; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%) rotate(45deg);
-    width: 12px; height: 12px; background: var(--surface);
-    border-right: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong);
+  .tw-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.5rem 1rem; padding: 0.7rem 1rem;
+    background: var(--surface-2); border-bottom: 1px solid var(--line);
   }
-  .tw-tip__head { display: flex; align-items: center; gap: 0.5rem; }
-  .tw-tip__dot { width: 0.7rem; height: 0.7rem; border-radius: 999px; background: var(--amber); flex: none; }
-  .tw-tip__title { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
-  .tw-tip__outcome { margin: 0.4rem 0 0.45rem; font-size: 0.92rem; color: var(--ink-soft); line-height: 1.45; }
-  .tw-tip__meta { margin: 0; font-size: 0.8rem; color: var(--ink-faint); text-transform: capitalize; }
+  .tw-title { font-size: 0.96rem; display: inline-flex; align-items: baseline; gap: 0.4rem; }
+  .tw-title strong { font-family: var(--font-display); font-size: 1.08rem; }
+  .tw-tagline { color: var(--ink-faint); font-size: 0.86rem; }
+  .tw-live {
+    width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #2f9e8f;
+    align-self: center; box-shadow: 0 0 0 0 rgba(47,158,143,0.5); animation: tw-ping 2.4s ease-out infinite;
+  }
+  @keyframes tw-ping { 0% { box-shadow: 0 0 0 0 rgba(47,158,143,0.5); } 70%,100% { box-shadow: 0 0 0 6px rgba(47,158,143,0); } }
+  .tw-stats { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--ink-faint); }
+  .tw-stats b { color: var(--ink); font-weight: 650; }
+  .tw-stats .s-healthy b { color: var(--evergreen); }
+  .tw-stats .s-unhealthy b { color: var(--crimson); }
+  .tw-stats .s-live b { color: #176b61; }
 
-  /* legend */
-  .tw__legend {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.2rem;
-    padding: 0.85rem 1.1rem; border-top: 1px solid var(--line);
-    background: var(--surface); font-size: 0.85rem; color: var(--ink-soft);
+  /* ---- filter chips ---- */
+  .tw-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; padding: 0.6rem 1rem; border-bottom: 1px solid var(--line); }
+  .tw-filters-label { font-size: 0.78rem; color: var(--ink-faint); margin-right: 0.1rem; }
+  .tw-chip {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font: 500 0.8rem var(--font-body); color: var(--ink-soft);
+    padding: 0.28rem 0.7rem; border-radius: 999px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--line-strong);
+    transition: background 0.15s, opacity 0.15s, border-color 0.15s;
   }
-  .tw__leg { display: inline-flex; align-items: center; }
-  .tw__sealmark {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 1.05rem; height: 1.05rem; border-radius: 999px; margin-right: 0.45em;
-    background: #fff; color: var(--evergreen); border: 1.6px solid var(--evergreen);
-    font-size: 0.66rem; font-weight: 700;
-  }
-  .tw__hint { margin-left: auto; color: var(--ink-faint); font-style: italic; }
-  @media (max-width: 560px) { .tw__hint { margin-left: 0; } }
+  .tw-chip-dot { width: 0.6rem; height: 0.6rem; border-radius: 999px; }
+  .tw-chip.s-healthy .tw-chip-dot { background: var(--evergreen); }
+  .tw-chip.s-mapped .tw-chip-dot { background: var(--brown); }
+  .tw-chip.s-proposed .tw-chip-dot { background: var(--amber); }
+  .tw-chip.s-unhealthy .tw-chip-dot { background: var(--crimson); }
+  .tw-chip[aria-pressed='false'] { opacity: 0.45; background: var(--surface-2); text-decoration: line-through; }
 
-  @media (prefers-reduced-motion: reduce) { .tw-crown { animation: none; } }
+  /* ---- body grid ---- */
+  .tw-body { display: grid; }
+  @media (min-width: 900px) { .tw-body { grid-template-columns: minmax(0, 1.75fr) minmax(258px, 1fr); } }
+  .tw-stage {
+    position: relative; min-width: 0; max-height: 80vh; overflow: auto;
+    background:
+      radial-gradient(900px 520px at 70% 0%, rgba(169,200,127,0.16), transparent 60%),
+      linear-gradient(180deg, #fbf3ea, #f3e3d2);
+    outline: none;
+  }
+  .tw-stage:focus-visible { box-shadow: inset 0 0 0 2.5px var(--amber); }
+  .tw-svg { width: 100%; height: auto; display: block; }
+
+  /* ---- the world ---- */
+  .tw-bg { fill: url(#tw-board); }
+  .tw-empty { fill: #f1e2da; stroke: #e3cec4; stroke-width: 1; }
+  .tw-tile .side { fill: #7c9354; }
+  .tw-tile .top { stroke: #8aa162; stroke-width: 0.7; }
+  .tw-tile .top.v0 { fill: #a9c87f; }
+  .tw-tile .top.v1 { fill: #9fc174; }
+  .tw-tile .top.v2 { fill: #b2cf8b; }
+  .tw-tile .top.wheat { fill: #d6b271; }
+  .tw-borders line { stroke: rgba(94,68,40,0.20); stroke-width: 0.8; }
+
+  .tw-road .bed { fill: none; stroke: #cdb285; stroke-width: 9; stroke-linecap: round; opacity: 0.4; }
+  .tw-road .line { fill: none; stroke: #a98e5f; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 1 9; opacity: 0.7; }
+  #tw-arrow path { fill: #a98e5f; }
+
+  .tw-terr .sh { fill: rgba(60,42,22,0.13); }
+  .tw-terr .trunk { fill: #6e533d; }
+  .tw-terr .bare path { fill: none; stroke: #6e533d; stroke-width: 1.4; stroke-linecap: round; }
+  .tw-terr .litter { fill: #b07a3c; opacity: 0.75; }
+  .tw-terr .lo circle { fill: #6b7280; }
+  .tw-terr .hi circle { fill: #9ca3af; }
+  .tw-terr.st-healthy .lo circle { fill: #2f6b3f; } .tw-terr.st-healthy .hi circle { fill: #55a06a; }
+  .tw-terr.st-mapped .lo circle { fill: #7d5f3b; } .tw-terr.st-mapped .hi circle { fill: #a8854f; }
+  .tw-terr.st-proposed .lo circle { fill: #b06a24; } .tw-terr.st-proposed .hi circle { fill: #e09a4b; }
+  .tw-terr.st-unhealthy .lo circle { fill: #9f2d22; } .tw-terr.st-unhealthy .hi circle { fill: #c75545; }
+
+  .tw-flora .sh { fill: rgba(60,42,22,0.12); }
+  .tw-flora .bed { fill: #c6a36a; opacity: 0.5; }
+  .tw-flora .stem { fill: none; stroke: #5d8a46; stroke-width: 1.5; stroke-linecap: round; }
+  .tw-flora .core { fill: #f7ecd2; }
+  .tw-flora .sap-trunk { fill: #7d5f44; }
+  .tw-flora .dark { fill: #6b7280; } .tw-flora .light { fill: #9ca3af; }
+  .tw-flora.st-healthy .dark { fill: #2f6b3f; } .tw-flora.st-healthy .light { fill: #55a06a; }
+  .tw-flora.st-mapped .dark { fill: #7d5f3b; } .tw-flora.st-mapped .light { fill: #a8854f; }
+  .tw-flora.st-proposed .dark { fill: #b06a24; } .tw-flora.st-proposed .light { fill: #e09a4b; }
+  .tw-flora .dead { fill: none; stroke: #8a6a4a; stroke-width: 1.2; stroke-linecap: round; }
+  .tw-flora .dead-head { fill: #a8704a; } .tw-flora .accent { fill: #9f2d22; }
+  .tw-flora .litter { fill: #a07a4a; opacity: 0.7; }
+
+  .tw-conifer .body { fill: #4f7a3f; } .tw-conifer.c-1 .body { fill: #5d8a46; } .tw-conifer.c-2 .body { fill: #46703a; }
+  .tw-conifer .snow { fill: #cfe3b3; opacity: 0.8; }
+
+  .tw-sign .sh { fill: rgba(60,42,22,0.13); }
+  .tw-sign .post { fill: #8a6f4c; }
+  .tw-sign .head { fill: #fffdfa; stroke-width: 2.4; }
+  .tw-sign.seal-filled .head { stroke: #2f6b3f; }
+  .tw-sign.seal-filled .tick { fill: none; stroke: #2f6b3f; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tw-sign.seal-blank .head { stroke: #b9a489; stroke-dasharray: 3 3; }
+
+  .tw-bloom { transform-box: fill-box; transform-origin: center; animation: tw-pulse 2.6s ease-in-out infinite; }
+  .tw-bloom .ring { fill: none; stroke: #6fbf86; stroke-width: 2; opacity: 0.85; }
+  .tw-bloom .spark { fill: #a9ebbf; }
+  @keyframes tw-pulse { 0%,100% { opacity: 0.45; transform: scale(0.88); } 50% { opacity: 1; transform: scale(1.12); } }
+
+  .tw-wisp .glow { fill: #2f9e8f; opacity: 0.2; animation: tw-glow 3s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .tw-wisp .dot { fill: #2f9e8f; }
+  .tw-wisp.band-stale .glow { fill: #c98a3e; } .tw-wisp.band-stale .dot { fill: #c98a3e; }
+  @keyframes tw-glow { 0%,100% { opacity: 0.14; } 50% { opacity: 0.42; } }
+
+  .tw-crown { transform-box: fill-box; transform-origin: 50% 100%; animation: tw-sway var(--sway, 7s) ease-in-out infinite; animation-delay: var(--d, 0s); }
+  @keyframes tw-sway { 0%,100% { transform: rotate(-1.1deg); } 50% { transform: rotate(1.1deg); } }
+
+  .tw-plate .bg { fill: rgba(255,253,250,0.97); stroke: rgba(70,50,25,0.14); stroke-width: 1; }
+  .tw-plate .ttl { font: 650 12px var(--font-body); fill: var(--ink); }
+  .tw-plate .sub { font: 500 9.5px var(--font-body); fill: #5d564c; text-transform: capitalize; }
+
+  .tw-hit { fill: transparent; cursor: pointer; outline: none; }
+  .tw-hit:focus-visible { outline: 2.5px solid var(--amber); outline-offset: -3px; }
+
+  /* ---- focus + filter states ---- */
+  .tw-terr, .tw-road { transition: opacity 0.18s ease; }
+  .tw-root.has-focus .tw-terr.is-dim { opacity: 0.28; }
+  .tw-root.has-focus .tw-road.is-dim { opacity: 0.1; }
+  .tw-road.is-anc .line { stroke: #b07d1f; opacity: 1; stroke-width: 2.7; stroke-dasharray: none; }
+  .tw-road.is-desc .line { stroke: #b5544a; opacity: 1; stroke-width: 2.7; stroke-dasharray: none; }
+  .tw-root.hide-healthy .tw-terr.st-healthy, .tw-root.hide-healthy .tw-flora.st-healthy { opacity: 0.1 !important; }
+  .tw-root.hide-mapped .tw-terr.st-mapped, .tw-root.hide-mapped .tw-flora.st-mapped { opacity: 0.1 !important; }
+  .tw-root.hide-proposed .tw-terr.st-proposed, .tw-root.hide-proposed .tw-flora.st-proposed { opacity: 0.1 !important; }
+  .tw-root.hide-unhealthy .tw-terr.st-unhealthy, .tw-root.hide-unhealthy .tw-flora.st-unhealthy { opacity: 0.1 !important; }
+
+  /* ---- inspector ---- */
+  .tw-inspector { border-top: 1px solid var(--line); padding: 1.1rem 1.15rem 1.25rem; background: var(--surface); }
+  @media (min-width: 900px) { .tw-inspector { border-top: 0; border-left: 1px solid var(--line); overflow: auto; max-height: 80vh; } }
+  .tw-ov-eyebrow { font: 650 0.7rem var(--font-body); letter-spacing: 0.13em; text-transform: uppercase; color: var(--amber); margin: 0 0 0.5rem; }
+  .tw-ov-lead { font-size: 0.92rem; color: var(--ink-soft); margin: 0 0 0.9rem; line-height: 1.5; }
+  .tw-key { list-style: none; margin: 0 0 0.9rem; padding: 0; display: grid; gap: 0.5rem; }
+  .tw-key li { display: flex; gap: 0.55rem; font-size: 0.84rem; color: var(--ink-soft); line-height: 1.4; }
+  .tw-key .dot { width: 0.7rem; height: 0.7rem; border-radius: 999px; flex: none; margin-top: 0.28em; }
+  .tw-ov-hint { font-size: 0.82rem; color: var(--ink-faint); font-style: italic; margin: 0; }
+  .dot.s-healthy { background: var(--evergreen); } .dot.s-mapped { background: var(--brown); }
+  .dot.s-proposed { background: var(--amber); } .dot.s-unhealthy { background: var(--crimson); }
+
+  .tw-story-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .tw-badge { font: 650 0.7rem var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; color: #fff; padding: 0.18rem 0.55rem; border-radius: 999px; background: var(--ink-soft); }
+  .tw-badge.s-healthy { background: var(--evergreen); } .tw-badge.s-mapped { background: var(--brown); }
+  .tw-badge.s-proposed { background: var(--amber); } .tw-badge.s-unhealthy { background: var(--crimson); }
+  .tw-close { background: none; border: 0; color: var(--ink-faint); font: 500 0.78rem var(--font-body); cursor: pointer; padding: 0.2rem 0.3rem; }
+  .tw-close:hover { color: var(--ink); }
+  .tw-story h3 { margin: 0 0 0.3rem; font-size: 1.18rem; }
+  .tw-d-outcome { font-size: 0.92rem; color: var(--ink-soft); margin: 0 0 0.7rem; line-height: 1.5; }
+  .tw-d-deps { font-size: 0.82rem; color: var(--ink-faint); margin: 0 0 0.7rem; }
+  .tw-d-deps b { color: var(--ink-soft); font-weight: 600; }
+  .tw-d-sessions { margin: 0 0 0.7rem; display: grid; gap: 0.35rem; }
+  .tw-sess { display: flex; gap: 0.45rem; align-items: baseline; font-size: 0.8rem; color: var(--ink-soft); }
+  .tw-sess-band { width: 0.5rem; height: 0.5rem; border-radius: 999px; flex: none; align-self: center; background: #2f9e8f; }
+  .tw-sess-band.stale { background: #c98a3e; }
+  .tw-sess code { font-size: 0.76rem; color: var(--ink); }
+  .tw-d-capn { font: 650 0.74rem var(--font-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin: 0.2rem 0 0.45rem; }
+  .tw-d-caps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.32rem; }
+  .tw-d-caps li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .tw-d-caps .dot { width: 0.6rem; height: 0.6rem; border-radius: 999px; flex: none; }
+  .tw-d-caps .tw-cap-ttl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tw-d-caps em { margin-left: auto; flex: none; font-style: normal; font-size: 0.72rem; color: var(--ink-faint); white-space: nowrap; }
+
+  /* capability sub-DAG (drill-down) */
+  .tw-d-dag { margin: 0 0 0.85rem; overflow-x: auto; }
+  .tw-dag { display: block; }
+  .tw-de { fill: none; stroke: #c8b48d; stroke-width: 1.4; }
+  .tw-dn-bg { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+  .tw-dn-strip { fill: var(--ink-soft); }
+  .tw-dn.st-healthy .tw-dn-strip { fill: var(--evergreen); }
+  .tw-dn.st-mapped .tw-dn-strip { fill: var(--brown); }
+  .tw-dn.st-proposed .tw-dn-strip { fill: var(--amber); }
+  .tw-dn.st-unhealthy .tw-dn-strip { fill: var(--crimson); }
+  .tw-dn-status { font: 600 8px var(--font-body); fill: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tw-dn-ttl { font: 600 12px var(--font-body); fill: var(--ink); }
+  .tw-dn-meta { font: 500 9px var(--font-body); fill: var(--ink-faint); }
+
+  /* ---- legend caption ---- */
+  .tw-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem 1.1rem; padding: 0.8rem 1rem; border-top: 1px solid var(--line); background: var(--surface-2); font-size: 0.82rem; color: var(--ink-soft); }
+  .tw-leg { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .tw-leg-sign { width: 0.85rem; height: 0.85rem; border-radius: 999px; background: #fffdfa; border: 2px solid var(--evergreen); position: relative; }
+  .tw-leg-bloom { width: 0.85rem; height: 0.85rem; border-radius: 999px; border: 2px solid #6fbf86; }
+  .tw-leg-wisp { width: 0.7rem; height: 0.7rem; border-radius: 999px; background: #2f9e8f; box-shadow: 0 0 0 4px rgba(47,158,143,0.2); }
+  .tw-leg-hint { margin-left: auto; color: var(--ink-faint); font-style: italic; }
+  @media (max-width: 620px) { .tw-leg-hint { margin-left: 0; } }
 </style>
 
 <script>
-  const root = document.getElementById('treeworld');
-  if (root) {
-    const tip = root.querySelector('.tw-tip') as HTMLElement | null;
-    const stage = root.querySelector('.tw__stage') as HTMLElement | null;
+  type Cap = { title: string; status: string; contracts: number };
+  type Sess = { id: string; workingOn: string; band: string };
+  type DagNode = { id: string; title: string; status: string; contracts: number; x: number; y: number };
+  type Dag = { w: number; h: number; nodes: DagNode[]; edges: { d: string }[] };
+  type Node = {
+    title: string; outcome: string; vis: string; witness: string; capCount: number; contractTotal: number;
+    deps: string[]; caps: Cap[]; dag: Dag; sessions: Sess[]; ancestors: string[]; descendants: string[];
+  };
+
+  const root = document.getElementById('tw-root');
+  const dataEl = document.getElementById('tw-data');
+  if (root && dataEl) {
+    const blob: Record<string, Node> = JSON.parse(dataEl.textContent || '{}');
+    const insp = document.getElementById('tw-inspector')!;
+    const ov = document.getElementById('tw-ov')!;
+    const story = document.getElementById('tw-story')!;
     const hits = Array.from(root.querySelectorAll<SVGRectElement>('.tw-hit'));
+    const terrs = Array.from(root.querySelectorAll<SVGGElement>('.tw-terr'));
+    const roads = Array.from(root.querySelectorAll<SVGGElement>('.tw-road'));
+    const stage = root.querySelector('.tw-stage');
 
-    const show = (el: SVGRectElement) => {
-      if (!tip || !stage) return;
-      const r = el.getBoundingClientRect();
-      const cr = stage.getBoundingClientRect();
-      (tip.querySelector('.tw-tip__title') as HTMLElement).textContent = el.dataset.title ?? '';
-      (tip.querySelector('.tw-tip__outcome') as HTMLElement).textContent = el.dataset.outcome ?? '';
-      (tip.querySelector('.tw-tip__status') as HTMLElement).textContent = el.dataset.status ?? '';
-      (tip.querySelector('.tw-tip__caps') as HTMLElement).textContent = el.dataset.caps ?? '';
+    const LABEL: Record<string, string> = { healthy: 'Proven', mapped: 'Mapped', proposed: 'Building', unhealthy: 'Needs attention' };
+    let pinned: string | null = null;
 
-      const status = el.dataset.status ?? 'proposed';
-      const dotColor: Record<string, string> = {
-        healthy: '#2f6b3f', mapped: '#7d5f3b', proposed: '#b06a24', unhealthy: '#9f2d22',
-      };
-      (tip.querySelector('.tw-tip__dot') as HTMLElement).style.background = dotColor[status] ?? '#b06a24';
+    const el = (id: string) => document.getElementById(id)!;
+    const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      // position centered above the node, clamped inside the stage
-      let left = r.left - cr.left + r.width / 2;
-      const half = Math.min(304, cr.width * 0.74) / 2;
-      left = Math.max(half + 8, Math.min(cr.width - half - 8, left));
-      tip.style.left = left + 'px';
-      tip.style.top = r.top - cr.top + 8 + 'px';
-      tip.hidden = false;
+    function applyFocus(id: string | null) {
+      if (!id) {
+        root!.classList.remove('has-focus');
+        terrs.forEach((e) => e.classList.remove('is-focus', 'is-anc', 'is-desc', 'is-dim'));
+        roads.forEach((e) => e.classList.remove('is-anc', 'is-desc', 'is-dim'));
+        return;
+      }
+      const d = blob[id];
+      const anc = new Set([id, ...d.ancestors]);
+      const desc = new Set([id, ...d.descendants]);
+      root!.classList.add('has-focus');
+      terrs.forEach((e) => {
+        const eid = e.getAttribute('data-id')!;
+        e.classList.remove('is-focus', 'is-anc', 'is-desc', 'is-dim');
+        if (eid === id) e.classList.add('is-focus');
+        else if (d.ancestors.includes(eid)) e.classList.add('is-anc');
+        else if (d.descendants.includes(eid)) e.classList.add('is-desc');
+        else e.classList.add('is-dim');
+      });
+      roads.forEach((e) => {
+        const fr = e.getAttribute('data-from')!;
+        const to = e.getAttribute('data-to')!;
+        e.classList.remove('is-anc', 'is-desc', 'is-dim');
+        if (anc.has(fr) && anc.has(to)) e.classList.add('is-anc');
+        else if (desc.has(fr) && desc.has(to)) e.classList.add('is-desc');
+        else e.classList.add('is-dim');
+      });
+    }
 
-      hits.forEach((h) => h.closest('.tw-node')?.classList.remove('is-active'));
-      el.closest('.tw-node')?.classList.remove('is-active');
-      document.getElementById('node-' + el.dataset.id)?.classList.add('is-active');
-    };
+    const DAG_CW = 112, DAG_CH = 42; // keep in sync with world.ts DAG_CW/DAG_CH
+    function renderDag(dag: Dag) {
+      const host = el('tw-d-dag');
+      if (!dag || !dag.nodes.length) { host.innerHTML = ''; return; }
+      const cards = dag.nodes
+        .map((nd) => {
+          const ttl = nd.title.length > 16 ? nd.title.slice(0, 15) + '…' : nd.title;
+          const sw = nd.status === 'unhealthy' ? 'failing' : nd.status;
+          return '<g class="tw-dn st-' + nd.status + '" transform="translate(' + nd.x + ' ' + nd.y + ')">'
+            + '<rect class="tw-dn-bg" width="' + DAG_CW + '" height="' + DAG_CH + '" rx="7"/>'
+            + '<path class="tw-dn-strip" d="M 0 13 L 0 7 Q 0 0 7 0 L ' + (DAG_CW - 7) + ' 0 Q ' + DAG_CW + ' 0 ' + DAG_CW + ' 7 L ' + DAG_CW + ' 13 Z"/>'
+            + '<text class="tw-dn-status" x="7" y="10">' + escapeHtml(sw) + '</text>'
+            + '<text class="tw-dn-ttl" x="7" y="27">' + escapeHtml(ttl) + '</text>'
+            + '<text class="tw-dn-meta" x="' + (DAG_CW - 7) + '" y="' + (DAG_CH - 8) + '" text-anchor="end">' + nd.contracts + ' tests</text>'
+            + '</g>';
+        })
+        .join('');
+      const edges = dag.edges.map((e) => '<path class="tw-de" d="' + e.d + '" marker-end="url(#tw-de-arrow)"/>').join('');
+      const cw = host.clientWidth || 250;
+      const scale = Math.min(cw / dag.w, 280 / dag.h, 1.2);
+      const wpx = Math.round(dag.w * scale), hpx = Math.round(dag.h * scale);
+      host.innerHTML =
+        '<svg class="tw-dag" width="' + wpx + '" height="' + hpx + '" viewBox="0 0 ' + dag.w + ' ' + dag.h + '">'
+        + '<defs><marker id="tw-de-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#c8b48d"/></marker></defs>'
+        + edges + cards + '</svg>';
+    }
 
-    const hide = () => {
-      if (tip) tip.hidden = true;
-      root.querySelectorAll('.tw-node.is-active').forEach((n) => n.classList.remove('is-active'));
-    };
+    function fillStory(id: string) {
+      const d = blob[id];
+      const badge = el('tw-d-badge');
+      badge.textContent = LABEL[d.vis] || d.vis;
+      badge.className = 'tw-badge s-' + d.vis;
+      el('tw-d-title').textContent = d.title;
+      el('tw-d-outcome').textContent = d.outcome;
+      el('tw-d-deps').innerHTML = d.deps.length
+        ? 'Depends on <b>' + d.deps.map(escapeHtml).join('</b>, <b>') + '</b>'
+        : 'A foundation — nothing else has to work first.';
+      const sess = el('tw-d-sessions');
+      sess.innerHTML = d.sessions.length
+        ? d.sessions
+            .map((s) => '<div class="tw-sess"><span class="tw-sess-band ' + (s.band === 'stale' ? 'stale' : '') + '"></span><span><code>' + escapeHtml(s.id) + '</code> — ' + escapeHtml(s.workingOn) + '</span></div>')
+            .join('')
+        : '';
+      el('tw-d-capn').textContent =
+        d.capCount + (d.capCount === 1 ? ' capability' : ' capabilities') + ' · ' + d.contractTotal + ' tests';
+      el('tw-d-caps').innerHTML = d.caps
+        .map((c) => '<li><span class="dot s-' + c.status + '"></span><span class="tw-cap-ttl">' + escapeHtml(c.title) + '</span><em>' + c.contracts + ' tests · ' + escapeHtml(c.status === 'unhealthy' ? 'failing' : c.status) + '</em></li>')
+        .join('');
+      ov.hidden = true;
+      story.hidden = false;
+      insp.setAttribute('data-state', 'story');
+      renderDag(d.dag);
+    }
 
-    hits.forEach((el) => {
-      el.addEventListener('mouseenter', () => show(el));
-      el.addEventListener('mouseleave', hide);
-      el.addEventListener('focus', () => show(el));
-      el.addEventListener('blur', hide);
-      el.addEventListener('click', (e) => { e.stopPropagation(); show(el); });
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(el); }
-        if (e.key === 'Escape') hide();
+    function showOverview() {
+      ov.hidden = false;
+      story.hidden = true;
+      insp.setAttribute('data-state', 'overview');
+    }
+
+    function preview(id: string) { fillStory(id); applyFocus(id); }
+    function revert() {
+      if (pinned) { fillStory(pinned); applyFocus(pinned); }
+      else { showOverview(); applyFocus(null); }
+    }
+
+    hits.forEach((hit) => {
+      const id = hit.getAttribute('data-id')!;
+      hit.addEventListener('mouseenter', () => preview(id));
+      hit.addEventListener('mouseleave', revert);
+      hit.addEventListener('focus', () => preview(id));
+      hit.addEventListener('blur', revert);
+      hit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pinned = pinned === id ? null : id;
+        revert();
+      });
+      hit.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pinned = pinned === id ? null : id; revert(); }
+        if (e.key === 'Escape') { pinned = null; (hit as unknown as HTMLElement).blur(); revert(); }
       });
     });
-    document.addEventListener('click', (e) => {
-      if (!(e.target as Element)?.closest('.tw-hit')) hide();
+
+    stage?.addEventListener('click', (e) => {
+      if (!(e.target as Element)?.closest('.tw-hit')) { pinned = null; revert(); }
+    });
+    el('tw-d-close').addEventListener('click', () => { pinned = null; revert(); });
+
+    root.querySelectorAll<HTMLButtonElement>('.tw-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const k = chip.getAttribute('data-filter')!;
+        const on = chip.getAttribute('aria-pressed') !== 'false';
+        chip.setAttribute('aria-pressed', String(!on));
+        root.classList.toggle('hide-' + k, on);
+      });
     });
   }
 </script>
