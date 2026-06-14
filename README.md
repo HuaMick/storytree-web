@@ -77,3 +77,17 @@ The interactive map on *How it works* is rendered by
 [`src/components/TreeWorld.astro`](src/components/TreeWorld.astro) from curated mock JSON
 ([`src/data/mockTree.json`](src/data/mockTree.json)) — a made-up "garden planner" app, not a real
 roadmap. To change what the demo shows, edit the JSON.
+
+## Grounding claims to the record (`data-grounds`)
+
+Load-bearing claims about *how storytree actually works* carry a `data-grounds` attribute naming the
+recorded decision(s) they paraphrase — e.g. `<p data-grounds="ADR-0020,ADR-0040">…`. These refs are
+deliberately **not rendered**: a citation an outside reader can't follow is just noise, and keeping
+ourselves honest is our job, not something to perform on the marketing surface. They exist so the
+copy can be *checked* against the source of truth instead of drifting from it (this is how the "a
+person signs off" overclaim slipped past — the page had no binding to the doctrine that says green
+derives from a signed verdict via separation of duties, not a per-node human sign-off).
+
+A reference is just a stable handle (`ADR-NNNN`) — it exposes nothing private. Validation lives in
+the (private) storytree repo, which vendors this site as a submodule and can see the ADR record; a
+drift check there fails if a cited ADR goes missing or `superseded` (storytree ADR-0056).

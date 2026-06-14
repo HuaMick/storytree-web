@@ -7,7 +7,7 @@
       "kind": "work",
       "status": "done",
       "title": "Proof gates",
-      "short": "Nothing ships without proof — a failing test made to pass for the right reason, then a person signs off.",
+      "short": "Nothing ships without proof — a failing test made to pass for the right reason, checked by a different agent than the one that wrote it.",
       "dependsOn": [],
       "x": 140,
       "y": 720
@@ -27,7 +27,7 @@
       "kind": "work",
       "status": "done",
       "title": "Many builders, in parallel",
-      "short": "People and AI agents build different parts of the tree at once — a control room, with humans in charge of what's true.",
+      "short": "People and AI agents build different parts of the tree at once — a control room, with humans steering what's worth building and what ships.",
       "dependsOn": [],
       "x": 600,
       "y": 720

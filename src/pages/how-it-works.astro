@@ -147,9 +147,10 @@ import TreeWorld from '../components/TreeWorld.astro';
           frontier models logged exploit rates as high as ~14%. A green check can mean "the work is
           done" — or "the harness got played."
         </p>
-        <p>
+        <p data-grounds="ADR-0020,ADR-0040">
           So storytree doesn't take the agent's word for it. A node only goes green when a check that
-          was <em>failing</em> is made to pass for the right reason — and a person signs off. Health is
+          was <em>failing</em> is made to pass for the right reason — and the agent that writes the
+          check isn't the one that makes it pass, so nothing grades its own work. Health is
           a machine-checkable contract measured against evidence, not a status the model reports about
           itself, and the generated code is hard-linked to the node it claims to satisfy. Every part of
           the map is signal for one question: <em>did the agents build what I actually asked?</em>
@@ -158,7 +159,8 @@ import TreeWorld from '../components/TreeWorld.astro';
           <li>An idea or a concern can come from anyone — you don't have to write code to raise one.</li>
           <li>It's argued in the open, where the reasoning stays on the record instead of in a scrolled-away thread.</li>
           <li>If it becomes work, that work has to pass its gate before it counts — a failing check made to pass, not a vibe.</li>
-          <li>A human still says the final yes. A green light is a request for review, not an automatic merge.</li>
+          <li data-grounds="ADR-0020">Green is checked by a different actor than the one that did the work — that separation, not a person signing off every node, is what makes it mean something.</li>
+          <li data-grounds="ADR-0040,ADR-0030">People stay in charge of what's worth building and what ships — some things still want a human to walk through them, others are proven end to end by machine; at scale the usual safety nets (feature flags, staged and beta rollouts, real-user feedback) catch what slips.</li>
         </ul>
         <p class="band2__caveat">
           Honest scope: green means <em>the checks passed</em> — not that the code is flawless. The map
