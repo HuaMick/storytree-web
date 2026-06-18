@@ -33,40 +33,6 @@
       "y": 720
     },
     {
-      "id": "record",
-      "kind": "work",
-      "status": "done",
-      "title": "The open record",
-      "short": "Decisions, reasoning and the work itself kept on a shared record you can read — the foundation the trust model stands on.",
-      "dependsOn": [],
-      "x": 830,
-      "y": 720
-    },
-    {
-      "id": "tamper-evident",
-      "kind": "work",
-      "status": "building",
-      "title": "A record even we can't quietly edit",
-      "short": "Making the record append-only and tamper-evident, so the people running storytree can't rewrite history unseen. The foundation already exists.",
-      "dependsOn": [
-        "record"
-      ],
-      "x": 830,
-      "y": 545
-    },
-    {
-      "id": "ask-the-project",
-      "kind": "work",
-      "status": "next",
-      "title": "Ask the project anything",
-      "short": "A way to question the project in plain language, against its whole record — so a hidden agenda has nowhere left to hide.",
-      "dependsOn": [
-        "tamper-evident"
-      ],
-      "x": 835,
-      "y": 375
-    },
-    {
       "id": "m-members",
       "kind": "milestone",
       "status": "gate",
@@ -90,19 +56,6 @@
         "m-members"
       ],
       "x": 120,
-      "y": 375
-    },
-    {
-      "id": "open-source",
-      "kind": "work",
-      "status": "gated",
-      "title": "Open the source",
-      "short": "Open source once the record is trustworthy enough and there's a circle ready to steward it — not before it's ready to be.",
-      "dependsOn": [
-        "m-members",
-        "tamper-evident"
-      ],
-      "x": 585,
       "y": 375
     },
     {
