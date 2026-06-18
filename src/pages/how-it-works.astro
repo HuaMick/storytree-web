@@ -68,8 +68,12 @@ import TreeWorld from '../components/TreeWorld.astro';
     <div class="wrap prose legend-note">
       <p class="muted">
         Above is a made-up system — a fictional team-chat backend called <strong>Cohoot</strong> —
-        shown in storytree's real map view. Hover or tap any tree to inspect a story; click to pin it
-        and light up everything it depends on. (Invented data, not storytree's own roadmap.)
+        shown in storytree's real map view. A story <em>grows</em> as it's proven: a bigger tree has
+        more checked behind it, a withered one is failing, and the colour is its health. The extras are
+        live state — a glowing <strong>wisp</strong> is a session at work right now, a
+        <strong>bloom</strong> marks a verdict that just landed, and a <strong>signpost</strong> is a
+        story a person still vouches for by hand. Hover or tap any tree to inspect a story; click to
+        pin it and light up everything it depends on. (Invented data, not storytree's own roadmap.)
       </p>
     </div>
 
@@ -147,12 +151,14 @@ import TreeWorld from '../components/TreeWorld.astro';
           frontier models logged exploit rates as high as ~14%. A green check can mean "the work is
           done" — or "the harness got played."
         </p>
-        <p data-grounds="ADR-0020,ADR-0040">
+        <p data-grounds="ADR-0020,ADR-0040,ADR-0016">
           So storytree doesn't take the agent's word for it. A node only goes green when a check that
           was <em>failing</em> is made to pass for the right reason — and the agent that writes the
           check isn't the one that makes it pass, so nothing grades its own work. Health is
           a machine-checkable contract measured against evidence, not a status the model reports about
-          itself, and the generated code is hard-linked to the node it claims to satisfy. Every part of
+          itself, and the generated code is hard-linked to the node it claims to satisfy — bound to a
+          hash of the exact code that proof checked, so when that code later changes the node is flagged
+          <em>stale</em> rather than coasting on a green that no longer applies. Every part of
           the map is signal for one question: <em>did the agents build what I actually asked?</em>
         </p>
         <ul class="checks">
@@ -163,9 +169,11 @@ import TreeWorld from '../components/TreeWorld.astro';
           <li data-grounds="ADR-0040,ADR-0030">People stay in charge of what's worth building and what ships — some things still want a human to walk through them, others are proven end to end by machine; at scale the usual safety nets (feature flags, staged and beta rollouts, real-user feedback) catch what slips.</li>
         </ul>
         <p class="band2__caveat">
-          Honest scope: green means <em>the checks passed</em> — not that the code is flawless. The map
-          compresses the cost of seeing what's been built and checked; it doesn't replace reading the
-          code or your CI. It's a sharper place to point your attention, not a guarantee.
+          Honest scope: green means <em>the checks passed</em> — not that the code is flawless, and not
+          forever: when the code under a proof drifts, storytree marks the node stale rather than
+          pretend the old pass still holds. The map compresses the cost of seeing what's been built and
+          checked; it doesn't replace reading the code or your CI. It's a sharper place to point your
+          attention, not a guarantee.
         </p>
       </div>
     </div>

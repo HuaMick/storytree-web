@@ -7,7 +7,7 @@
       "kind": "work",
       "status": "done",
       "title": "Proof gates",
-      "short": "Nothing ships without proof — a failing test made to pass for the right reason, checked by a different agent than the one that wrote it.",
+      "short": "Nothing ships without proof — a failing test made to pass for the right reason, checked by a different agent than the one that wrote it, and bound to the code it proved so it shows as stale if that code later drifts.",
       "dependsOn": [],
       "x": 140,
       "y": 720
@@ -17,7 +17,7 @@
       "kind": "work",
       "status": "done",
       "title": "The living map",
-      "short": "Every project is a tree of stories you can watch grow, instead of a plan hidden in someone's head.",
+      "short": "Every project is a living forest of stories you watch grow — the system's health, what depends on what, and who's working where, all on one map instead of a plan hidden in someone's head.",
       "dependsOn": [],
       "x": 370,
       "y": 720
