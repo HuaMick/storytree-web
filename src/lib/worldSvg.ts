@@ -66,19 +66,21 @@ function saplingTree(): string {
 function witheredTree(t: Territory): string {
   const R = t.crownR;
   const cy = -1.62 * R;
+  // A bare dead-tree skeleton — no leaves at all (a wasteland tree is dead, not red).
   const branches = [
-    `M 0 ${f(cy)} C 2 ${f(cy - 0.42 * R)} 1 ${f(cy - 0.7 * R)} ${f(0.2 * R)} ${f(cy - R)}`,
-    `M -4 ${f(cy - 0.14 * R)} C -9 ${f(cy - 0.42 * R)} -8 ${f(cy - 0.6 * R)} ${f(-0.46 * R)} ${f(cy - 0.78 * R)}`,
-    `M ${f(0.3 * R)} ${f(cy - 0.2 * R)} L ${f(0.5 * R)} ${f(cy - 0.34 * R)}`,
+    `M 0 ${f(cy + 0.1 * R)} C 1 ${f(cy - 0.4 * R)} 1 ${f(cy - 0.75 * R)} ${f(0.18 * R)} ${f(cy - 1.08 * R)}`,
+    `M -0.5 ${f(cy)} C -5 ${f(cy - 0.3 * R)} -7 ${f(cy - 0.55 * R)} ${f(-0.5 * R)} ${f(cy - 0.86 * R)}`,
+    `M 0.6 ${f(cy)} C 5 ${f(cy - 0.32 * R)} 7 ${f(cy - 0.58 * R)} ${f(0.52 * R)} ${f(cy - 0.8 * R)}`,
+    `M ${f(-0.28 * R)} ${f(cy - 0.5 * R)} L ${f(-0.46 * R)} ${f(cy - 0.66 * R)}`,
+    `M ${f(0.26 * R)} ${f(cy - 0.54 * R)} L ${f(0.46 * R)} ${f(cy - 0.7 * R)}`,
+    `M ${f(0.04 * R)} ${f(cy - 0.78 * R)} L ${f(-0.12 * R)} ${f(cy - 0.96 * R)}`,
   ];
   const trunk = `M -3.4 0 C -3 ${f(0.3 * cy)} -2.2 ${f(0.65 * cy)} -2 ${f(cy)} L 2 ${f(cy)} C 2.2 ${f(0.65 * cy)} 3 ${f(0.3 * cy)} 3.4 0 Q 0 2.2 -3.4 0 Z`;
   return (
-    `<ellipse class="sh" cx="2" cy="2" rx="${f(R * 0.7)}" ry="${f(R * 0.18)}"/>` +
+    `<ellipse class="sh" cx="2" cy="2" rx="${f(R * 0.55)}" ry="${f(R * 0.15)}"/>` +
     `<path class="trunk" d="${trunk}"/>` +
     `<g class="bare">${branches.map((d) => `<path d="${d}"/>`).join('')}</g>` +
-    `<g class="lo"><circle cx="0" cy="${f(cy + 0.14 * R)}" r="${f(0.74 * R)}"/><circle cx="${f(-0.6 * R)}" cy="${f(cy + 0.34 * R)}" r="${f(0.46 * R)}"/></g>` +
-    `<g class="hi" opacity="0.7"><circle cx="${f(-0.2 * R)}" cy="${f(cy - 0.12 * R)}" r="${f(0.3 * R)}"/></g>` +
-    [-13, -5, 7, 14].map((lx, i) => `<circle class="litter" cx="${lx}" cy="${[-2, 1, -1, -3][i]}" r="1.3"/>`).join('')
+    [-11, -4, 5, 12].map((lx, i) => `<circle class="litter" cx="${lx}" cy="${[-2, 1, -1, -3][i]}" r="1.1"/>`).join('')
   );
 }
 

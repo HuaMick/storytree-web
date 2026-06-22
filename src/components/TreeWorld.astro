@@ -192,17 +192,21 @@ const filters = [
   .tw-cell.wheat { fill: #d6b271; }
 
   /* ---- WASTELAND (mock — not yet in the real system) ----
-     A story that's failing its checks scorches to blackened earth, ringed by ash
-     instead of sand: the eye is pulled straight to where the trouble is. */
-  .tw-isle.st-unhealthy .tw-shore { fill: #6b6159; stroke: #524841; }
-  .tw-ground.st-unhealthy .tw-cell { stroke: rgba(0,0,0,0.34); }
-  .tw-ground.st-unhealthy .tw-cell.v0 { fill: #3a342d; }
-  .tw-ground.st-unhealthy .tw-cell.v1 { fill: #2f2a24; }
-  .tw-ground.st-unhealthy .tw-cell.v2 { fill: #443d34; }
-  .tw-ground.st-unhealthy .tw-cell.wheat { fill: #2b2620; }
-  /* greenery on a wasteland island reads wrong — char the conifers + their snow */
-  .tw-terr.st-unhealthy .tw-conifer .body { fill: #4a4138; }
-  .tw-terr.st-unhealthy .tw-conifer .snow { fill: #6f655b; opacity: 0.5; }
+     A story that's failing its checks dries out to barren, scorched earth — dusty
+     tan with patches of ash and char, NOT a solid black slab — so the eye is drawn
+     to the trouble without the island going heavy and flat. */
+  .tw-isle.st-unhealthy .tw-shore { fill: #c4b48f; stroke: #a3946f; }
+  .tw-ground.st-unhealthy .tw-cell { stroke: rgba(70,55,35,0.30); }
+  .tw-ground.st-unhealthy .tw-cell.v0 { fill: #a3946f; }    /* dry tan — dominant */
+  .tw-ground.st-unhealthy .tw-cell.v1 { fill: #877a5c; }    /* khaki ash */
+  .tw-ground.st-unhealthy .tw-cell.v2 { fill: #6a5f4b; }    /* darker scorched patch */
+  .tw-ground.st-unhealthy .tw-cell.wheat { fill: #574d3d; } /* char patch (minority) */
+  /* greenery reads wrong on barren ground — dry the conifers, drop their snow,
+     and mute the dead-flower heads from red to a dead brown. */
+  .tw-terr.st-unhealthy .tw-conifer .body { fill: #7a6c52; }
+  .tw-terr.st-unhealthy .tw-conifer .snow { opacity: 0; }
+  .tw-terr.st-unhealthy .tw-flora .accent,
+  .tw-terr.st-unhealthy .tw-flora .dead-head { fill: #6f5a44; }
 
   .tw-road .bed { fill: none; stroke: #cdb285; stroke-width: 9; stroke-linecap: round; opacity: 0.4; }
   .tw-road .line { fill: none; stroke: #a98e5f; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 1 9; opacity: 0.7; }
