@@ -26,19 +26,20 @@ import TreeWorld from '../components/TreeWorld.astro';
   <!-- ───────────────────────── the live map, front and centre ───────────────────────── -->
   <section class="section--tight">
     <div class="wrap">
-      <p class="demo-lead">
-        Here's a whole system in storytree's map view — a made-up team-chat backend. Bigger trees have
-        more behind them; red is where a check is failing. <strong>Hover or tap a tree</strong> to
-        inspect a story, or click to pin it and light up everything it depends on.
-      </p>
       <TreeWorld />
 
       <div class="dive prose">
+        <p class="taster-eyebrow">Why build this way</p>
         <p>
-          That's the shape of it — a project grows as a map you can read instead of a wall of diffs,
-          and the work stays visible where it can be checked. There's a lot more underneath:
-          how the proof gates work, why a <a href="/landscape/">map of <em>intent</em> beats a mirror
-          of the code</a>, and what we're trying to prove by building this way.
+          Agents make code cheap. What gets expensive is <strong>seeing what they built</strong>,
+          <strong>trusting it's real</strong>, and keeping people and agents pointed the same way —
+          and a wall of diffs doesn't scale to any of that.
+        </p>
+        <p data-grounds="ADR-0020,ADR-0040">
+          So storytree makes the work a <a href="/landscape/">map of <em>intent</em></a> instead of a
+          mirror of the code, and nothing turns green on trust: green means a failing check was made
+          to pass and <strong>checked by a different actor than the one who did the work</strong>. The
+          map <em>is</em> the proof — and it stays in the open, where a person or an agent can check it.
         </p>
         <div class="hero__cta">
           <a class="btn btn--primary" href="/how-it-works/">See how it works →</a>
@@ -62,11 +63,13 @@ import TreeWorld from '../components/TreeWorld.astro';
   }
   .hero em { font-style: italic; color: var(--ink); }
 
-  .demo-lead { max-width: 44rem; color: var(--ink-soft); font-size: 1.02rem; margin: 0 0 0.5rem; }
-  .demo-lead strong { color: var(--ink); }
-
   .dive { margin-top: 1.9rem; max-width: 44rem; }
   .dive em { font-style: italic; }
+  .dive strong { color: var(--ink); font-weight: 650; }
+  .taster-eyebrow {
+    font: 650 0.72rem var(--font-body); letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--amber); margin: 0 0 0.55rem;
+  }
   .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.2rem; }
   .hero__note { margin-top: 1.1rem; font-size: 0.95rem; }
 </style>

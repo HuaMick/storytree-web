@@ -180,14 +180,29 @@ const filters = [
 
   /* ---- the world ---- */
   .tw-bg { fill: url(#tw-board); }
-  .tw-empty { fill: #f1e2da; stroke: #e3cec4; stroke-width: 1; }
-  .tw-tile .side { fill: #7c9354; }
-  .tw-tile .top { stroke: #8aa162; stroke-width: 0.7; }
-  .tw-tile .top.v0 { fill: #a9c87f; }
-  .tw-tile .top.v1 { fill: #9fc174; }
-  .tw-tile .top.v2 { fill: #b2cf8b; }
-  .tw-tile .top.wheat { fill: #d6b271; }
-  .tw-borders line { stroke: rgba(94,68,40,0.20); stroke-width: 0.8; }
+
+  /* smoothed organic shore — each island reads as one sandy landmass */
+  .tw-shore { fill: #ecdcb4; stroke: #ddc79a; stroke-width: 1; }
+
+  /* relaxed Townscaper land cells (flat, soft cell seams) */
+  .tw-cell { stroke: rgba(95,120,60,0.28); stroke-width: 0.7; stroke-linejoin: round; }
+  .tw-cell.v0 { fill: #a9c87f; }
+  .tw-cell.v1 { fill: #9fc174; }
+  .tw-cell.v2 { fill: #b2cf8b; }
+  .tw-cell.wheat { fill: #d6b271; }
+
+  /* ---- WASTELAND (mock — not yet in the real system) ----
+     A story that's failing its checks scorches to blackened earth, ringed by ash
+     instead of sand: the eye is pulled straight to where the trouble is. */
+  .tw-isle.st-unhealthy .tw-shore { fill: #6b6159; stroke: #524841; }
+  .tw-ground.st-unhealthy .tw-cell { stroke: rgba(0,0,0,0.34); }
+  .tw-ground.st-unhealthy .tw-cell.v0 { fill: #3a342d; }
+  .tw-ground.st-unhealthy .tw-cell.v1 { fill: #2f2a24; }
+  .tw-ground.st-unhealthy .tw-cell.v2 { fill: #443d34; }
+  .tw-ground.st-unhealthy .tw-cell.wheat { fill: #2b2620; }
+  /* greenery on a wasteland island reads wrong — char the conifers + their snow */
+  .tw-terr.st-unhealthy .tw-conifer .body { fill: #4a4138; }
+  .tw-terr.st-unhealthy .tw-conifer .snow { fill: #6f655b; opacity: 0.5; }
 
   .tw-road .bed { fill: none; stroke: #cdb285; stroke-width: 9; stroke-linecap: round; opacity: 0.4; }
   .tw-road .line { fill: none; stroke: #a98e5f; stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 1 9; opacity: 0.7; }
@@ -248,15 +263,19 @@ const filters = [
   .tw-hit:focus-visible { outline: 2.5px solid var(--amber); outline-offset: -3px; }
 
   /* ---- focus + filter states ---- */
-  .tw-terr, .tw-road { transition: opacity 0.18s ease; }
+  .tw-terr, .tw-road, .tw-ground, .tw-isle { transition: opacity 0.18s ease; }
   .tw-root.has-focus .tw-terr.is-dim { opacity: 0.28; }
   .tw-root.has-focus .tw-road.is-dim { opacity: 0.1; }
   .tw-road.is-anc .line { stroke: #b07d1f; opacity: 1; stroke-width: 2.7; stroke-dasharray: none; }
   .tw-road.is-desc .line { stroke: #b5544a; opacity: 1; stroke-width: 2.7; stroke-dasharray: none; }
-  .tw-root.hide-healthy .tw-terr.st-healthy, .tw-root.hide-healthy .tw-flora.st-healthy { opacity: 0.1 !important; }
-  .tw-root.hide-mapped .tw-terr.st-mapped, .tw-root.hide-mapped .tw-flora.st-mapped { opacity: 0.1 !important; }
-  .tw-root.hide-proposed .tw-terr.st-proposed, .tw-root.hide-proposed .tw-flora.st-proposed { opacity: 0.1 !important; }
-  .tw-root.hide-unhealthy .tw-terr.st-unhealthy, .tw-root.hide-unhealthy .tw-flora.st-unhealthy { opacity: 0.1 !important; }
+  .tw-root.hide-healthy .tw-terr.st-healthy, .tw-root.hide-healthy .tw-flora.st-healthy,
+  .tw-root.hide-healthy .tw-ground.st-healthy, .tw-root.hide-healthy .tw-isle.st-healthy { opacity: 0.1 !important; }
+  .tw-root.hide-mapped .tw-terr.st-mapped, .tw-root.hide-mapped .tw-flora.st-mapped,
+  .tw-root.hide-mapped .tw-ground.st-mapped, .tw-root.hide-mapped .tw-isle.st-mapped { opacity: 0.1 !important; }
+  .tw-root.hide-proposed .tw-terr.st-proposed, .tw-root.hide-proposed .tw-flora.st-proposed,
+  .tw-root.hide-proposed .tw-ground.st-proposed, .tw-root.hide-proposed .tw-isle.st-proposed { opacity: 0.1 !important; }
+  .tw-root.hide-unhealthy .tw-terr.st-unhealthy, .tw-root.hide-unhealthy .tw-flora.st-unhealthy,
+  .tw-root.hide-unhealthy .tw-ground.st-unhealthy, .tw-root.hide-unhealthy .tw-isle.st-unhealthy { opacity: 0.1 !important; }
 
   /* ---- inspector ---- */
   .tw-inspector { border-top: 1px solid var(--line); padding: 1.1rem 1.15rem 1.25rem; background: var(--surface); }

@@ -87,7 +87,13 @@ function rand01(seed: number): number {
 
 const HEX_R = 26; // centre -> corner
 const HEX_W = Math.sqrt(3) * HEX_R; // flat-to-flat width
-const DEPTH = 7; // tile extrusion below the top face
+const DEPTH = 7; // tile extrusion below the top face (legacy hex bounds only)
+
+// ---------- smoothed organic coastline (Chaikin) ----------
+const COAST_OUTSET = 7; // px the smoothed coast sits beyond the tiles — a thin beach
+const COAST_SMOOTH_ITERS = 2; // Chaikin passes: round the hex silhouette into an organic blob
+const COAST_NOISE_AMP = 0.5; // per-vertex outset wobble (fraction of COAST_OUTSET)
+const COAST_NOISE_WAVES = 3; // low-frequency lobes around the shore (gentle bays, not jaggedness)
 
 interface Axial { q: number; r: number; }
 interface Pt { x: number; y: number; }
@@ -126,12 +132,6 @@ function corners(cx: number, cy: number, R: number): Pt[] {
   }
   return out;
 }
-function hexPath(cx: number, cy: number, R: number): string {
-  return corners(cx, cy, R)
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-    .join(' ') + ' Z';
-}
-
 // ---------- graph helpers ----------
 
 const ALIVE: Record<Status, Status> = {
@@ -182,7 +182,6 @@ const treeReach = (crownR: number): number => 2.7 * crownR + 16;
 
 // ---------- view structures ----------
 
-interface Tile { d: string; side: string; owner: number; variant: number; wheat: boolean; }
 interface CapSpot { id: string; title: string; status: Status; x: number; y: number; variant: number; bloom: boolean; contracts: number; }
 interface DecorSpot { x: number; y: number; seed: number; }
 interface WispView { id: string; band: 'fresh' | 'stale'; workingOn: string; }
@@ -197,6 +196,7 @@ export interface Territory {
   capCount: number; contractTotal: number; weight: number; crownR: number; verdict?: Verdict;
   cx: number; cy: number; radius: number;
   treeX: number; treeY: number; labelY: number; plateW: number;
+  coastPaths: string[];
   caps: CapSpot[]; decor: DecorSpot[]; wisps: WispView[]; capDag: CapDag;
   bloom: boolean; sapling: boolean; young: boolean; withered: boolean;
   sealFilled: boolean;
@@ -209,7 +209,7 @@ interface Road { from: string; to: string; d: string; }
 export interface World {
   project: string;
   width: number; height: number; ox: number; oy: number;
-  tiles: Tile[]; coast: string[]; borders: Border[]; roads: Road[];
+  relaxedCells: RelaxedCell[]; roads: Road[];
   territories: Territory[];
   drawOrder: number[];
   stats: { stories: number; caps: number; contracts: number; proven: number; building: number; unhealthy: number; sessions: number };
@@ -259,6 +259,314 @@ function layoutCapDag(story: Story): CapDag {
     }
   }
   return { w, h, nodes, edges };
+}
+
+// ---------- smoothed organic coastline ----------
+// Turn a territory's raw, jagged hex-edge boundary into a soft, blobby shoreline
+// so each island reads as ONE landmass with a sandy rim instead of loose hexes
+// ringed by a hexagonal moat. Recreated from first principles (the studio forest
+// world's coast pass); pure deterministic geometry.
+
+function loopSignedArea(loop: Pt[]): number {
+  let a = 0;
+  for (let i = 0; i < loop.length; i++) {
+    const p = loop[i], q = loop[(i + 1) % loop.length];
+    if (p && q) a += p.x * q.y - q.x * p.y;
+  }
+  return a / 2;
+}
+
+/** Chain per-tile-edge boundary segments into ordered closed point loop(s). */
+function boundaryRingLoops(segs: Border[]): Pt[][] {
+  if (segs.length === 0) return [];
+  const k = (x: number, y: number): string => `${x.toFixed(1)},${y.toFixed(1)}`;
+  const adj = new Map<string, Border[]>();
+  const push = (kk: string, s: Border): void => {
+    const list = adj.get(kk);
+    if (list) list.push(s); else adj.set(kk, [s]);
+  };
+  for (const s of segs) { push(k(s.x1, s.y1), s); push(k(s.x2, s.y2), s); }
+  const used = new Set<Border>();
+  const loops: Pt[][] = [];
+  for (const start of segs) {
+    if (used.has(start)) continue;
+    used.add(start);
+    const startKey = k(start.x1, start.y1);
+    const loop: Pt[] = [{ x: start.x1, y: start.y1 }, { x: start.x2, y: start.y2 }];
+    let endKey = k(start.x2, start.y2);
+    for (let guard = 0; guard < segs.length && endKey !== startKey; guard++) {
+      const next = (adj.get(endKey) ?? []).find((s) => !used.has(s));
+      if (!next) break;
+      used.add(next);
+      const continues = k(next.x1, next.y1) === endKey;
+      const nx = continues ? next.x2 : next.x1;
+      const ny = continues ? next.y2 : next.y1;
+      loop.push({ x: nx, y: ny });
+      endKey = k(nx, ny);
+    }
+    const first = loop[0], last = loop[loop.length - 1];
+    if (first && last && Math.abs(first.x - last.x) < 0.5 && Math.abs(first.y - last.y) < 0.5) loop.pop();
+    loops.push(loop);
+  }
+  return loops;
+}
+
+/** Per-vertex beach width: a story-seeded low-frequency wave so each island gets
+ *  its own gentle bays and headlands instead of a uniform blob. */
+function jitteredOutset(storyId: string, i: number, n: number): number {
+  const theta = (i / Math.max(n, 1)) * Math.PI * 2;
+  const phase = rand01(hash(`${storyId}:coast:phase`)) * Math.PI * 2;
+  const wave = Math.sin(theta * COAST_NOISE_WAVES + phase);
+  const wobble = (rand01(hash(`${storyId}:coast:${i}`)) - 0.5) * 0.6;
+  return COAST_OUTSET * (1 + COAST_NOISE_AMP * (0.7 * wave + wobble));
+}
+
+/** Push every vertex of a closed loop outward along its averaged edge normals. */
+function outsetLoop(loop: Pt[], distOf: (i: number) => number): Pt[] {
+  const n = loop.length;
+  if (n < 3) return loop;
+  const sign = loopSignedArea(loop) > 0 ? 1 : -1;
+  const edgeNormal = (a: Pt, b: Pt): Pt => {
+    const ex = b.x - a.x, ey = b.y - a.y;
+    const len = Math.hypot(ex, ey) || 1;
+    return { x: (sign * ey) / len, y: (-sign * ex) / len };
+  };
+  const out: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const prev = loop[(i - 1 + n) % n], cur = loop[i], nxt = loop[(i + 1) % n];
+    if (!prev || !cur || !nxt) continue;
+    const n1 = edgeNormal(prev, cur), n2 = edgeNormal(cur, nxt);
+    let mx = n1.x + n2.x, my = n1.y + n2.y;
+    const len = Math.hypot(mx, my) || 1;
+    mx /= len; my /= len;
+    const dist = distOf(i);
+    out.push({ x: cur.x + mx * dist, y: cur.y + my * dist });
+  }
+  return out;
+}
+
+/** Chaikin corner-cutting on a closed loop — rounds the hex silhouette into a blob. */
+function chaikinClosed(loop: Pt[], iterations: number): Pt[] {
+  let cur = loop;
+  for (let it = 0; it < iterations && cur.length >= 3; it++) {
+    const n = cur.length;
+    const next: Pt[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = cur[i], b = cur[(i + 1) % n];
+      if (!a || !b) continue;
+      next.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+      next.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
+    }
+    cur = next;
+  }
+  return cur;
+}
+
+/** A cusp-free closed SVG path through a loop's edge midpoints (vertices as control points). */
+function smoothLoopPath(loop: Pt[]): string {
+  const n = loop.length;
+  if (n < 3) return '';
+  const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const last = loop[n - 1], first = loop[0];
+  if (!last || !first) return '';
+  const m0 = mid(last, first);
+  let d = `M ${m0.x.toFixed(1)} ${m0.y.toFixed(1)}`;
+  for (let i = 0; i < n; i++) {
+    const c = loop[i], nxt = loop[(i + 1) % n];
+    if (!c || !nxt) continue;
+    const m = mid(c, nxt);
+    d += ` Q ${c.x.toFixed(1)} ${c.y.toFixed(1)} ${m.x.toFixed(1)} ${m.y.toFixed(1)}`;
+  }
+  return `${d} Z`;
+}
+
+/** Raw hex-edge boundary segments → smooth organic coastline `d` strings. */
+function smoothCoast(segs: Border[], storyId: string): string[] {
+  return boundaryRingLoops(segs).map((l) =>
+    smoothLoopPath(
+      chaikinClosed(outsetLoop(l, (i) => jitteredOutset(storyId, i, l.length)), COAST_SMOOTH_ITERS),
+    ),
+  );
+}
+
+// ---------- relaxed Townscaper mesh substrate ----------
+// The studio's current default world look (owner look-decision 2026-06-16),
+// recreated here: triangulate each hex, MERGE adjacent triangle pairs into quads
+// ACROSS hex boundaries, subdivide to all-quads, then jitter + Laplacian-relax
+// with the island silhouette pinned. The random cross-hex merge dissolves the hex
+// lattice so each island reads as one organic, cobbled landmass. Deterministic
+// throughout (hash/rand01 only) so the world ships identically as static HTML.
+
+export interface RelaxedCell { owner: number; poly: Pt[]; variant: number; wheat: boolean; }
+interface SubstrateTuning { jitter: number; iters: number; relax: number; wheatScatter: boolean; subdiv: number; }
+const MESH_TUNING: SubstrateTuning = { jitter: 0.42, iters: 3, relax: 0.34, wheatScatter: true, subdiv: 1 };
+
+const VKEY = (p: Pt): string => `${Math.round(p.x * 10)},${Math.round(p.y * 10)}`;
+
+/** Jitter (deterministically) then Laplacian-relax a vertex mesh in place; pinned verts hold the shore. */
+function relaxVerts(
+  verts: Pt[], adj: Set<number>[], pinned: Set<number>,
+  opts: { jitterMag: number; iters: number; relax: number },
+): void {
+  const orig = verts.map((p) => VKEY(p));
+  for (let i = 0; i < verts.length; i++) {
+    if (pinned.has(i)) continue;
+    const p = verts[i];
+    if (!p) continue;
+    const ang = rand01(hash(`jx:${orig[i]}`)) * Math.PI * 2;
+    const mag = rand01(hash(`jm:${orig[i]}`)) * opts.jitterMag;
+    p.x += Math.cos(ang) * mag;
+    p.y += Math.sin(ang) * mag;
+  }
+  for (let it = 0; it < opts.iters; it++) {
+    const next = verts.map((p) => ({ x: p.x, y: p.y }));
+    for (let i = 0; i < verts.length; i++) {
+      if (pinned.has(i)) continue;
+      const ns = adj[i], cur = verts[i], nx = next[i];
+      if (!ns || !cur || !nx || ns.size === 0) continue;
+      let sx = 0, sy = 0;
+      for (const j of ns) { const q = verts[j]; if (q) { sx += q.x; sy += q.y; } }
+      nx.x = cur.x + (sx / ns.size - cur.x) * opts.relax;
+      nx.y = cur.y + (sy / ns.size - cur.y) * opts.relax;
+    }
+    for (let i = 0; i < verts.length; i++) {
+      const cur = verts[i], nx = next[i];
+      if (cur && nx) { cur.x = nx.x; cur.y = nx.y; }
+    }
+  }
+}
+
+/** Build the relaxed quad-mesh cells for the whole map (ownership = source hex's territory). */
+function buildMeshCells(
+  drawTiles: { h: Axial; owner: number }[], wheatSets: Set<string>[], t: SubstrateTuning,
+): RelaxedCell[] {
+  const verts: Pt[] = [];
+  const vId = new Map<string, number>();
+  const adj: Set<number>[] = [];
+  const intern = (p: Pt): number => {
+    const kk = VKEY(p);
+    let id = vId.get(kk);
+    if (id === undefined) { id = verts.length; verts.push({ x: p.x, y: p.y }); vId.set(kk, id); adj.push(new Set()); }
+    return id;
+  };
+  const eKey = (a: number, b: number): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
+  // 1. Triangulate every hex into 6 triangles over a shared vertex pool.
+  interface Tri { v: [number, number, number]; owner: number; }
+  const tris: Tri[] = [];
+  const triEdges = new Map<string, number[]>();
+  for (const { h: hx, owner } of drawTiles) {
+    const c = center(hx);
+    const oid = intern(c);
+    const cornerIds = corners(c.x, c.y, HEX_R).map(intern);
+    for (let i = 0; i < 6; i++) {
+      const a = cornerIds[i] ?? 0;
+      const b = cornerIds[(i + 1) % 6] ?? 0;
+      const ti = tris.length;
+      tris.push({ v: [oid, a, b], owner });
+      for (const [x, y] of [[oid, a], [a, b], [b, oid]] as const) {
+        const kk = eKey(x, y);
+        let arr = triEdges.get(kk);
+        if (!arr) { arr = []; triEdges.set(kk, arr); }
+        arr.push(ti);
+      }
+    }
+  }
+
+  // 2. Greedy deterministic pairing of same-owner triangles sharing an edge.
+  const partner = new Int32Array(tris.length).fill(-1);
+  interface Cand { ti: number; tj: number; rank: number; }
+  const cands: Cand[] = [];
+  for (const [kk, arr] of triEdges) {
+    if (arr.length !== 2) continue;
+    const ti = arr[0] ?? 0, tj = arr[1] ?? 0;
+    if ((tris[ti]?.owner ?? -1) !== (tris[tj]?.owner ?? -2)) continue;
+    cands.push({ ti, tj, rank: hash(`merge:${kk}`) });
+  }
+  cands.sort((p, q) => p.rank - q.rank || p.ti - q.ti || p.tj - q.tj);
+  for (const cd of cands) {
+    if (partner[cd.ti] === -1 && partner[cd.tj] === -1) { partner[cd.ti] = cd.tj; partner[cd.tj] = cd.ti; }
+  }
+
+  // 3. Subdivide into all-quads over the shared, watertight mesh.
+  const levels = Math.max(1, Math.round(t.subdiv));
+  const edgeUse = new Map<string, number>();
+  const link = (a: number, b: number): void => {
+    adj[a]?.add(b); adj[b]?.add(a);
+    const kk = eKey(a, b);
+    edgeUse.set(kk, (edgeUse.get(kk) ?? 0) + 1);
+  };
+  interface Cell { ids: number[]; owner: number; hkey: string; }
+  const cells: Cell[] = [];
+  const mid = (a: number, b: number): number => {
+    const pa = verts[a] ?? { x: 0, y: 0 }, pb = verts[b] ?? { x: 0, y: 0 };
+    return intern({ x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 });
+  };
+  const centroidId = (ids: number[]): number => {
+    let x = 0, y = 0;
+    for (const id of ids) { const p = verts[id] ?? { x: 0, y: 0 }; x += p.x; y += p.y; }
+    return intern({ x: x / ids.length, y: y / ids.length });
+  };
+  const emit = (ids: number[], owner: number): void => {
+    let cx = 0, cy = 0;
+    for (const id of ids) { const p = verts[id] ?? { x: 0, y: 0 }; cx += p.x; cy += p.y; }
+    const hkey = key(pixelToHex({ x: cx / ids.length, y: cy / ids.length }));
+    cells.push({ ids, owner, hkey });
+    for (let i = 0; i < ids.length; i++) link(ids[i] ?? 0, ids[(i + 1) % ids.length] ?? 0);
+  };
+  const subdivQuad = (q: number[], owner: number, lv: number): void => {
+    if (lv <= 0) { emit(q, owner); return; }
+    const [p0, p1, p2, p3] = q as [number, number, number, number];
+    const g = centroidId(q);
+    const m01 = mid(p0, p1), m12 = mid(p1, p2), m23 = mid(p2, p3), m30 = mid(p3, p0);
+    subdivQuad([p0, m01, g, m30], owner, lv - 1);
+    subdivQuad([m01, p1, m12, g], owner, lv - 1);
+    subdivQuad([g, m12, p2, m23], owner, lv - 1);
+    subdivQuad([m30, g, m23, p3], owner, lv - 1);
+  };
+  const subdivTri = (tri: number[], owner: number, lv: number): void => {
+    const [a, b, c] = tri as [number, number, number];
+    const g = centroidId(tri);
+    const mab = mid(a, b), mbc = mid(b, c), mca = mid(c, a);
+    subdivQuad([a, mab, g, mca], owner, lv - 1);
+    subdivQuad([b, mbc, g, mab], owner, lv - 1);
+    subdivQuad([c, mca, g, mbc], owner, lv - 1);
+  };
+  for (let ti = 0; ti < tris.length; ti++) {
+    const tA = tris[ti];
+    if (!tA) continue;
+    const pj = partner[ti] ?? -1;
+    if (pj === -1) {
+      subdivTri(tA.v, tA.owner, levels);
+    } else if (ti < pj) {
+      const tB = tris[pj];
+      if (!tB) continue;
+      const shared = tA.v.filter((x) => tB.v.includes(x));
+      const a = shared[0] ?? 0, b = shared[1] ?? 0;
+      const p = tA.v.find((x) => x !== a && x !== b) ?? a;
+      const q = tB.v.find((x) => x !== a && x !== b) ?? b;
+      subdivQuad([p, a, q, b], tA.owner, levels);
+    }
+  }
+
+  // 4. Pin the silhouette (edges used once), then jitter + relax the interior.
+  const pinned = new Set<number>();
+  for (const [kk, nn] of edgeUse) {
+    if (nn === 1) { const parts = kk.split('|'); pinned.add(Number(parts[0])); pinned.add(Number(parts[1])); }
+  }
+  relaxVerts(verts, adj, pinned, { jitterMag: HEX_R * t.jitter, iters: t.iters, relax: t.relax });
+
+  return cells.map((cell) => {
+    const isWheatHex = wheatSets[cell.owner]?.has(cell.hkey) ?? false;
+    const cellKey = cell.ids.join(',');
+    const wheat = isWheatHex && (!t.wheatScatter || rand01(hash(`mesh-wheat:${cell.hkey}:${cellKey}`)) < 0.72);
+    return {
+      owner: cell.owner,
+      poly: cell.ids.map((id) => verts[id] ?? { x: 0, y: 0 }),
+      variant: hash(`mesh-cell:${cellKey}`) % 3,
+      wheat,
+    };
+  });
 }
 
 // ---------- build ----------
@@ -378,6 +686,7 @@ export function buildWorld(data: Dataset): World {
   }
 
   // per-territory geometry + contents
+  const wheatSets: Set<string>[] = stories.map(() => new Set<string>());
   const territories: Territory[] = stories.map((story, i) => {
     const cs = tiles[i].map(center);
     const cx = cs.reduce((s, p) => s + p.x, 0) / cs.length;
@@ -419,7 +728,7 @@ export function buildWorld(data: Dataset): World {
       if (roll < 0.3 && !near) decor.push({ x: c.x, y: c.y, seed: hash(`${key(tile)}:f`) });
       else if (roll >= 0.3 && roll < 0.55) wheat.add(key(tile));
     }
-    (story as any).__wheat = wheat;
+    wheatSets[i] = wheat;
 
     const labelY = Math.max(...cs.map((p) => p.y), cy) + HEX_R + DEPTH + 7;
     const witnessSessions = sessions.filter((se) =>
@@ -432,6 +741,7 @@ export function buildWorld(data: Dataset): World {
       i, id: story.id, title: story.title, outcome: story.outcome,
       status: story.status, vis, witness: story.witness, capCount: caps.length, contractTotal: weight, weight, crownR, verdict: story.verdict,
       cx, cy, radius, treeX: tp.x, treeY: tp.y, labelY, plateW: Math.max(110, story.title.length * 7.6 + 26),
+      coastPaths: [],
       caps: capSpots, decor, wisps, capDag: layoutCapDag(story),
       bloom, sapling: caps.length === 0 && vis !== 'unhealthy', young: vis === 'proposed' && caps.length > 0, withered: vis === 'unhealthy',
       sealFilled: story.witness === 'human' && !!story.verdict && story.verdict.outcome === 'pass',
@@ -442,59 +752,29 @@ export function buildWorld(data: Dataset): World {
     };
   });
 
-  // draw tiles back-to-front; tag grass variant + wheat
-  const drawTiles: Tile[] = [...owner.entries()]
-    .map(([k, idx]) => {
-      const parts = k.split(',');
-      const h = { q: Number(parts[0]), r: Number(parts[1]) };
-      const c = center(h);
-      const wheatSet: Set<string> = (stories[idx] as any).__wheat ?? new Set();
-      return {
-        h, owner: idx,
-        d: hexPath(c.x, c.y, HEX_R),
-        side: hexPath(c.x, c.y + DEPTH, HEX_R),
-        variant: hash(`tile:${k}`) % 3,
-        wheat: wheatSet.has(k),
-      };
-    })
-    .sort((a, b) => a.h.r - b.h.r || a.h.q - b.h.q)
-    .map(({ d, side, owner, variant, wheat }) => ({ d, side, owner, variant, wheat }));
-
-  // coast: up to two thinned rings of empty hexes
-  const coast: string[] = [];
-  const emptySet = new Set<string>();
-  let ring: Axial[] = [...owner.keys()].map((k) => {
-    const p = k.split(','); return { q: Number(p[0]), r: Number(p[1]) };
+  // relaxed Townscaper mesh: every claimed hex as an axial + owner pair, dissolved
+  // into one organic, cobbled landmass per territory (the studio's default look).
+  const meshInput = [...owner.entries()].map(([k, idx]) => {
+    const parts = k.split(',');
+    return { h: { q: Number(parts[0]), r: Number(parts[1]) } as Axial, owner: idx };
   });
-  for (let depth = 0; depth < 2; depth++) {
-    const next: Axial[] = [];
-    for (const t of ring) {
-      for (const d of DIRS) {
-        const cand = { q: t.q + d.q, r: t.r + d.r };
-        const k = key(cand);
-        if (owner.has(k) || emptySet.has(k)) continue;
-        if (depth === 1 && rand01(hash(`coast:${k}`)) < 0.5) continue;
-        emptySet.add(k);
-        const c = center(cand);
-        coast.push(hexPath(c.x, c.y, HEX_R - 0.6));
-        next.push(cand);
-      }
-    }
-    ring = next;
-  }
+  const relaxedCells = buildMeshCells(meshInput, wheatSets, MESH_TUNING);
 
-  // territory borders (edges adjacent to foreign / empty soil)
-  const borders: Border[] = [];
+  // smoothed organic coastline per territory: chain the hex-edge boundary into a
+  // ring, outset a beach margin, Chaikin-round it into a soft sandy shore.
   for (let i = 0; i < n; i++) {
     const mine = new Set(tiles[i].map(key));
+    const segs: Border[] = [];
     for (const tile of tiles[i]) {
       const c = center(tile);
       const cor = corners(c.x, c.y, HEX_R);
       DIRS.forEach((d, e) => {
         if (mine.has(key({ q: tile.q + d.q, r: tile.r + d.r }))) return;
-        borders.push({ x1: cor[e].x, y1: cor[e].y, x2: cor[(e + 1) % 6].x, y2: cor[(e + 1) % 6].y });
+        const a = cor[e], b = cor[(e + 1) % 6];
+        if (a && b) segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       });
     }
+    territories[i].coastPaths = smoothCoast(segs, stories[i].id);
   }
 
   // roads (dep -> dependent), bowed for multi-rank spans
@@ -517,11 +797,10 @@ export function buildWorld(data: Dataset): World {
     return { from, to, d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}` };
   });
 
-  // bounds
+  // bounds (the smoothed coast extends only ~COAST_OUTSET beyond the land, well inside MARGIN)
   const tileCenters: Pt[] = [];
   for (const [k] of owner) { const p = k.split(','); tileCenters.push(center({ q: Number(p[0]), r: Number(p[1]) })); }
-  for (const k of emptySet) { const p = k.split(','); tileCenters.push(center({ q: Number(p[0]), r: Number(p[1]) })); }
-  const MARGIN = 54;
+  const MARGIN = 56;
   const minX = Math.min(...tileCenters.map((p) => p.x)) - HEX_W / 2 - MARGIN;
   const maxX = Math.max(...tileCenters.map((p) => p.x)) + HEX_W / 2 + MARGIN;
   const minY = Math.min(
@@ -541,7 +820,7 @@ export function buildWorld(data: Dataset): World {
   return {
     project: data.project,
     width: Math.ceil(maxX - minX), height: Math.ceil(maxY - minY), ox: -minX, oy: -minY,
-    tiles: drawTiles, coast, borders, roads, territories, drawOrder,
+    relaxedCells, roads, territories, drawOrder,
     stats: { stories: n, caps, contracts: contractsTotal, proven, building, unhealthy, sessions: sessions.length },
   };
 }

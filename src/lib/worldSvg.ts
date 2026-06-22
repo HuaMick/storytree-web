@@ -219,14 +219,26 @@ function territoryGroup(t: Territory): string {
 // ---------- the whole scene ----------
 
 export function renderWorld(w: World): string {
-  const land = w.tiles.map((t) =>
-    `<g class="tw-tile">` +
-    `<path class="side" d="${t.side}"/>` +
-    `<path class="top ${t.wheat ? 'wheat' : 'v' + t.variant}" d="${t.d}"/></g>`,
+  const polyD = (pts: { x: number; y: number }[]): string =>
+    pts.length ? pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${f(p.x)} ${f(p.y)}`).join(' ') + ' Z' : '';
+
+  // smoothed organic shore under each island (so it reads as one landmass)
+  const coast = w.territories.map((t) =>
+    t.coastPaths.length
+      ? `<g class="tw-isle st-${t.vis}" data-id="${esc(t.id)}">` +
+        t.coastPaths.map((d) => `<path class="tw-shore" d="${d}"/>`).join('') + `</g>`
+      : '',
   ).join('');
 
-  const coast = w.coast.map((d) => `<path class="tw-empty" d="${d}"/>`).join('');
-  const borders = w.borders.map((b) => `<line x1="${f(b.x1)}" y1="${f(b.y1)}" x2="${f(b.x2)}" y2="${f(b.y2)}"/>`).join('');
+  // relaxed Townscaper land cells, grouped per territory (status drives the palette)
+  const land = w.territories.map((t, owner) => {
+    const cells = w.relaxedCells.filter((c) => c.owner === owner);
+    if (!cells.length) return '';
+    return `<g class="tw-ground st-${t.vis}" data-id="${esc(t.id)}">` +
+      cells.map((c) => `<path class="tw-cell ${c.wheat ? 'wheat' : 'v' + c.variant}" d="${polyD(c.poly)}"/>`).join('') +
+      `</g>`;
+  }).join('');
+
   const roads = w.roads.map((e) =>
     `<g class="tw-road" data-from="${esc(e.from)}" data-to="${esc(e.to)}">` +
     `<path class="bed" d="${e.d}"/><path class="line" d="${e.d}" marker-end="url(#tw-arrow)"/></g>`,
@@ -250,9 +262,8 @@ export function renderWorld(w: World): string {
     `</defs>` +
     `<rect class="tw-bg" x="0" y="0" width="${w.width}" height="${w.height}"/>` +
     `<g transform="translate(${f(w.ox)} ${f(w.oy)})">` +
-    `<g class="tw-coast">${coast}</g>` +
+    `<g class="tw-coast-layer">${coast}</g>` +
     `<g class="tw-land">${land}</g>` +
-    `<g class="tw-borders">${borders}</g>` +
     `<g class="tw-roads">${roads}</g>` +
     `<g class="tw-flora-layer">${flora}</g>` +
     `<g class="tw-hits">${hits}</g>` +
