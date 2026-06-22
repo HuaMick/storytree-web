@@ -1,0 +1,302 @@
+---
+// ---------------------------------------------------------------------------
+// AgentMaze — a build-time-generated maze with two agents navigating it: one
+// carrying storytree's MAP (it heads straight to the goal), one WITHOUT (it
+// wanders, hits dead ends, backtracks, and gets desperate — "thrashing"). The
+// maze, the solution route and the wander route are all computed deterministically
+// at build time (seeded — identical every visit, ships as static HTML). Motion is
+// pure CSS keyframes, so it honours the site's global prefers-reduced-motion rule
+// (it freezes on a sensible final frame: map-agent at the goal, no-map-agent
+// stranded). Original art — nothing copied from the studio.
+// ---------------------------------------------------------------------------
+
+const COLS = 8, ROWS = 5, CELL = 64, PAD = 26, TOP = 60;
+const W = PAD * 2 + COLS * CELL;
+const H = TOP + PAD + ROWS * CELL;
+
+const idx = (c: number, r: number) => r * COLS + c;
+const cx = (c: number) => PAD + c * CELL + CELL / 2;
+const cy = (r: number) => TOP + r * CELL + CELL / 2;
+const inGrid = (c: number, r: number) => c >= 0 && c < COLS && r >= 0 && r < ROWS;
+
+// deterministic RNG (FNV-1a seed → mulberry32) so the maze is stable every build
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(a: number): () => number {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(hash('storytree-maze-v3'));
+
+// ---- carve a perfect maze (recursive backtracker) ----
+type Walls = { n: boolean; e: boolean; s: boolean; w: boolean };
+const walls: Walls[] = Array.from({ length: COLS * ROWS }, () => ({ n: true, e: true, s: true, w: true }));
+const seen0 = new Array(COLS * ROWS).fill(false);
+const startC = 0, startR = ROWS - 1;
+const goalC = COLS - 1, goalR = 0;
+
+(function carve() {
+  const stack: [number, number][] = [[startC, startR]];
+  seen0[idx(startC, startR)] = true;
+  while (stack.length) {
+    const [c, r] = stack[stack.length - 1]!;
+    const opts: [number, number, keyof Walls][] = [];
+    if (inGrid(c, r - 1) && !seen0[idx(c, r - 1)]) opts.push([c, r - 1, 'n']);
+    if (inGrid(c + 1, r) && !seen0[idx(c + 1, r)]) opts.push([c + 1, r, 'e']);
+    if (inGrid(c, r + 1) && !seen0[idx(c, r + 1)]) opts.push([c, r + 1, 's']);
+    if (inGrid(c - 1, r) && !seen0[idx(c - 1, r)]) opts.push([c - 1, r, 'w']);
+    if (!opts.length) { stack.pop(); continue; }
+    const [nc, nr, dir] = opts[Math.floor(rand() * opts.length)]!;
+    const a = walls[idx(c, r)]!, b = walls[idx(nc, nr)]!;
+    if (dir === 'n') { a.n = false; b.s = false; }
+    else if (dir === 'e') { a.e = false; b.w = false; }
+    else if (dir === 's') { a.s = false; b.n = false; }
+    else { a.w = false; b.e = false; }
+    seen0[idx(nc, nr)] = true;
+    stack.push([nc, nr]);
+  }
+})();
+
+const open = (c: number, r: number, dir: keyof Walls) => !walls[idx(c, r)]![dir];
+function neighbours(c: number, r: number): [number, number][] {
+  const out: [number, number][] = [];
+  if (open(c, r, 'n')) out.push([c, r - 1]);
+  if (open(c, r, 'e')) out.push([c + 1, r]);
+  if (open(c, r, 's')) out.push([c, r + 1]);
+  if (open(c, r, 'w')) out.push([c - 1, r]);
+  return out;
+}
+
+// ---- the map-agent's route: shortest path start → goal (BFS) ----
+function solve(): [number, number][] {
+  const prev = new Map<number, number>();
+  const q: [number, number][] = [[startC, startR]];
+  const seen = new Set<number>([idx(startC, startR)]);
+  while (q.length) {
+    const [c, r] = q.shift()!;
+    if (c === goalC && r === goalR) break;
+    for (const [nc, nr] of neighbours(c, r)) {
+      if (!seen.has(idx(nc, nr))) { seen.add(idx(nc, nr)); prev.set(idx(nc, nr), idx(c, r)); q.push([nc, nr]); }
+    }
+  }
+  const path: [number, number][] = [];
+  let cur = idx(goalC, goalR);
+  while (true) {
+    path.unshift([cur % COLS, Math.floor(cur / COLS)]);
+    if (cur === idx(startC, startR)) break;
+    const p = prev.get(cur);
+    if (p === undefined) break;
+    cur = p;
+  }
+  return path;
+}
+
+// ---- the no-map-agent's route: a DFS walk that explores AWAY from the goal
+// first, recording each step AND each backtrack — so it reads as getting lost.
+// Never steps onto the goal; truncated so it ends stranded mid-maze. ----
+function wander(maxLen: number): [number, number][] {
+  const seen = new Set<number>([idx(startC, startR)]);
+  const stack: [number, number][] = [[startC, startR]];
+  const tour: [number, number][] = [[startC, startR]];
+  const dist = (c: number, r: number) => Math.abs(c - goalC) + Math.abs(r - goalR);
+  while (stack.length && tour.length < maxLen) {
+    const [c, r] = stack[stack.length - 1]!;
+    const cand = neighbours(c, r)
+      .filter(([nc, nr]) => !seen.has(idx(nc, nr)) && !(nc === goalC && nr === goalR))
+      .sort((a, b) => dist(b[0], b[1]) - dist(a[0], a[1]) || rand() - 0.5);
+    const next = cand[0];
+    if (!next) { stack.pop(); const top = stack[stack.length - 1]; if (top) tour.push(top); continue; }
+    seen.add(idx(next[0], next[1]));
+    stack.push(next);
+    tour.push(next);
+  }
+  return tour;
+}
+
+const toPts = (cells: [number, number][]) => cells.map(([c, r]) => ({ x: +cx(c).toFixed(1), y: +cy(r).toFixed(1) }));
+const solPts = toPts(solve());
+const wanderPts = toPts(wander(20));
+const solD = solPts.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ');
+
+// ---- CSS travel keyframes from the routes (the only dynamic style) ----
+function travelKf(name: string, pts: { x: number; y: number }[], endPct: number, thrash: boolean): string {
+  const n = pts.length;
+  const last = pts[n - 1]!;
+  let frames = pts
+    .map((p, i) => `  ${((i / Math.max(n - 1, 1)) * endPct).toFixed(2)}% { transform: translate(${p.x}px, ${p.y}px); }`)
+    .join('\n');
+  if (thrash) {
+    // a stuck wobble at the dead end — "thrashing in place"
+    frames += `\n  ${(endPct + 4).toFixed(2)}% { transform: translate(${(last.x - 4).toFixed(1)}px, ${(last.y + 3).toFixed(1)}px); }`;
+    frames += `\n  ${(endPct + 9).toFixed(2)}% { transform: translate(${(last.x + 4).toFixed(1)}px, ${(last.y - 2).toFixed(1)}px); }`;
+    frames += `\n  ${(endPct + 14).toFixed(2)}% { transform: translate(${(last.x - 2).toFixed(1)}px, ${(last.y - 3).toFixed(1)}px); }`;
+  }
+  frames += `\n  100% { transform: translate(${last.x}px, ${last.y}px); }`;
+  return `@keyframes ${name} {\n${frames}\n}`;
+}
+const kf = travelKf('am-travel-map', solPts, 64, false) + '\n' + travelKf('am-travel-nomap', wanderPts, 80, true);
+
+// ---- wall segments (deduped); open the entrance (left of start) + exit (right of goal) ----
+const segs = new Set<string>();
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+  const wl = walls[idx(c, r)]!;
+  const x0 = PAD + c * CELL, y0 = TOP + r * CELL;
+  const add = (x1: number, y1: number, x2: number, y2: number) => segs.add([x1, y1, x2, y2].join(','));
+  if (wl.n) add(x0, y0, x0 + CELL, y0);
+  if (wl.w) add(x0, y0, x0, y0 + CELL);
+  if (wl.e) add(x0 + CELL, y0, x0 + CELL, y0 + CELL);
+  if (wl.s) add(x0, y0 + CELL, x0 + CELL, y0 + CELL);
+}
+segs.delete([PAD + startC * CELL, TOP + startR * CELL, PAD + startC * CELL, TOP + startR * CELL + CELL].join(','));
+segs.delete([PAD + goalC * CELL + CELL, TOP + goalR * CELL, PAD + goalC * CELL + CELL, TOP + goalR * CELL + CELL].join(','));
+const wallSegs = [...segs].map((s) => s.split(',').map(Number) as [number, number, number, number]);
+
+const startX = cx(startC), startY = cy(startR);
+const goalX = cx(goalC), goalY = cy(goalR);
+
+const mapBubbles = [
+  { cls: 'am-mb1', t: 'I have the map', w: 110 },
+  { cls: 'am-mb2', t: 'skip — proven', w: 108 },
+  { cls: 'am-mb3', t: 'found it ✓', w: 92 },
+];
+const nomapBubbles = [
+  { cls: 'am-nb1', t: 'more context?', w: 112, danger: false },
+  { cls: 'am-nb2', t: 'seen this…', w: 90, danger: false },
+  { cls: 'am-nb3', t: 'dead end again', w: 122, danger: false },
+  { cls: 'am-nb4', t: 'just delete the test?!', w: 162, danger: true },
+];
+---
+
+<figure class="am-root">
+  <svg class="am-svg" viewBox={`0 0 ${W} ${H}`} role="img"
+       aria-label="Two AI agents in a maze. One carries storytree's map and goes straight to the goal; the other has no map and wanders into dead ends, backtracking and getting stuck.">
+    <defs>
+      <filter id="am-shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="1.4" stdDeviation="1.6" flood-color="#3a2a12" flood-opacity="0.18" />
+      </filter>
+    </defs>
+
+    <rect class="am-panel" x="0.5" y="0.5" width={W - 1} height={H - 1} rx="14" />
+
+    <g class="am-walls">
+      {wallSegs.map(([x1, y1, x2, y2]) => <line x1={x1} y1={y1} x2={x2} y2={y2} />)}
+    </g>
+
+    <!-- the map-agent's known route -->
+    <path class="am-trail" d={solD} />
+
+    <text class="am-tag" x={startX} y={H - 8}>start</text>
+
+    <g class="am-goal" transform={`translate(${goalX} ${goalY})`}>
+      <circle class="am-goal-ring" r="17" />
+      <circle class="am-goal-dot" r="6" />
+      <text class="am-tag am-goal-tag" x="0" y="-24">the code it needs</text>
+    </g>
+
+    <!-- agent WITH the map -->
+    <g class="am-agent am-agent-map" transform={`translate(${startX} ${startY})`}>
+      <circle class="am-glow am-glow-map" r="13" />
+      <circle class="am-dot am-dot-map" cx="-5" r="8" />
+      <g class="am-mapicon" transform="translate(7 -2)">
+        <rect class="am-mi-bg" x="-1" y="-6" width="14" height="12" rx="1.5" />
+        <path class="am-mi-fold" d="M 3.3 -6 L 3.3 6 M 8 -6 L 8 6" />
+      </g>
+      {mapBubbles.map((b) => (
+        <g class={`am-bubble ${b.cls}`}>
+          <rect class="am-bub" x={-b.w / 2} y="-48" width={b.w} height="30" rx="9" />
+          <path class="am-bub-tail" d="M -7 -19 L 7 -19 L 0 -6 Z" />
+          <text class="am-bub-tx" x="0" y="-33">{b.t}</text>
+        </g>
+      ))}
+    </g>
+
+    <!-- agent WITHOUT a map -->
+    <g class="am-agent am-agent-nomap" transform={`translate(${startX} ${startY})`}>
+      <circle class="am-glow am-glow-nomap" r="13" />
+      <circle class="am-dot am-nomap-dot" cx="5" r="8" />
+      {nomapBubbles.map((b) => (
+        <g class={`am-bubble ${b.cls}`}>
+          <rect class="am-bub" x={-b.w / 2} y="-48" width={b.w} height="30" rx="9" />
+          <path class="am-bub-tail" d="M -7 -19 L 7 -19 L 0 -6 Z" />
+          <text class={`am-bub-tx ${b.danger ? 'am-danger' : ''}`} x="0" y="-33">{b.t}</text>
+        </g>
+      ))}
+    </g>
+  </svg>
+
+  <figcaption class="am-cap">
+    <span class="am-leg"><span class="am-key am-key-map"></span> with the map — straight to it</span>
+    <span class="am-leg"><span class="am-key am-key-nomap"></span> no map — lost in the context, thrashing</span>
+  </figcaption>
+</figure>
+
+<style is:global set:html={kf}></style>
+
+<style is:global>
+  .am-root { margin: 1.5rem 0 0; }
+  .am-svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+  .am-panel { fill: #fdf6ec; stroke: var(--line); stroke-width: 1; }
+  .am-walls line { stroke: #b58a57; stroke-width: 4; stroke-linecap: round; opacity: 0.85; }
+
+  .am-trail { fill: none; stroke: var(--evergreen); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 0.5 9; opacity: 0.4; }
+
+  .am-tag { font: 600 12px var(--font-body); fill: var(--ink-faint); text-anchor: middle; }
+  .am-goal-tag { fill: var(--evergreen-deep); }
+  .am-goal-ring { fill: none; stroke: var(--evergreen); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: am-goal-pulse 2.6s ease-in-out infinite; }
+  .am-goal-dot { fill: var(--evergreen); }
+
+  .am-glow { opacity: 0.18; }
+  .am-glow-map { fill: var(--evergreen); }
+  .am-glow-nomap { fill: var(--amber); }
+  .am-dot { stroke: #fff; stroke-width: 2; }
+  .am-dot-map { fill: var(--evergreen); }
+  .am-nomap-dot { fill: var(--amber); animation: am-panic 14s linear infinite both; }
+
+  .am-mi-bg { fill: #fffdfa; stroke: var(--evergreen); stroke-width: 1; }
+  .am-mi-fold { stroke: var(--evergreen); stroke-width: 1; opacity: 0.65; }
+
+  /* agents ride their routes; bubbles + map icon are children, so they travel along */
+  .am-agent-map { animation: am-travel-map 14s ease-in-out infinite both; }
+  .am-agent-nomap { animation: am-travel-nomap 14s linear infinite both; }
+
+  .am-bubble { opacity: 0; }
+  .am-bub { fill: #fffdfa; stroke: rgba(70, 50, 25, 0.16); stroke-width: 1; filter: url(#am-shadow); }
+  .am-bub-tail { fill: #fffdfa; }
+  .am-bub-tx { font: 600 12.5px var(--font-body); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  .am-bub-tx.am-danger { fill: var(--crimson); }
+
+  .am-mb1 { animation: am-mb1 14s linear infinite both; }
+  .am-mb2 { animation: am-mb2 14s linear infinite both; }
+  .am-mb3 { animation: am-mb3 14s linear infinite both; }
+  .am-nb1 { animation: am-nb1 14s linear infinite both; }
+  .am-nb2 { animation: am-nb2 14s linear infinite both; }
+  .am-nb3 { animation: am-nb3 14s linear infinite both; }
+  .am-nb4 { animation: am-nb4 14s linear infinite both; }
+
+  .am-cap { display: flex; flex-wrap: wrap; gap: 0.45rem 1.5rem; padding: 0.75rem 0.2rem 0; font-size: 0.9rem; color: var(--ink-soft); }
+  .am-leg { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .am-key { width: 0.72rem; height: 0.72rem; border-radius: 999px; flex: none; }
+  .am-key-map { background: var(--evergreen); }
+  .am-key-nomap { background: var(--amber); }
+
+  @keyframes am-goal-pulse { 0%, 100% { opacity: 0.25; transform: scale(0.82); } 50% { opacity: 0.6; transform: scale(1.12); } }
+  @keyframes am-panic { 0%, 52% { fill: var(--amber); } 80%, 100% { fill: var(--crimson); } }
+
+  /* thought bubbles — each visible only in its own window of the 14s loop */
+  @keyframes am-mb1 { 0%, 6% { opacity: 0; transform: translateY(5px) scale(0.95); } 9% { opacity: 1; transform: none; } 22% { opacity: 1; transform: none; } 25% { opacity: 0; transform: translateY(-3px); } 100% { opacity: 0; } }
+  @keyframes am-mb2 { 0%, 31% { opacity: 0; transform: translateY(5px) scale(0.95); } 34% { opacity: 1; transform: none; } 52% { opacity: 1; transform: none; } 55% { opacity: 0; transform: translateY(-3px); } 100% { opacity: 0; } }
+  @keyframes am-mb3 { 0%, 61% { opacity: 0; transform: translateY(5px) scale(0.95); } 64% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
+  @keyframes am-nb1 { 0%, 4% { opacity: 0; transform: translateY(5px) scale(0.95); } 7% { opacity: 1; transform: none; } 19% { opacity: 1; transform: none; } 22% { opacity: 0; transform: translateY(-3px); } 100% { opacity: 0; } }
+  @keyframes am-nb2 { 0%, 23% { opacity: 0; transform: translateY(5px) scale(0.95); } 26% { opacity: 1; transform: none; } 42% { opacity: 1; transform: none; } 45% { opacity: 0; transform: translateY(-3px); } 100% { opacity: 0; } }
+  @keyframes am-nb3 { 0%, 46% { opacity: 0; transform: translateY(5px) scale(0.95); } 49% { opacity: 1; transform: none; } 64% { opacity: 1; transform: none; } 67% { opacity: 0; transform: translateY(-3px); } 100% { opacity: 0; } }
+  @keyframes am-nb4 { 0%, 69% { opacity: 0; transform: translateY(5px) scale(0.95); } 72% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
+
+</style>
