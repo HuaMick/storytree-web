@@ -3,6 +3,9 @@ import Base from '../layouts/Base.astro';
 // Rendered verbatim from the founder's draft (src/content/constitution.md).
 // Do not rewrite — this is storytree's voice.
 import { Content } from '../content/constitution.md';
+// The page's footer note is editable in Keystatic -> src/data/constitution-page.json.
+// The constitution BODY stays verbatim from constitution.md (owner standing rule).
+import page from '../data/constitution-page.json';
 ---
 
 <Base
@@ -17,10 +20,7 @@ import { Content } from '../content/constitution.md';
       </article>
       <aside class="doc__foot wrap-prose">
         <hr class="rule" />
-        <p class="muted">
-          See a hole we can't, or something that rings hollow? That's exactly what we want to
-          hear. <a href="/contact/">Tell us where we're wrong →</a>
-        </p>
+        <p class="muted" set:html={page.footerNote}></p>
       </aside>
     </div>
   </section>

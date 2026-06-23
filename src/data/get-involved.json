@@ -1,0 +1,31 @@
+{
+  "intro": {
+    "eyebrow": "Get involved",
+    "h1": "Why this exists — and how to take part.",
+    "lede": "storytree is more than a tool — it's a bet about how software gets built once AI&nbsp;agents\n        write most of the code. If that bet resonates, here's where we are, how we try to keep\n        ourselves honest, what we commit to, and how to come in."
+  },
+  "bet": {
+    "eyebrow": "The bet",
+    "h2": "Proof is a stronger foundation for trust than promises.",
+    "lede": "Most projects ask you to trust the people running them. We're trying to show you don't have\n          to. When agents write most of the code and humans can't read all of it, the thing that keeps\n          software honest isn't good intentions — it's proof: work that has to pass a check it can't\n          talk its way past before it counts as done. Build that in, and trustworthy software becomes\n          something far more people can take part in making. If that works, it's a fairer way to build.\n          If it doesn't, you'll be able to see that too."
+  },
+  "honest": {
+    "eyebrow": "How we keep ourselves honest",
+    "h2": "We claim only what's actually built.",
+    "body": "The fastest way for a project like this to lose you is to describe a finished product that\n        isn't there yet. So we don't. Everything here is meant to be either working today or clearly\n        marked as where we're headed — and where there's a gap between the two, we say so plainly\n        rather than imply a wall that isn't built yet. Inside storytree, that discipline is the same\n        one the product enforces on everyone: work only counts as done when a check that was failing\n        is made to pass, and not by the same agent that wrote the check — so nothing grades its own\n        homework.",
+    "muted": "You don't have to take that on faith, either. You're welcome to watch, to ask hard questions,\n        and to tell us where we're wrong — that last one especially. If something rings hollow, this\n        project is built to hear it."
+  },
+  "constitution": {
+    "eyebrow": "What we commit to",
+    "h2": "The constitution.",
+    "body": "What storytree believes, and how it plans to keep itself honest, lives in one place — written\n        plainly. It's a living draft; it'll change as we learn. But it's the thing to hold us to.",
+    "cta": "Read the constitution →"
+  },
+  "where": {
+    "eyebrow": "Where we are right now",
+    "h2": "Early, honest, and growing slowly.",
+    "body": "storytree is small on purpose. Taking part is invite-only while we iterate out the rough\n        edges and build the guardrails this needs. Today one person still decides what gets built\n        next — we're honest that \"your voice counts\" isn't yet \"your vote counts.\" But this website is\n        the open front door: you're welcome to watch, to ask hard questions, and to tell us where\n        we're wrong — that last one especially.",
+    "ctaPrimary": "Ask to come in →",
+    "ctaGhost": "See how it works"
+  }
+}

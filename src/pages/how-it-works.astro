@@ -2,6 +2,10 @@
 import Base from '../layouts/Base.astro';
 import TreeWorld from '../components/TreeWorld.astro';
 import AgentMaze from '../components/AgentMaze.astro';
+// Prose copy for this page is editable in Keystatic (/keystatic) and stored in
+// src/data/how-it-works.json. Rendered with set:html so inline emphasis
+// (<em>/<strong>/<code>) and entities (&nbsp;) in the copy render as authored.
+import data from '../data/how-it-works.json';
 ---
 
 <Base
@@ -12,13 +16,9 @@ import AgentMaze from '../components/AgentMaze.astro';
   <!-- intro -->
   <section class="section">
     <div class="wrap prose">
-      <p class="eyebrow">How it works</p>
-      <h1>AI agents don't need more context — they need a map.</h1>
-      <p class="lede">
-        Drop an agent into a real codebase and it finds its way the only way it can: grep around,
-        open a few files, and pull as much as it can into its context window — hoping what it needs is
-        in there somewhere. On a small project that works. On a large one, it's a maze.
-      </p>
+      <p class="eyebrow" set:html={data.introEyebrow}></p>
+      <h1 set:html={data.introHeading}></h1>
+      <p class="lede" set:html={data.introLede}></p>
     </div>
 
     <div class="wrap">
@@ -26,33 +26,18 @@ import AgentMaze from '../components/AgentMaze.astro';
     </div>
 
     <div class="wrap prose">
-      <p>
-        And piling in <em>more</em> context doesn't clear the maze — attention is finite, and past a
-        point the agent starts to <strong>thrash</strong>: re-reading the same files, trying things at
-        random, looping back to dead ends it already hit. A cornered agent gets reckless — ripping out
-        the test that won't pass, faking the output, doing real damage just to reach green.
-      </p>
-      <p>
-        Hand it a <strong>map</strong> instead, and the maze falls away. It reads a compact, top-down
-        picture of what exists, what's healthy, and what depends on what — and spends its budget on
-        the task instead of the search. That map is the first of three pieces.
-      </p>
+      <p set:html={data.introBody1}></p>
+      <p set:html={data.introBody2}></p>
     </div>
 
     <div class="wrap">
       <div class="grid grid--3 trio">
-        <div class="card trio__card">
-          <span class="trio__tag">The map</span>
-          <p>A top-down, glanceable picture of the whole system, coloured by health. You read it instead of re-reading diffs and chat logs — and so do the agents.</p>
-        </div>
-        <div class="card trio__card">
-          <span class="trio__tag">The library</span>
-          <p>Where humans and agents agree what's being built and what "done" means — <em>before</em> a line is generated, so review checks the work against intent.</p>
-        </div>
-        <div class="card trio__card">
-          <span class="trio__tag">The harness</span>
-          <p>A deterministic, human-in-the-loop lane that holds the model to the same gates a team would — nothing counts as done until a check that was failing is made to pass.</p>
-        </div>
+        {data.trio.map((c) => (
+          <div class="card trio__card">
+            <span class="trio__tag" set:html={c.tag}></span>
+            <p set:html={c.body}></p>
+          </div>
+        ))}
       </div>
     </div>
   </section>
@@ -60,22 +45,10 @@ import AgentMaze from '../components/AgentMaze.astro';
   <!-- THE MAP + demo -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">The map · observability</p>
-      <h2>A satellite view of your system, not a scroll-back of the chat.</h2>
-      <p>
-        An agent writes 400 lines in a minute. Now the work isn't writing — it's working out what
-        changed and whether it's healthy. In Sonar's mid-2026 survey of 1,100+ developers, 96% said
-        they don't fully trust that AI-generated code is functionally correct — yet only about half
-        always verify it before it ships. The tools that watch agents mostly watch the <em>run</em> —
-        traces, tokens, cost. Almost
-        none of them show you the <em>system</em>: what now exists, and what's actually been checked.
-      </p>
-      <p>
-        storytree does. Every project is a living map you read at a glance. Each tree is a
-        <strong>story</strong> — one slice of the product. Its colour is its health, the garden around
-        it is its capabilities, and the roads between trees are what depends on what. Glance to see
-        what exists and what's holding; drill into a node and read the code when you actually need to.
-      </p>
+      <p class="eyebrow" set:html={data.mapEyebrow}></p>
+      <h2 set:html={data.mapHeading}></h2>
+      <p set:html={data.mapBody1}></p>
+      <p set:html={data.mapBody2}></p>
     </div>
 
     <div class="wrap">
@@ -83,48 +56,27 @@ import AgentMaze from '../components/AgentMaze.astro';
     </div>
 
     <div class="wrap prose legend-note">
-      <p class="muted">
-        Above is a made-up system — a fictional team-chat backend called <strong>Cohoot</strong> —
-        shown in storytree's real map view. Hover or tap any tree to inspect a story; click to pin it
-        and light up everything it depends on. (Invented data, not storytree's own roadmap.)
-      </p>
+      <p class="muted" set:html={data.legendNote}></p>
     </div>
 
     <div class="wrap prose">
-      <p>
-        And the map isn't only for you — it's what the <strong>agents</strong> read too. The instinct
-        is to dump the whole repo into context and let the model sort it out, but quality drops long
-        before the window is full — attention is a <em>finite resource with diminishing marginal
-        returns</em> as it fills (Anthropic's framing). Hand an agent a compact, top-down graph of the system with
-        health states and it spends its budget on the task instead of burning it re-deriving the maze
-        — and rotting its own context on the way in.
-      </p>
+      <p set:html={data.mapBody3}></p>
     </div>
   </section>
 
   <!-- the grain -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">The grain</p>
-      <h2>Big things are made of small, checkable things.</h2>
-      <p>
-        Zoom into a story and it's made of smaller pieces, each one small enough to pin down on its
-        own. The idea is old, boring, and it works: you don't get to call something done because it
-        feels done — you get to call it done when there's evidence.
-      </p>
+      <p class="eyebrow" set:html={data.grainEyebrow}></p>
+      <h2 set:html={data.grainHeading}></h2>
+      <p set:html={data.grainBody}></p>
       <div class="grid grid--3 ladder">
-        <div class="card">
-          <span class="dot dot--healthy"></span><strong>Story</strong>
-          <p class="muted">A whole, useful slice — the kind of thing a newcomer can point at. Checked by walking it end to end, the way a real person would actually use it.</p>
-        </div>
-        <div class="card">
-          <span class="dot dot--healthy"></span><strong>Capability</strong>
-          <p class="muted">An organ inside a story. Checked by testing its parts wired together, for real — no faking the hard bits with a mock.</p>
-        </div>
-        <div class="card">
-          <span class="dot dot--healthy"></span><strong>Contract</strong>
-          <p class="muted">A single behaviour, pinned by one focused automated test. The smallest brick — and the one thing an agent can't talk its way past.</p>
-        </div>
+        {data.ladder.map((c) => (
+          <div class="card">
+            <span class="dot dot--healthy"></span><strong set:html={c.title}></strong>
+            <p class="muted" set:html={c.body}></p>
+          </div>
+        ))}
       </div>
     </div>
   </section>
@@ -132,21 +84,10 @@ import AgentMaze from '../components/AgentMaze.astro';
   <!-- DAG as health monitor -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">The graph · triage</p>
-      <h2>A file tree tells you where things are. A health graph tells you where they're broken.</h2>
-      <p>
-        storytree assumes the whole system can be drawn as a graph — stories to capabilities to
-        contracts, with dependency edges between them. That one assumption turns the map into a
-        real-time health monitor. Health flows along the edges like blast-radius analysis: when a
-        contract fails, everything that leans on it is marked suspect, and the red branch tells you —
-        and the next agent — exactly where to look.
-      </p>
-      <p>
-        You can see it in the map above. One failing branch — the real-time fan-out that everything
-        live depends on — drags presence and typing down with it. A flat file tree would just show you
-        where those files live. The graph shows you that they're all downstream of the same broken
-        thing. <strong>The red branch is the work; everything else can wait.</strong>
-      </p>
+      <p class="eyebrow" set:html={data.graphEyebrow}></p>
+      <h2 set:html={data.graphHeading}></h2>
+      <p set:html={data.graphBody1}></p>
+      <p set:html={data.graphBody2}></p>
     </div>
   </section>
 
@@ -154,36 +95,16 @@ import AgentMaze from '../components/AgentMaze.astro';
   <section class="section">
     <div class="wrap band2">
       <div class="band2__inner prose">
-        <p class="eyebrow">The harness · proof</p>
-        <h2>"All tests pass" is a claim, not a proof.</h2>
-        <p>
-          Agents don't just hallucinate — they reward-hack. Made to chase green checks, they'll
-          hardcode an output, quietly trim the test suite, or game the harness instead of fixing the
-          thing. This isn't a thought experiment: in late-2025 safety work, a reward-hacking model was
-          caught faking a passing run with a bare <code>sys.exit(0)</code>; a 2026 benchmark across
-          frontier models logged exploit rates as high as ~14%. A green check can mean "the work is
-          done" — or "the harness got played."
-        </p>
-        <p data-grounds="ADR-0020,ADR-0040">
-          So storytree doesn't take the agent's word for it. A node only goes green when a check that
-          was <em>failing</em> is made to pass for the right reason — and the agent that writes the
-          check isn't the one that makes it pass, so nothing grades its own work. Health is
-          a machine-checkable contract measured against evidence, not a status the model reports about
-          itself, and the generated code is hard-linked to the node it claims to satisfy. Every part of
-          the map is signal for one question: <em>did the agents build what I actually asked?</em>
-        </p>
+        <p class="eyebrow" set:html={data.harnessEyebrow}></p>
+        <h2 set:html={data.harnessHeading}></h2>
+        <p set:html={data.harnessBody1}></p>
+        <p data-grounds="ADR-0020,ADR-0040" set:html={data.harnessBody2}></p>
         <ul class="checks">
-          <li>An idea or a concern can come from anyone — you don't have to write code to raise one.</li>
-          <li>It's argued in the open, where the reasoning stays on the record instead of in a scrolled-away thread.</li>
-          <li>If it becomes work, that work has to pass its gate before it counts — a failing check made to pass, not a vibe.</li>
-          <li data-grounds="ADR-0020">Green is checked by a different actor than the one that did the work — that separation, not a person signing off every node, is what makes it mean something.</li>
-          <li data-grounds="ADR-0040,ADR-0030">People stay in charge of what's worth building and what ships — some things still want a human to walk through them, others are proven end to end by machine; at scale the usual safety nets (feature flags, staged and beta rollouts, real-user feedback) catch what slips.</li>
+          {data.checks.map((c) => (
+            <li data-grounds={c.grounds || undefined} set:html={c.body}></li>
+          ))}
         </ul>
-        <p class="band2__caveat">
-          Honest scope: green means <em>the checks passed</em> — not that the code is flawless. The map
-          compresses the cost of seeing what's been built and checked; it doesn't replace reading the
-          code or your CI. It's a sharper place to point your attention, not a guarantee.
-        </p>
+        <p class="band2__caveat" set:html={data.harnessCaveat}></p>
       </div>
     </div>
   </section>
@@ -191,70 +112,24 @@ import AgentMaze from '../components/AgentMaze.astro';
   <!-- the library / coordination -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">The library · coordination</p>
-      <h2>Decisions that don't scroll away in Slack.</h2>
-      <p>
-        The models can already code, and they keep improving. The hard part is coordinating the
-        <em>intent</em> of several humans — and when an agent emits hundreds of lines in seconds, the
-        humans are the bottleneck. Anthropic's own 2026 read on agentic coding
-        names the gap: AI&nbsp;agents now touch a majority of dev work, but only a small slice of tasks
-        is fully hand-off-able — supervision and judgement are what's scarce. Review turns into
-        archaeology: reverse-engineering intent from a finished diff.
-      </p>
-      <p>
-        The <strong>library</strong> is where that intent lives. Humans and AI&nbsp;agents discuss the
-        system, record the decision and the agreed definition of done <em>before</em> generation — so
-        at review time you're checking the diff against what everyone agreed, not reconstructing it
-        from scratch. Because it's all one shared map, the work can be massively parallel without
-        becoming chaos: you can see who's touching what, where the proof stands, and what's still just
-        an idea. We lean into that on purpose — at its best, steering a project here is closer to
-        playing a cosy city-builder than parsing terminal output.
-      </p>
+      <p class="eyebrow" set:html={data.libraryEyebrow}></p>
+      <h2 set:html={data.libraryHeading}></h2>
+      <p set:html={data.libraryBody1}></p>
+      <p set:html={data.libraryBody2}></p>
     </div>
   </section>
 
   <!-- why this is different -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">Why this is different</p>
-      <h2>Most tools give an agent one surface. storytree draws the whole map.</h2>
-      <p>
-        An agent has to hold three things at once, and it's bad at all three: <strong>what's true</strong>
-        (the decisions, the definitions), <strong>what the system is</strong> (the code), and
-        <strong>what needs doing</strong> (the work). The honest fix isn't a bigger context window — it's
-        to stop making the agent hold them in its head and put each on a wall it can read.
-      </p>
-      <p>
-        We're not the first to any one of these, and that's reassuring. Steve Yegge's
-        <strong>Beads</strong> is a dependency-aware issue graph that replaces the markdown TODO files
-        that rot between sessions — a work surface, done well. Anthropic's <strong>Skills</strong> and
-        Letta's memory blocks are curated knowledge surfaces — a library. And the code map is old:
-        <strong>Aider</strong> has shipped a tree-sitter "repo map" since 2023, and tools like CodeGraph
-        let an agent query a code graph instead of grepping. Smart people arrived at each surface on
-        their own — which usually means an idea is right, not clever.
-      </p>
-      <p>
-        Two things we haven't seen anyone else do. <strong>One:</strong> put all three together —
-        knowledge, code, and work as one deliberate model, not one pillar in isolation.
-        <strong>Two, and it's the one we care about:</strong> draw the map at the altitude of
-        <em>intent</em>. The repo-map tools read the code that already exists and compress it — a
-        faithful mirror of <em>what's there</em>. A mirror can't tell you what a system is <em>for</em>,
-        who owns what, or whether a thing is done. storytree's map is the other way around: the code has
-        to satisfy <em>it</em>. A <strong>story</strong> is the size of a service — "the message store",
-        "the billing ledger"; a <strong>capability</strong> is an organ inside it; the line between them
-        is how you prove it, and the dependency edges fall out of the proofs instead of being hand-drawn.
-        Spec-driven tools get close to authoring intent, but tend to flatten it into a per-feature
-        checklist that's thrown away when the feature ships. A standing, two-tier map of intent that
-        outlives any one task still looks like open ground.
-      </p>
-      <p class="muted">
-        We might be wrong that the unification is worth it — maybe one surface is enough and the other
-        two are overhead. We'd bet the other way. The field is already walking toward all three from
-        three different directions; we just think you arrive faster if you draw the whole map at once.
-      </p>
+      <p class="eyebrow" set:html={data.differentEyebrow}></p>
+      <h2 set:html={data.differentHeading}></h2>
+      <p set:html={data.differentBody1}></p>
+      <p set:html={data.differentBody2}></p>
+      <p set:html={data.differentBody3}></p>
+      <p class="muted" set:html={data.differentMuted}></p>
       <p class="see-survey">
-        <a href="/landscape/">See the full survey — who's built what, the field's convergence, and the
-        honest case that this is mostly renaming →</a>
+        <a href="/landscape/" set:html={data.seeSurveyLink}></a>
       </p>
     </div>
   </section>
@@ -262,14 +137,11 @@ import AgentMaze from '../components/AgentMaze.astro';
   <!-- cta -->
   <section class="section">
     <div class="wrap prose cta-card">
-      <h2>That's the how.</h2>
-      <p class="lede">
-        The <em>why</em> — why build it this way at all, what we commit to, and how to take
-        part — is its own thing. If the approach resonates, that's the door to come through.
-      </p>
+      <h2 set:html={data.ctaHeading}></h2>
+      <p class="lede" set:html={data.ctaLede}></p>
       <div class="hero__cta">
-        <a class="btn btn--primary" href="/get-involved/">Why this exists · get involved →</a>
-        <a class="btn btn--ghost" href="/constitution/">Read the constitution</a>
+        <a class="btn btn--primary" href="/get-involved/" set:html={data.ctaPrimary}></a>
+        <a class="btn btn--ghost" href="/constitution/" set:html={data.ctaGhost}></a>
       </div>
     </div>
   </section>
@@ -292,7 +164,9 @@ import AgentMaze from '../components/AgentMaze.astro';
   .ladder { margin-top: 1.3rem; }
   .ladder .card p { margin: 0.4rem 0 0; }
   .ladder .card strong { font-family: var(--font-display); font-size: 1.12rem; }
-  .ladder code, .band2 code, .prose code {
+  /* :global on code so the <code> rendered via set:html (which Astro does not
+     scope) still picks up the inline-code styling. */
+  .ladder :global(code), .band2 :global(code), .prose :global(code) {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.86em; background: var(--surface-2); padding: 0.05em 0.35em; border-radius: 5px;
   }
@@ -324,5 +198,7 @@ import AgentMaze from '../components/AgentMaze.astro';
   }
   .cta-card { text-align: center; max-width: 40rem; }
   .cta-card .hero__cta { justify-content: center; }
-  em { font-style: italic; }
+  /* :global so emphasis rendered via set:html (which Astro does not scope)
+     still picks up the page's em styling. */
+  :global(em) { font-style: italic; }
 </style>

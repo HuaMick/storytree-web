@@ -1,5 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
+// Get-involved prose is editable in Keystatic (/keystatic) and stored in
+// src/data/get-involved.json. Rendered with set:html so inline emphasis and
+// entities (&nbsp;) in the copy render as authored.
+import data from '../data/get-involved.json';
 ---
 
 <Base
@@ -10,13 +14,9 @@ import Base from '../layouts/Base.astro';
   <!-- intro -->
   <section class="section">
     <div class="wrap prose">
-      <p class="eyebrow">Get involved</p>
-      <h1>Why this exists — and how to take part.</h1>
-      <p class="lede">
-        storytree is more than a tool — it's a bet about how software gets built once AI&nbsp;agents
-        write most of the code. If that bet resonates, here's where we are, how we try to keep
-        ourselves honest, what we commit to, and how to come in.
-      </p>
+      <p class="eyebrow" set:html={data.intro.eyebrow}></p>
+      <h1 set:html={data.intro.h1}></h1>
+      <p class="lede" set:html={data.intro.lede}></p>
     </div>
   </section>
 
@@ -24,16 +24,9 @@ import Base from '../layouts/Base.astro';
   <section class="section--tight">
     <div class="wrap band">
       <div class="band__inner">
-        <p class="eyebrow">The bet</p>
-        <h2>Proof is a stronger foundation for trust than promises.</h2>
-        <p class="lede">
-          Most projects ask you to trust the people running them. We're trying to show you don't have
-          to. When agents write most of the code and humans can't read all of it, the thing that keeps
-          software honest isn't good intentions — it's proof: work that has to pass a check it can't
-          talk its way past before it counts as done. Build that in, and trustworthy software becomes
-          something far more people can take part in making. If that works, it's a fairer way to build.
-          If it doesn't, you'll be able to see that too.
-        </p>
+        <p class="eyebrow" set:html={data.bet.eyebrow}></p>
+        <h2 set:html={data.bet.h2}></h2>
+        <p class="lede" set:html={data.bet.lede}></p>
       </div>
     </div>
   </section>
@@ -41,53 +34,32 @@ import Base from '../layouts/Base.astro';
   <!-- how we keep ourselves honest -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">How we keep ourselves honest</p>
-      <h2>We claim only what's actually built.</h2>
-      <p>
-        The fastest way for a project like this to lose you is to describe a finished product that
-        isn't there yet. So we don't. Everything here is meant to be either working today or clearly
-        marked as where we're headed — and where there's a gap between the two, we say so plainly
-        rather than imply a wall that isn't built yet. Inside storytree, that discipline is the same
-        one the product enforces on everyone: work only counts as done when a check that was failing
-        is made to pass, and not by the same agent that wrote the check — so nothing grades its own
-        homework.
-      </p>
-      <p class="muted">
-        You don't have to take that on faith, either. You're welcome to watch, to ask hard questions,
-        and to tell us where we're wrong — that last one especially. If something rings hollow, this
-        project is built to hear it.
-      </p>
+      <p class="eyebrow" set:html={data.honest.eyebrow}></p>
+      <h2 set:html={data.honest.h2}></h2>
+      <p set:html={data.honest.body}></p>
+      <p class="muted" set:html={data.honest.muted}></p>
     </div>
   </section>
 
   <!-- the constitution -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">What we commit to</p>
-      <h2>The constitution.</h2>
-      <p>
-        What storytree believes, and how it plans to keep itself honest, lives in one place — written
-        plainly. It's a living draft; it'll change as we learn. But it's the thing to hold us to.
-      </p>
-      <a class="btn btn--ghost" href="/constitution/">Read the constitution →</a>
+      <p class="eyebrow" set:html={data.constitution.eyebrow}></p>
+      <h2 set:html={data.constitution.h2}></h2>
+      <p set:html={data.constitution.body}></p>
+      <a class="btn btn--ghost" href="/constitution/" set:html={data.constitution.cta}></a>
     </div>
   </section>
 
   <!-- where we are + come in -->
   <section class="section">
     <div class="wrap prose front">
-      <p class="eyebrow">Where we are right now</p>
-      <h2>Early, honest, and growing slowly.</h2>
-      <p>
-        storytree is small on purpose. Taking part is invite-only while we iterate out the rough
-        edges and build the guardrails this needs. Today one person still decides what gets built
-        next — we're honest that "your voice counts" isn't yet "your vote counts." But this website is
-        the open front door: you're welcome to watch, to ask hard questions, and to tell us where
-        we're wrong — that last one especially.
-      </p>
+      <p class="eyebrow" set:html={data.where.eyebrow}></p>
+      <h2 set:html={data.where.h2}></h2>
+      <p set:html={data.where.body}></p>
       <div class="hero__cta">
-        <a class="btn btn--primary" href="/contact/">Ask to come in →</a>
-        <a class="btn btn--ghost" href="/how-it-works/">See how it works</a>
+        <a class="btn btn--primary" href="/contact/" set:html={data.where.ctaPrimary}></a>
+        <a class="btn btn--ghost" href="/how-it-works/" set:html={data.where.ctaGhost}></a>
       </div>
     </div>
   </section>

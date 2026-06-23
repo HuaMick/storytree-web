@@ -1,5 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
+// Static prose around the contact form is editable in Keystatic (/keystatic) and
+// stored in src/data/contact.json. Rendered with set:html so inline emphasis
+// (<em>/<strong>) and entities (&nbsp;) in the copy render as authored. The
+// <form> itself (fields, labels, placeholders, here.now wiring) is intentionally
+// NOT lifted — form mechanics stay in the template.
+import data from '../data/contact.json';
 ---
 
 <Base
@@ -10,20 +16,10 @@ import Base from '../layouts/Base.astro';
   <section class="section">
     <div class="wrap contact">
       <div class="contact__intro prose">
-        <p class="eyebrow">The front door</p>
-        <h1>Come and knock.</h1>
-        <p class="lede">
-          This website is open to anyone — that part is deliberate. storytree itself is
-          invite-only for now, but <em>asking</em> is open to everyone. If you build with
-          AI&nbsp;agents and these frictions are <em>your</em> frictions, say hello.
-        </p>
-        <p class="muted">
-          Being this early, the people we start with matter enormously, so we'll usually get to
-          know you a little before bringing you in. You're welcome to watch, to ask hard
-          questions, and to tell us where we're wrong — <strong>that last one especially</strong>.
-          If a claim here rings hollow, or you see a hole we can't, this project is built to
-          hear it.
-        </p>
+        <p class="eyebrow" set:html={data.eyebrow}></p>
+        <h1 set:html={data.heading}></h1>
+        <p class="lede" set:html={data.lede}></p>
+        <p class="muted" set:html={data.intro}></p>
       </div>
 
       <div class="contact__card card">
@@ -40,8 +36,8 @@ import Base from '../layouts/Base.astro';
             <label for="cf-message">What's on your mind?</label>
             <textarea id="cf-message" name="message" required rows="5" maxlength="2000" placeholder="An idea, a hard question, a hole you've spotted, or just hello."></textarea>
           </div>
-          <button type="submit" class="btn btn--primary cf-submit">Send it →</button>
-          <p class="cf-note muted">No account, no spam. We read everything.</p>
+          <button type="submit" class="btn btn--primary cf-submit" set:html={data.submitLabel}></button>
+          <p class="cf-note muted" set:html={data.note}></p>
           <div class="cf-status" id="cf-status" role="status" aria-live="polite" hidden></div>
         </form>
       </div>
@@ -53,7 +49,9 @@ import Base from '../layouts/Base.astro';
   .contact { display: grid; gap: clamp(1.6rem, 4vw, 3rem); align-items: start; }
   @media (min-width: 880px) { .contact { grid-template-columns: 1fr 1fr; } }
   .contact__intro h1 { margin-top: 0.2rem; }
-  .contact em { font-style: italic; color: var(--ink); }
+  /* :global so emphasis authored in the editable prose (rendered via set:html,
+     which Astro does not scope) still picks up the contact em styling. */
+  .contact :global(em) { font-style: italic; color: var(--ink); }
 
   .contact__card { padding: clamp(1.3rem, 3vw, 1.9rem); }
   .field { margin-bottom: 1rem; }

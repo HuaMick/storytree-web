@@ -2,6 +2,10 @@
 import Base from '../layouts/Base.astro';
 import Scorecard from '../components/Scorecard.astro';
 import ConvergenceTimeline from '../components/ConvergenceTimeline.astro';
+// Landscape prose copy is editable in Keystatic (/keystatic) and stored in
+// src/data/landscape.json. Rendered with set:html so inline emphasis
+// (<em>/<strong>) and entities (&nbsp;) in the copy render as authored.
+import data from '../data/landscape.json';
 ---
 
 <Base
@@ -12,99 +16,46 @@ import ConvergenceTimeline from '../components/ConvergenceTimeline.astro';
   <!-- intro -->
   <section class="section">
     <div class="wrap prose">
-      <p class="eyebrow">The landscape</p>
-      <h1>Are we onto something — or just renaming it?</h1>
-      <p class="lede">
-        Honesty is the whole point of this project, so here's the uncomfortable version: storytree
-        didn't invent any of its parts. The interesting question is whether putting them together is a
-        real advance or a tidy rename. We went and surveyed the field to find out — and we'll show you
-        the case against, not just the case for.
-      </p>
-      <p>
-        The binding constraint on an AI&nbsp;coding agent isn't raw intelligence. It's the
-        <strong>context window</strong> and the lack of memory between sessions — an agent works inside a
-        finite attention budget, and when the session ends it forgets. The instinct is to give it
-        <em>more</em>: a bigger window, the whole repo pasted in. The most thoughtful practitioners say
-        that's backwards. The better move is to <strong>manage attention, not expand it</strong> — give
-        the agent a map it reads on demand and writes back to, so state lives outside the prompt and
-        survives the session.
-      </p>
-      <p>
-        storytree splits that map into <strong>three surfaces</strong>: a
-        <strong>library</strong> (what's known — decisions, definitions, guidance), a
-        <strong>code map</strong> (what the system is — the codebase as an authored DAG), and a
-        <strong>work-board</strong> (what's being done — a dependency-aware task tier). The survey below
-        tests that model against what everyone else has actually shipped, scored from primary sources.
-      </p>
+      <p class="eyebrow" set:html={data.introEyebrow}></p>
+      <h1 set:html={data.introHeading}></h1>
+      <p class="lede" set:html={data.introLede}></p>
+      <p set:html={data.introBody1}></p>
+      <p set:html={data.introBody2}></p>
     </div>
   </section>
 
   <!-- the scorecard -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">The survey</p>
-      <h2>Everyone's built a piece. We looked for who'd built all three.</h2>
-      <p>
-        Each cohort builds one axis and stops. The code-map cohort — Aider's repo map, CodeGraph,
-        Augment, Cody — gives an agent a view of the code and nothing else. The library cohort —
-        Anthropic's Skills and memory, Letta's memory blocks — builds the knowledge tier and no code map.
-        Steve Yegge's Beads and Gas&nbsp;Town land squarely on the work-board. Geoffrey Huntley's loom has
-        the raw components — thread search, a docs publisher, VCS tooling — but none is presented as an
-        integrated, agent-facing surface. Scored against the three surfaces, it looks like this:
-      </p>
+      <p class="eyebrow" set:html={data.surveyEyebrow}></p>
+      <h2 set:html={data.surveyHeading}></h2>
+      <p set:html={data.surveyBody}></p>
     </div>
     <div class="wrap">
       <Scorecard />
     </div>
     <div class="wrap prose legend-note">
-      <p class="muted">
-        A caution we take seriously: this is the <em>surveyed sources at one date</em>. Several named
-        players — Cursor, Cline, Devin, Factory, OpenHands, Windsurf — produced no verified claims in
-        this pass and are deliberately left off the board. Absence of evidence isn't evidence of absence;
-        any of them could be building the triad unobserved here.
-      </p>
+      <p class="muted" set:html={data.surveyLegendNote}></p>
     </div>
   </section>
 
   <!-- what might be new -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">What might be new</p>
-      <h2>Two things we didn't find anyone else doing.</h2>
-      <p>
-        <strong>One: the unification.</strong> No tool we surveyed builds all three surfaces as one
-        coherent model. That's it — not a capability nobody else <em>could</em> build, just a combination
-        we didn't find anyone holding. When independent teams keep arriving at the same primitives, the
-        primitives are probably right; storytree's bet is that you arrive faster if you draw the whole
-        map at once instead of one wall at a time.
-      </p>
-      <p>
-        <strong>Two: the altitude.</strong> The code-map tools operate at <em>symbol altitude</em> — a
-        bottom-up mirror of the code as written, extracted mechanically from source. The map reflects the
-        code; change the code and it re-mirrors. storytree's code map is the other way around: it's
-        authored top-down <em>as intent</em>, and the code has to satisfy <em>it</em>. A
-        <strong>story</strong> is the size of a service; a <strong>capability</strong> is an organ inside
-        it. Spec-driven tools like Spec&nbsp;Kit and Kiro do author intent top-down too — they're the
-        closest neighbours here — but they tend to flatten it into per-feature checklists that are thrown
-        away when the feature ships, rather than a standing, architectural map that outlives any one task.
-      </p>
-      <p class="muted">
-        Both claims are narrow on purpose. “Distinctive” here means “not found in this survey” — not
-        “proven novel.” We'd rather under-claim and be right.
-      </p>
+      <p class="eyebrow" set:html={data.newEyebrow}></p>
+      <h2 set:html={data.newHeading}></h2>
+      <p set:html={data.newBody1}></p>
+      <p set:html={data.newBody2}></p>
+      <p class="muted" set:html={data.newCaveat}></p>
     </div>
   </section>
 
   <!-- the field converged -->
   <section class="section--tight">
     <div class="wrap prose">
-      <p class="eyebrow">The field converged</p>
-      <h2>Smart people walked toward these surfaces from different directions.</h2>
-      <p>
-        The strongest evidence that the individual pieces are sound is that the field built them
-        independently, piece by piece, without coordinating. Convergent evolution is a useful signal.
-        Here's the dated version — every entry traces to a primary source, and the soft dates are flagged.
-      </p>
+      <p class="eyebrow" set:html={data.convergedEyebrow}></p>
+      <h2 set:html={data.convergedHeading}></h2>
+      <p set:html={data.convergedBody}></p>
     </div>
     <div class="wrap">
       <ConvergenceTimeline />
@@ -116,58 +67,21 @@ import ConvergenceTimeline from '../components/ConvergenceTimeline.astro';
     <div class="wrap">
       <div class="honest">
         <div class="honest__inner">
-          <p class="eyebrow">The skeptical read</p>
-          <h2>The strongest argument that this is nothing.</h2>
-          <p class="lede">
-            Task trackers, docs-and-memory tiers, and VCS-backed code views already exist — in
-            unintegrated form. Maybe storytree just labels and arranges primitives that Beads, Skills, and
-            Aider already shipped, and the “unification” is a presentation choice, not a capability. On
-            that reading, the contribution is mostly <em>naming</em>.
-          </p>
-          <p>
-            The honest counter is narrow: the three surfaces are a pattern the field independently
-            converged on; no surveyed tool unifies all three; and the authored, architecture-altitude
-            code map is a genuinely different object from the bottom-up mirrors everyone else built.
-            Whether that adds up to a real advance or a tidy rename is the open question — and it's more
-            useful to leave it open than to answer it louder than the evidence allows.
-          </p>
+          <p class="eyebrow" set:html={data.honestEyebrow}></p>
+          <h2 set:html={data.honestHeading}></h2>
+          <p class="lede" set:html={data.honestLede}></p>
+          <p set:html={data.honestBody}></p>
 
           <div class="honest__caveats">
-            <h3>The caveats, on the table</h3>
+            <h3 set:html={data.caveatsHeading}></h3>
             <ul class="caveats">
-              <li>
-                <strong>It's a point-in-time snapshot.</strong> The sources span roughly 2023–mid&nbsp;2026
-                and the fast movers move fast. “No one unifies all three” is a finding about these sources
-                at this date, not a guarantee about the field.
-              </li>
-              <li>
-                <strong>The mappings are our framing.</strong> Casting Beads as a work-board, Skills as a
-                library, or Aider's repo map as a code map is our interpretation. None of these projects
-                describes itself in storytree's “three surfaces” language.
-              </li>
-              <li>
-                <strong>There are coverage gaps.</strong> Several known tools produced no verified claims
-                this pass and are off the board. Absence of evidence is not evidence of absence.
-              </li>
-              <li>
-                <strong>Some internals are genuinely contested.</strong> The embedding-vs-graph reading of
-                Augment and Cody was challenged during verification, so the code-map cohort shouldn't be
-                read as a uniform family of structural graphs — we mark the surface, not the mechanism.
-              </li>
-              <li>
-                <strong>“Distinctive” ≠ “first.”</strong> Where we call the unification or the altitude
-                distinctive, that's a statement about what this survey did and didn't surface — not a
-                claim of first-ever invention.
-              </li>
+              {data.caveats.map((c) => (
+                <li set:html={c.text}></li>
+              ))}
             </ul>
           </div>
 
-          <p class="honest__src">
-            The marks above are scored from primary sources, linked inline throughout this page and
-            consolidated from three adversarially-verified research passes (Jun&nbsp;2026). Where a claim
-            was refuted in verification — including two “agent momentum” citations — we dropped it rather
-            than dress it up.
-          </p>
+          <p class="honest__src" set:html={data.honestSrc}></p>
         </div>
       </div>
     </div>
@@ -176,14 +90,11 @@ import ConvergenceTimeline from '../components/ConvergenceTimeline.astro';
   <!-- cta -->
   <section class="section--tight">
     <div class="wrap prose cta-card">
-      <h2>That's the honest landscape.</h2>
-      <p class="lede">
-        If the bet makes sense to you — or if you think it's a rename and want to say so — that's exactly
-        the kind of conversation this is built for.
-      </p>
+      <h2 set:html={data.ctaHeading}></h2>
+      <p class="lede" set:html={data.ctaLede}></p>
       <div class="hero__cta">
-        <a class="btn btn--primary" href="/how-it-works/">See how the three fit together →</a>
-        <a class="btn btn--ghost" href="/get-involved/">Get involved</a>
+        <a class="btn btn--primary" href="/how-it-works/" set:html={data.ctaPrimary}></a>
+        <a class="btn btn--ghost" href="/get-involved/" set:html={data.ctaGhost}></a>
       </div>
     </div>
   </section>
@@ -192,7 +103,9 @@ import ConvergenceTimeline from '../components/ConvergenceTimeline.astro';
 <style>
   .legend-note { margin-top: 1rem; }
   .legend-note p { font-size: 0.92rem; margin: 0; }
-  em { font-style: italic; }
+  /* :global so emphasis authored in the editable copy (rendered via set:html,
+     which Astro does not scope) still picks up the italic em styling. */
+  :global(em) { font-style: italic; }
 
   .honest {
     background: var(--surface);

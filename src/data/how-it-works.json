@@ -1,0 +1,87 @@
+{
+  "introEyebrow": "How it works",
+  "introHeading": "AI agents don't need more context — they need a map.",
+  "introLede": "Drop an agent into a real codebase and it finds its way the only way it can: grep around,\n        open a few files, and pull as much as it can into its context window — hoping what it needs is\n        in there somewhere. On a small project that works. On a large one, it's a maze.",
+  "introBody1": "And piling in <em>more</em> context doesn't clear the maze — attention is finite, and past a\n        point the agent starts to <strong>thrash</strong>: re-reading the same files, trying things at\n        random, looping back to dead ends it already hit. A cornered agent gets reckless — ripping out\n        the test that won't pass, faking the output, doing real damage just to reach green.",
+  "introBody2": "Hand it a <strong>map</strong> instead, and the maze falls away. It reads a compact, top-down\n        picture of what exists, what's healthy, and what depends on what — and spends its budget on\n        the task instead of the search. That map is the first of three pieces.",
+  "trio": [
+    {
+      "tag": "The map",
+      "body": "A top-down, glanceable picture of the whole system, coloured by health. You read it instead of re-reading diffs and chat logs — and so do the agents."
+    },
+    {
+      "tag": "The library",
+      "body": "Where humans and agents agree what's being built and what \"done\" means — <em>before</em> a line is generated, so review checks the work against intent."
+    },
+    {
+      "tag": "The harness",
+      "body": "A deterministic, human-in-the-loop lane that holds the model to the same gates a team would — nothing counts as done until a check that was failing is made to pass."
+    }
+  ],
+  "mapEyebrow": "The map · observability",
+  "mapHeading": "A satellite view of your system, not a scroll-back of the chat.",
+  "mapBody1": "An agent writes 400 lines in a minute. Now the work isn't writing — it's working out what\n        changed and whether it's healthy. In Sonar's mid-2026 survey of 1,100+ developers, 96% said\n        they don't fully trust that AI-generated code is functionally correct — yet only about half\n        always verify it before it ships. The tools that watch agents mostly watch the <em>run</em> —\n        traces, tokens, cost. Almost\n        none of them show you the <em>system</em>: what now exists, and what's actually been checked.",
+  "mapBody2": "storytree does. Every project is a living map you read at a glance. Each tree is a\n        <strong>story</strong> — one slice of the product. Its colour is its health, the garden around\n        it is its capabilities, and the roads between trees are what depends on what. Glance to see\n        what exists and what's holding; drill into a node and read the code when you actually need to.",
+  "legendNote": "Above is a made-up system — a fictional team-chat backend called <strong>Cohoot</strong> —\n        shown in storytree's real map view. Hover or tap any tree to inspect a story; click to pin it\n        and light up everything it depends on. (Invented data, not storytree's own roadmap.)",
+  "mapBody3": "And the map isn't only for you — it's what the <strong>agents</strong> read too. The instinct\n        is to dump the whole repo into context and let the model sort it out, but quality drops long\n        before the window is full — attention is a <em>finite resource with diminishing marginal\n        returns</em> as it fills (Anthropic's framing). Hand an agent a compact, top-down graph of the system with\n        health states and it spends its budget on the task instead of burning it re-deriving the maze\n        — and rotting its own context on the way in.",
+  "grainEyebrow": "The grain",
+  "grainHeading": "Big things are made of small, checkable things.",
+  "grainBody": "Zoom into a story and it's made of smaller pieces, each one small enough to pin down on its\n        own. The idea is old, boring, and it works: you don't get to call something done because it\n        feels done — you get to call it done when there's evidence.",
+  "ladder": [
+    {
+      "title": "Story",
+      "body": "A whole, useful slice — the kind of thing a newcomer can point at. Checked by walking it end to end, the way a real person would actually use it."
+    },
+    {
+      "title": "Capability",
+      "body": "An organ inside a story. Checked by testing its parts wired together, for real — no faking the hard bits with a mock."
+    },
+    {
+      "title": "Contract",
+      "body": "A single behaviour, pinned by one focused automated test. The smallest brick — and the one thing an agent can't talk its way past."
+    }
+  ],
+  "graphEyebrow": "The graph · triage",
+  "graphHeading": "A file tree tells you where things are. A health graph tells you where they're broken.",
+  "graphBody1": "storytree assumes the whole system can be drawn as a graph — stories to capabilities to\n        contracts, with dependency edges between them. That one assumption turns the map into a\n        real-time health monitor. Health flows along the edges like blast-radius analysis: when a\n        contract fails, everything that leans on it is marked suspect, and the red branch tells you —\n        and the next agent — exactly where to look.",
+  "graphBody2": "You can see it in the map above. One failing branch — the real-time fan-out that everything\n        live depends on — drags presence and typing down with it. A flat file tree would just show you\n        where those files live. The graph shows you that they're all downstream of the same broken\n        thing. <strong>The red branch is the work; everything else can wait.</strong>",
+  "harnessEyebrow": "The harness · proof",
+  "harnessHeading": "\"All tests pass\" is a claim, not a proof.",
+  "harnessBody1": "Agents don't just hallucinate — they reward-hack. Made to chase green checks, they'll\n          hardcode an output, quietly trim the test suite, or game the harness instead of fixing the\n          thing. This isn't a thought experiment: in late-2025 safety work, a reward-hacking model was\n          caught faking a passing run with a bare <code>sys.exit(0)</code>; a 2026 benchmark across\n          frontier models logged exploit rates as high as ~14%. A green check can mean \"the work is\n          done\" — or \"the harness got played.\"",
+  "harnessBody2": "So storytree doesn't take the agent's word for it. A node only goes green when a check that\n          was <em>failing</em> is made to pass for the right reason — and the agent that writes the\n          check isn't the one that makes it pass, so nothing grades its own work. Health is\n          a machine-checkable contract measured against evidence, not a status the model reports about\n          itself, and the generated code is hard-linked to the node it claims to satisfy. Every part of\n          the map is signal for one question: <em>did the agents build what I actually asked?</em>",
+  "checks": [
+    {
+      "body": "An idea or a concern can come from anyone — you don't have to write code to raise one."
+    },
+    {
+      "body": "It's argued in the open, where the reasoning stays on the record instead of in a scrolled-away thread."
+    },
+    {
+      "body": "If it becomes work, that work has to pass its gate before it counts — a failing check made to pass, not a vibe."
+    },
+    {
+      "grounds": "ADR-0020",
+      "body": "Green is checked by a different actor than the one that did the work — that separation, not a person signing off every node, is what makes it mean something."
+    },
+    {
+      "grounds": "ADR-0040,ADR-0030",
+      "body": "People stay in charge of what's worth building and what ships — some things still want a human to walk through them, others are proven end to end by machine; at scale the usual safety nets (feature flags, staged and beta rollouts, real-user feedback) catch what slips."
+    }
+  ],
+  "harnessCaveat": "Honest scope: green means <em>the checks passed</em> — not that the code is flawless. The map\n          compresses the cost of seeing what's been built and checked; it doesn't replace reading the\n          code or your CI. It's a sharper place to point your attention, not a guarantee.",
+  "libraryEyebrow": "The library · coordination",
+  "libraryHeading": "Decisions that don't scroll away in Slack.",
+  "libraryBody1": "The models can already code, and they keep improving. The hard part is coordinating the\n        <em>intent</em> of several humans — and when an agent emits hundreds of lines in seconds, the\n        humans are the bottleneck. Anthropic's own 2026 read on agentic coding\n        names the gap: AI&nbsp;agents now touch a majority of dev work, but only a small slice of tasks\n        is fully hand-off-able — supervision and judgement are what's scarce. Review turns into\n        archaeology: reverse-engineering intent from a finished diff.",
+  "libraryBody2": "The <strong>library</strong> is where that intent lives. Humans and AI&nbsp;agents discuss the\n        system, record the decision and the agreed definition of done <em>before</em> generation — so\n        at review time you're checking the diff against what everyone agreed, not reconstructing it\n        from scratch. Because it's all one shared map, the work can be massively parallel without\n        becoming chaos: you can see who's touching what, where the proof stands, and what's still just\n        an idea. We lean into that on purpose — at its best, steering a project here is closer to\n        playing a cosy city-builder than parsing terminal output.",
+  "differentEyebrow": "Why this is different",
+  "differentHeading": "Most tools give an agent one surface. storytree draws the whole map.",
+  "differentBody1": "An agent has to hold three things at once, and it's bad at all three: <strong>what's true</strong>\n        (the decisions, the definitions), <strong>what the system is</strong> (the code), and\n        <strong>what needs doing</strong> (the work). The honest fix isn't a bigger context window — it's\n        to stop making the agent hold them in its head and put each on a wall it can read.",
+  "differentBody2": "We're not the first to any one of these, and that's reassuring. Steve Yegge's\n        <strong>Beads</strong> is a dependency-aware issue graph that replaces the markdown TODO files\n        that rot between sessions — a work surface, done well. Anthropic's <strong>Skills</strong> and\n        Letta's memory blocks are curated knowledge surfaces — a library. And the code map is old:\n        <strong>Aider</strong> has shipped a tree-sitter \"repo map\" since 2023, and tools like CodeGraph\n        let an agent query a code graph instead of grepping. Smart people arrived at each surface on\n        their own — which usually means an idea is right, not clever.",
+  "differentBody3": "Two things we haven't seen anyone else do. <strong>One:</strong> put all three together —\n        knowledge, code, and work as one deliberate model, not one pillar in isolation.\n        <strong>Two, and it's the one we care about:</strong> draw the map at the altitude of\n        <em>intent</em>. The repo-map tools read the code that already exists and compress it — a\n        faithful mirror of <em>what's there</em>. A mirror can't tell you what a system is <em>for</em>,\n        who owns what, or whether a thing is done. storytree's map is the other way around: the code has\n        to satisfy <em>it</em>. A <strong>story</strong> is the size of a service — \"the message store\",\n        \"the billing ledger\"; a <strong>capability</strong> is an organ inside it; the line between them\n        is how you prove it, and the dependency edges fall out of the proofs instead of being hand-drawn.\n        Spec-driven tools get close to authoring intent, but tend to flatten it into a per-feature\n        checklist that's thrown away when the feature ships. A standing, two-tier map of intent that\n        outlives any one task still looks like open ground.",
+  "differentMuted": "We might be wrong that the unification is worth it — maybe one surface is enough and the other\n        two are overhead. We'd bet the other way. The field is already walking toward all three from\n        three different directions; we just think you arrive faster if you draw the whole map at once.",
+  "seeSurveyLink": "See the full survey — who's built what, the field's convergence, and the\n        honest case that this is mostly renaming →",
+  "ctaHeading": "That's the how.",
+  "ctaLede": "The <em>why</em> — why build it this way at all, what we commit to, and how to take\n        part — is its own thing. If the approach resonates, that's the door to come through.",
+  "ctaPrimary": "Why this exists · get involved →",
+  "ctaGhost": "Read the constitution"
+}
