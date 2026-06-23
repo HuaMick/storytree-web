@@ -1,25 +1,20 @@
 ---
 import Base from '../layouts/Base.astro';
 import TreeWorld from '../components/TreeWorld.astro';
+// Home hero copy is editable in Keystatic (/keystatic) and stored in
+// src/data/home.json. Rendered with set:html so inline emphasis (<em>) and
+// entities (&nbsp;) in the copy render as authored.
+import home from '../data/home.json';
 ---
 
 <Base active="home">
   <!-- ───────────────────────── hero: a quick intro ───────────────────────── -->
   <section class="hero section">
     <div class="wrap hero__copy">
-      <p class="eyebrow">An experiment in building software with AI agents</p>
-      <h1>Software you can watch grow.</h1>
-      <p class="hero__disclaimer">
-        An honest heads-up: this site was written by AI&nbsp;agents. storytree is a one-person project
-        right now — I'm a solo dev and a dad to a 3-year-old, short on spare hours and no great writer,
-        so I've leaned on the very tools I'm building to put it into words and min-max the time I've
-        got. The ideas are mine; the prose is the machine's.
-      </p>
-      <p class="lede">
-        Building with AI&nbsp;agents is fast — and a blur. The code writes itself; the hard part is
-        <em>seeing</em> what it built, trusting it, and keeping humans and agents pointed the same way.
-        storytree turns a project into a living map.
-      </p>
+      <p class="eyebrow" set:html={home.eyebrow}></p>
+      <h1 set:html={home.headline}></h1>
+      <p class="hero__disclaimer" set:html={home.disclaimer}></p>
+      <p class="lede" set:html={home.lede}></p>
     </div>
   </section>
 
@@ -64,7 +59,9 @@ import TreeWorld from '../components/TreeWorld.astro';
     max-width: 42rem; margin: 0 0 1.2rem; font-size: 0.85rem; line-height: 1.55;
     color: var(--ink-faint); border-left: 3px solid var(--line-strong); padding-left: 0.9rem;
   }
-  .hero em { font-style: italic; color: var(--ink); }
+  /* :global so emphasis authored in the editable hero copy (rendered via set:html,
+     which Astro does not scope) still picks up the hero's em styling. */
+  .hero :global(em) { font-style: italic; color: var(--ink); }
 
   .dive { margin-top: 1.9rem; max-width: 44rem; }
   .dive em { font-style: italic; }

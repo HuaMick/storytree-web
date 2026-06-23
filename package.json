@@ -6,11 +6,20 @@
   "description": "The public front door for storytree — an experiment in building software with AI agents.",
   "scripts": {
     "dev": "astro dev",
+    "cms": "astro dev --open /keystatic/",
     "build": "astro build",
     "preview": "astro preview",
-    "publish:here": "node scripts/publish-herenow.mjs"
+    "publish:here": "node scripts/publish-herenow.mjs",
+    "publish:content": "node scripts/publish-content.mjs"
   },
   "dependencies": {
     "astro": "^5.13.0"
+  },
+  "devDependencies": {
+    "@astrojs/react": "^6.0.0",
+    "@keystatic/astro": "^5.1.0",
+    "@keystatic/core": "^0.5.50",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   }
 }

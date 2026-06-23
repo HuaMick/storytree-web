@@ -31,6 +31,39 @@ npm run build      # -> ./dist (static)
 npm run preview    # serve the build
 ```
 
+## Editing content (no code) — Keystatic
+
+Site copy is editable through a small CMS ([Keystatic](https://keystatic.com)), so you can iterate on
+wording without touching `.astro` files. It runs **only in local dev** — the published site stays a
+pure static build and the editor never deploys.
+
+```bash
+npm run cms        # starts the dev server AND opens the editor at /keystatic/
+```
+
+The loop:
+
+1. **Edit** a field in the editor (e.g. *Home — hero*). Saving writes a plain content file into the
+   repo — the home hero lives in [`src/data/home.json`](src/data/home.json).
+2. **Preview** live — keep `http://localhost:4321/` open in another tab; it updates as you save (HMR).
+3. **Publish** straight to the live site:
+
+   ```bash
+   npm run publish:content                  # commit + push to main -> deploy -> live in ~1 min
+   npm run publish:content -- "tweak hero"  # ...with your own commit message
+   ```
+
+   Publishing is direct-to-main: the push fires the here.now deploy
+   ([`deploy.yml`](.github/workflows/deploy.yml)). No PR, no merge step.
+
+Editable today: the **home hero** (eyebrow, headline, disclaimer, lede). Adding more is a two-step
+pattern — declare a field/singleton/collection in [`keystatic.config.ts`](keystatic.config.ts), then
+read it in the matching page (see how [`src/pages/index.astro`](src/pages/index.astro) imports
+`src/data/home.json`). Copy may include simple inline HTML such as `<em>…</em>`.
+
+> **Editing from anywhere** (no local dev) is a follow-up: switch Keystatic storage to GitHub mode and
+> host the editor. Local mode keeps setup zero-config for now.
+
 ## Publish
 
 ```bash
