@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import TreeWorld from '../components/TreeWorld.astro';
+import AgentMaze from '../components/AgentMaze.astro';
 ---
 
 <Base
@@ -12,16 +13,32 @@ import TreeWorld from '../components/TreeWorld.astro';
   <section class="section">
     <div class="wrap prose">
       <p class="eyebrow">How it works</p>
-      <h1>The model isn't the bottleneck anymore.</h1>
+      <h1>AI agents don't need more context — they need a map.</h1>
       <p class="lede">
-        If you build with AI&nbsp;agents, you've felt the shift: writing the code stopped being the
-        hard part. The hard part is <em>seeing</em> what got built, <em>trusting</em> it, and keeping
-        several humans and a swarm of agents pointed at the same thing. storytree is three pieces
-        aimed squarely at that — a live <strong>map</strong> of your system, a shared
-        <strong>library</strong> where intent gets decided, and a <strong>harness</strong> that
-        holds the agents to it.
+        Drop an agent into a real codebase and it finds its way the only way it can: grep around,
+        open a few files, and pull as much as it can into its context window — hoping what it needs is
+        in there somewhere. On a small project that works. On a large one, it's a maze.
       </p>
     </div>
+
+    <div class="wrap">
+      <AgentMaze />
+    </div>
+
+    <div class="wrap prose">
+      <p>
+        And piling in <em>more</em> context doesn't clear the maze — attention is finite, and past a
+        point the agent starts to <strong>thrash</strong>: re-reading the same files, trying things at
+        random, looping back to dead ends it already hit. A cornered agent gets reckless — ripping out
+        the test that won't pass, faking the output, doing real damage just to reach green.
+      </p>
+      <p>
+        Hand it a <strong>map</strong> instead, and the maze falls away. It reads a compact, top-down
+        picture of what exists, what's healthy, and what depends on what — and spends its budget on
+        the task instead of the search. That map is the first of three pieces.
+      </p>
+    </div>
+
     <div class="wrap">
       <div class="grid grid--3 trio">
         <div class="card trio__card">
