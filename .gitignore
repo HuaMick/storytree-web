@@ -19,6 +19,7 @@ Thumbs.db
 # never commit anything sensitive — this repo is (or will be) public
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 secrets.json

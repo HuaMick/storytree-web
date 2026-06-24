@@ -1,0 +1,10 @@
+# Keep the Cloud Build context small + reproducible (the image runs `npm ci` itself).
+node_modules
+dist
+.git
+.github
+.astro
+.env
+.env.*
+!.env.example
+npm-debug.log*
