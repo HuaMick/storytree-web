@@ -232,9 +232,14 @@ const filters = [
   .tw-flora.st-healthy .dark { fill: #2f6b3f; } .tw-flora.st-healthy .light { fill: #55a06a; }
   .tw-flora.st-mapped .dark { fill: #7d5f3b; } .tw-flora.st-mapped .light { fill: #a8854f; }
   .tw-flora.st-proposed .dark { fill: #b06a24; } .tw-flora.st-proposed .light { fill: #e09a4b; }
+  /* dead silhouettes (the shared core's 6 flora variants — richer than the old web set) */
   .tw-flora .dead { fill: none; stroke: #8a6a4a; stroke-width: 1.2; stroke-linecap: round; }
+  .tw-flora .dead-twig { fill: none; stroke: #8a6a4a; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
   .tw-flora .dead-head { fill: #a8704a; } .tw-flora .accent { fill: #9f2d22; }
+  .tw-flora .dead-ground { fill: rgba(90,70,45,0.18); }
   .tw-flora .litter { fill: #a07a4a; opacity: 0.7; }
+  /* an invisible, focusable-free hit disc the core lays under each plant */
+  .tw-flora .flora-hit { fill: transparent; }
 
   .tw-conifer .body { fill: #4f7a3f; } .tw-conifer.c-1 .body { fill: #5d8a46; } .tw-conifer.c-2 .body { fill: #46703a; }
   .tw-conifer .snow { fill: #cfe3b3; opacity: 0.8; }
@@ -253,8 +258,14 @@ const filters = [
 
   .tw-wisp .glow { fill: #2f9e8f; opacity: 0.2; animation: tw-glow 3s ease-in-out infinite; animation-delay: var(--d, 0s); }
   .tw-wisp .dot { fill: #2f9e8f; }
+  .tw-wisp .wisp-hit { fill: transparent; }
   .tw-wisp.band-stale .glow { fill: #c98a3e; } .tw-wisp.band-stale .dot { fill: #c98a3e; }
+  .tw-wisp.band-building .glow { fill: #2f9e8f; } .tw-wisp.band-building .dot { fill: #2f9e8f; }
   @keyframes tw-glow { 0%,100% { opacity: 0.14; } 50% { opacity: 0.42; } }
+  /* the shared scene orbits each wisp around its island; the core sets the start
+     phase via --phase, the website's CSS spins it (the studio uses SMIL). */
+  .tw-wisp { transform-box: fill-box; transform-origin: center; animation: tw-orbit 6s linear infinite; }
+  @keyframes tw-orbit { from { transform: rotate(var(--phase, 0deg)); } to { transform: rotate(calc(var(--phase, 0deg) + 360deg)); } }
 
   .tw-crown { transform-box: fill-box; transform-origin: 50% 100%; animation: tw-sway var(--sway, 7s) ease-in-out infinite; animation-delay: var(--d, 0s); }
   @keyframes tw-sway { 0%,100% { transform: rotate(-1.1deg); } 50% { transform: rotate(1.1deg); } }
