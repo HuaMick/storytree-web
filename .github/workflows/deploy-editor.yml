@@ -1,0 +1,119 @@
+name: deploy-editor
+
+# Continuous deployment of the hosted Keystatic content editor (Cloud Run service
+# `storytree-web-editor`) — the ADR-0101 CD-on-merge follow-on that replaces the manual
+# `infra/deploy-web-editor.sh` runbook (in the parent storytree repo).
+#
+# Fires on a push to `main` that changes the editor's BUILD surface. Pure content edits
+# (src/data/**, src/content/**) are EXCLUDED: in github storage mode the editor reads page
+# content live from the repo, so a copy edit only needs the here.now publish (deploy.yml) —
+# not an editor redeploy. A SCHEMA/config/code change (keystatic.config.ts, astro.config.mjs,
+# components/pages/layouts, the Dockerfile, deps) does need a redeploy so the editor's field
+# model and bundle stay current — that is exactly what this automates.
+#
+# Keyless via Workload Identity Federation (parent repo infra/web-editor-cd.tf): GitHub Actions
+# OIDC -> the dedicated `github-web` provider on the shared `github-actions` pool (accepts only
+# storytree-web@main tokens) -> the storytree-web-editor-deployer SA. No JSON key anywhere.
+#
+# storytree-web has no automerge (PRs are owner-merged), so an owner merge cascades this
+# push:main trigger directly (GitHub only blocks GITHUB_TOKEN pushes from cascading) — no
+# dispatch-from-automerge shim is needed (unlike the studio's ADR-0061 path). workflow_dispatch
+# stays as the on-demand / break-glass path.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "keystatic.config.ts"
+      - "astro.config.mjs"
+      - "src/**"
+      - "!src/data/**"
+      - "!src/content/**"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
+      - "web-editor-cloudbuild.yaml"
+      - ".github/workflows/deploy-editor.yml"
+
+# Serialize deploys: a newer merge waits for the in-flight rollout rather than racing it.
+concurrency:
+  group: deploy-web-editor
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # mint the WIF OIDC token for keyless GCP auth
+    env:
+      PROJECT_ID: storytree-498613
+      REGION: australia-southeast1
+      SERVICE: storytree-web-editor
+      IMAGE_REPO: australia-southeast1-docker.pkg.dev/storytree-498613/storytree/web-editor
+      RUNTIME_SA: storytree-web-editor-host@storytree-498613.iam.gserviceaccount.com
+      STAGING_DIR: gs://storytree-498613-web-editor-cd-build/source
+      APP_SLUG: storytree-web-cms
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (keyless WIF)
+        uses: google-github-actions/auth@v3
+        with:
+          # Must equal infra/web-editor-cd.tf's `web_editor_cd_workload_identity_provider` output
+          # (project NUMBER 635716509357, the dedicated `github-web` provider — NOT `github`).
+          workload_identity_provider: projects/635716509357/locations/global/workloadIdentityPools/github-actions/providers/github-web
+          service_account: storytree-web-editor-deployer@storytree-498613.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Resolve image tag (short SHA — matches the manual runbook)
+        id: tag
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the editor image (Cloud Build — web-editor-cloudbuild.yaml)
+        run: |
+          gcloud builds submit \
+            --config web-editor-cloudbuild.yaml \
+            --substitutions=_TAG=${{ steps.tag.outputs.tag }} \
+            --gcs-source-staging-dir="${STAGING_DIR}" \
+            --project "${PROJECT_ID}" \
+            .
+
+      - name: Deploy to Cloud Run (public; runtime SA + Keystatic secrets — same posture as the manual script)
+        run: |
+          gcloud run deploy "${SERVICE}" \
+            --image "${IMAGE_REPO}:${{ steps.tag.outputs.tag }}" \
+            --region "${REGION}" --project "${PROJECT_ID}" \
+            --service-account "${RUNTIME_SA}" \
+            --allow-unauthenticated \
+            --set-secrets "KEYSTATIC_GITHUB_CLIENT_ID=storytree-web-editor-gh-client-id:latest,KEYSTATIC_GITHUB_CLIENT_SECRET=storytree-web-editor-gh-client-secret:latest,KEYSTATIC_SECRET=storytree-web-editor-keystatic-secret:latest" \
+            --set-env-vars "PUBLIC_KEYSTATIC_GITHUB_APP_SLUG=${APP_SLUG},HOST=0.0.0.0" \
+            --memory 1Gi --max-instances 2
+
+      # The editor is PUBLIC (GitHub is the gate, no IAP), so — unlike the studio CD — we can
+      # safely curl it. `gcloud run deploy` already blocks until the revision is Ready and fails
+      # the job if the container crashes on boot; here we additionally confirm the newest CREATED
+      # revision is the newest READY one (the rollout took) and that /keystatic actually serves.
+      - name: Smoke check — newest revision Ready and /keystatic serving
+        run: |
+          set -euo pipefail
+          ready=$(gcloud run services describe "${SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.latestReadyRevisionName)')
+          created=$(gcloud run services describe "${SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.latestCreatedRevisionName)')
+          url=$(gcloud run services describe "${SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')
+          echo "latest ready=${ready}  created=${created}  url=${url}"
+          if [ "${ready}" != "${created}" ]; then
+            echo "::error::newest revision (${created}) is not Ready (${ready}) — rollout did not take"
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' "${url}/keystatic")
+          echo "GET ${url}/keystatic -> ${code}"
+          if [ "${code}" != "200" ]; then
+            echo "::error::editor /keystatic returned ${code}, expected 200"
+            exit 1
+          fi
+          echo "Editor deployed and serving: ${url}/keystatic"
