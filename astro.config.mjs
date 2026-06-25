@@ -52,4 +52,11 @@ export default defineConfig({
   devToolbar: { enabled: false },
   integrations,
   ...(adapter ? { adapter } : {}),
+  // Behind Cloud Run's proxy, Astro 5 only trusts the forwarded Host if it is in
+  // this allow-list — otherwise it falls back to `localhost`, which made Keystatic's
+  // GitHub OAuth redirect_uri come out as https://localhost/... and login fail. Trust
+  // the Cloud Run *.run.app host so the origin (and thus redirect_uri) is the real
+  // public URL. Editor target only; the static public build does no SSR host check.
+  // (A custom domain, if added later, gets another { hostname } entry here.)
+  ...(isEditor ? { security: { allowedDomains: [{ hostname: '**.run.app' }] } } : {}),
 });
