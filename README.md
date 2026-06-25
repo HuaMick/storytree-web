@@ -34,8 +34,9 @@ npm run preview    # serve the build
 ## Editing content (no code) — Keystatic
 
 Site copy is editable through a small CMS ([Keystatic](https://keystatic.com)), so you can iterate on
-wording without touching `.astro` files. It runs **only in local dev** — the published site stays a
-pure static build and the editor never deploys.
+wording without touching `.astro` files. The **published here.now site stays a pure static build** —
+the editor code is never in it. You can edit two ways: **locally** (zero-config, below) or from the
+**hosted editor** (sign in from any browser — see *Hosted editor* below).
 
 ```bash
 npm run cms        # starts the dev server AND opens the editor at /keystatic/
@@ -61,8 +62,30 @@ pattern — declare a field/singleton/collection in [`keystatic.config.ts`](keys
 read it in the matching page (see how [`src/pages/index.astro`](src/pages/index.astro) imports
 `src/data/home.json`). Copy may include simple inline HTML such as `<em>…</em>`.
 
-> **Editing from anywhere** (no local dev) is a follow-up: switch Keystatic storage to GitHub mode and
-> host the editor. Local mode keeps setup zero-config for now.
+### Hosted editor — edit from anywhere
+
+The same Keystatic editor also runs as a **hosted, login-protected** service, so you can edit from any
+browser with no local setup. It's a *second build target* of this one repo — it never touches the
+public static build above.
+
+- **Storage is GitHub mode**: you sign in with your **GitHub account** and saves commit straight to
+  `main` (which fires the here.now deploy, exactly like `publish:content`). Only repo
+  **write-collaborators** can save.
+- **Build target**: setting `PUBLIC_STORYTREE_WEB_EDITOR=github` switches the build to a standalone
+  [`@astrojs/node`](https://docs.astro.build/en/guides/integrations-guide/node/) server — the
+  marketing pages still prerender to static; only Keystatic's `/keystatic` + `/api/keystatic` routes
+  are server-rendered. The plain `npm run build` is unchanged and ships zero CMS code.
+
+```bash
+npm run dev:editor     # local editor in GitHub mode (first run walks you through creating the GitHub App)
+npm run build:editor   # -> ./dist (standalone node server at dist/server/entry.mjs)
+npm run start:editor   # serve that editor build locally
+```
+
+Hosting is **Cloud Run** (mirrors the storytree studio). The credentials Keystatic's setup emits
+(`PUBLIC_KEYSTATIC_GITHUB_APP_SLUG`, `KEYSTATIC_GITHUB_CLIENT_ID`, `KEYSTATIC_GITHUB_CLIENT_SECRET`,
+`KEYSTATIC_SECRET` — see [`.env.example`](.env.example)) live in Secret Manager, **never the repo**.
+The decision record + deploy runbook live in the private storytree repo's decision log.
 
 ## Publish
 

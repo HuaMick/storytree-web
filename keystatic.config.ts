@@ -2,11 +2,11 @@ import { config, fields, singleton } from '@keystatic/core';
 
 // Keystatic content model for storytree-web.
 //
-// Storage is LOCAL mode: edits write straight to the working tree, and `astro dev`
-// shows them live (HMR). Publishing is the `npm run publish:content` script —
-// commit + push to main, which fires deploy.yml (merge = publish). To later edit
-// from a hosted /keystatic without running locally, switch storage to
-// { kind: 'github', repo: { owner: 'HuaMick', name: 'storytree-web' } }.
+// Storage mode is build-time switched (see `storage` below): LOCAL for `npm run
+// cms` / `astro dev` (edits write straight to the working tree, HMR shows them
+// live, published via `npm run publish:content`), and GITHUB for the hosted editor
+// build (PUBLIC_STORYTREE_WEB_EDITOR=github) — login + commits straight to main via
+// the GitHub App, so the owner can edit from any browser (parent storytree ADR).
 //
 // Each singleton writes a plain JSON file under src/data/ that the matching Astro
 // page reads directly (no Keystatic dependency at build time). A singleton `path`
@@ -19,7 +19,15 @@ import { config, fields, singleton } from '@keystatic/core';
 //    rule (ADR-0066); only the page's footer note is editable, as `constitutionPage`.
 //  - the contact form (the <form> + public/.herenow/data.json) — only its surrounding copy.
 export default config({
-  storage: { kind: 'local' },
+  // Storage mode is chosen at build time by the PUBLIC_STORYTREE_WEB_EDITOR flag
+  // (isomorphic — read via import.meta.env so the server and the admin-UI bundle
+  // agree). The hosted editor build sets it to 'github' → login + commits through
+  // the GitHub App, gated to repo write-collaborators. Everything else stays LOCAL
+  // (npm run cms edits the working tree; published via npm run publish:content).
+  storage:
+    import.meta.env.PUBLIC_STORYTREE_WEB_EDITOR === 'github'
+      ? { kind: 'github', repo: { owner: 'HuaMick', name: 'storytree-web' } }
+      : { kind: 'local' },
 
   ui: {
     brand: { name: 'storytree' },
