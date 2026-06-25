@@ -47,7 +47,7 @@ export default config({
 
   singletons: {
     home: singleton({
-      label: 'Home — hero',
+      label: 'Home',
       path: 'src/data/home',
       format: { data: 'json' },
       schema: {
@@ -70,6 +70,41 @@ export default config({
             'The intro paragraph. Plain text; basic inline HTML (e.g. <em>…</em>) is allowed.',
           multiline: true,
         }),
+
+        // ── below the live map: the "A map for you and your AI agents" intro ──
+        map: fields.object(
+          {
+            eyebrow: fields.text({
+              label: 'Section label (eyebrow)',
+              description:
+                'The small amber label above this block — e.g. "A map for you and your AI agents". Inline HTML/entities (e.g. &nbsp;) allowed.',
+            }),
+            body1: fields.text({
+              label: 'Body paragraph 1',
+              description: 'Inline HTML allowed (<strong>, <em>); use &nbsp; for non-breaking spaces.',
+              multiline: true,
+            }),
+            body2: fields.text({
+              label: 'Body paragraph 2',
+              description: 'Inline HTML allowed (<strong>, <em>); use &nbsp; for non-breaking spaces.',
+              multiline: true,
+            }),
+            ctaPrimary: fields.text({
+              label: 'Primary button text',
+              description: 'Visible text only; the /how-it-works/ link is fixed in the page.',
+            }),
+            ctaGhost: fields.text({
+              label: 'Secondary button text',
+              description: 'Visible text only; the /get-involved/ link is fixed in the page.',
+            }),
+            note: fields.text({
+              label: 'Closing note',
+              description: 'The muted "small on purpose" line under the buttons. Inline HTML allowed.',
+              multiline: true,
+            }),
+          },
+          { label: 'Below the map — intro for you & your agents' },
+        ),
       },
     }),
 
