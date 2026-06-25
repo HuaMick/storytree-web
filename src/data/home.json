@@ -2,5 +2,5 @@
   "eyebrow": "An experiment in building software with AI agents",
   "headline": "Software you can watch grow.",
   "disclaimer": "An honest heads-up: this site was written by AI agents. storytree is a one-person project right now — I'm a solo dev and a dad to a 3-year-old, short on spare hours and no great writer, so I've leaned on the very tools I'm building to put it into words and min-max the time I've got. The ideas are mine; the prose is the machine's.",
-  "lede": "Building with AI agents feels like black magic, the code writes itself. The hard part is <em>seeing</em> what was built, trusting it and keeping your agents aligned. Storytree turns your project into a living map so you have a birds eye view of everything, so you can see when your agents have gone of path so you can steer the ship back on course."
+  "lede": "Building software with AI feels like black magic, you just say what you want and the code writes itself. \n\n<em>The hard part is now understanding what was built and validating it.</em> \n\nStorytree turns your project into a living map so you can visualise it while your agents build it.\n\nYou can still look at the code if you want to, its just how do you know what you want to look at if you dont have a map. \n\n"
 }
