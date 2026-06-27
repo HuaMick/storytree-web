@@ -147,10 +147,10 @@
     }
   ],
   "sessions": [
-    { "id": "agent-a3f", "branch": "feat/search-index", "workingOn": "building the search index pipeline", "band": "fresh", "nodes": ["se-index", "search"] },
+    { "id": "agent-a3f", "branch": "feat/search-index", "workingOn": "building the search index pipeline", "band": "fresh", "nodes": ["se-index", "search"], "phase": "CONFIRM_GREEN" },
     { "id": "priya", "branch": "feat/huddles-sfu", "workingOn": "wiring the SFU media path", "band": "fresh", "nodes": ["hd-sfu", "huddles"] },
     { "id": "agent-c92", "branch": "feat/seat-metering", "workingOn": "seat metering and proration", "band": "fresh", "nodes": ["bl-seats", "billing"] },
-    { "id": "rowan", "branch": "fix/fanout-backpressure", "workingOn": "triaging the Monday reconnect storm", "band": "fresh", "nodes": ["gf-backpressure", "fanout"] },
+    { "id": "rowan", "branch": "fix/fanout-backpressure", "workingOn": "triaging the Monday reconnect storm", "band": "fresh", "nodes": ["gf-backpressure", "fanout"], "phase": "CONFIRM_RED" },
     { "id": "agent-7d1", "branch": "exp/search-backfill", "workingOn": "backfilling the legacy index", "band": "stale", "nodes": ["se-backfill"] }
   ]
 }

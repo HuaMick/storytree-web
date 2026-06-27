@@ -29,6 +29,7 @@ import {
   type Pt,
   type Axial,
   type RelaxedCell,
+  type BuildPhase,
   HEX_R,
   HEX_W,
   TILE_DEPTH,
@@ -80,6 +81,9 @@ export interface Session {
   workingOn: string;
   band: 'fresh' | 'stale';
   nodes: string[];
+  /** The live prove-it-gate phase of this session's in-flight build, when it has
+   *  one (ADR-0048 §3 v2). The core folds it to the wisp's red→green band. */
+  phase?: BuildPhase;
 }
 export interface Dataset {
   project: string;
@@ -139,7 +143,7 @@ const contractsOf = (c: Capability): number => c.contracts ?? 2 + (hash(c.id) % 
 
 export interface CapSpot { id: string; title: string; status: Status; x: number; y: number; variant: number; bloom: boolean; contracts: number; }
 interface DecorSpot { x: number; y: number; seed: number; }
-interface WispView { id: string; band: 'fresh' | 'stale'; workingOn: string; }
+interface WispView { id: string; band: 'fresh' | 'stale'; workingOn: string; phase?: BuildPhase; }
 
 export interface DagNode { id: string; title: string; status: Status; contracts: number; x: number; y: number; }
 export interface CapDag { w: number; h: number; nodes: DagNode[]; edges: { d: string }[]; }
@@ -383,7 +387,10 @@ export function buildWorld(data: Dataset): World {
     const labelY = Math.max(...cs.map((p) => p.y), cy) + HEX_R + TILE_DEPTH + 7;
     const witnessSessions = sessions.filter((se) =>
       se.nodes.some((nd) => nd === story.id || caps.some((c) => c.id === nd)));
-    const wisps: WispView[] = witnessSessions.map((se) => ({ id: se.id, band: se.band, workingOn: se.workingOn }));
+    const wisps: WispView[] = witnessSessions.map((se) => ({
+      id: se.id, band: se.band, workingOn: se.workingOn,
+      ...(se.phase ? { phase: se.phase } : {}),
+    }));
     const bloom = vis !== 'unhealthy' && !!story.verdict && story.verdict.outcome === 'pass'
       && DEMO_NOW - Date.parse(story.verdict.at) >= 0 && DEMO_NOW - Date.parse(story.verdict.at) < BLOOM_WINDOW;
 

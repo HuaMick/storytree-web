@@ -83,6 +83,9 @@ function territoryToSceneInput(t: Territory): SceneInput['territories'][number] 
     wisps: t.wisps.map((w) => ({
       runId: `${t.id}:${w.id}`,
       title: `${w.id} — ${w.workingOn}`,
+      // The live prove-it-gate phase, when the surface folded one in; the core maps
+      // it to the wisp's red→green band (ADR-0048 §3 v2). Absent → neutral building.
+      ...(w.phase ? { phase: w.phase } : {}),
     })),
     plate: {
       w: t.plateW,
@@ -350,12 +353,14 @@ export function sceneToSvg(node: SceneNode, storyId?: string): string {
       case 'bloom-plant':
         return `<g class="tw-bloom">${childrenSvg(node, storyId)}</g>`;
 
-      // ---- wisp orbit: --phase drives the CSS rotation ----
+      // ---- wisp orbit: --phase drives the CSS rotation; phaseBand → the band-*
+      //      colour class (red cast / green pulse / teal building, ADR-0048 §3 v2,
+      //      folded by the core so the public demo can't drift from the studio) ----
       case 'wisps':
         return `<g class="tw-wisps"${node.transform ? ` transform="${node.transform}"` : ''}>${childrenSvg(node, storyId)}</g>`;
       case 'wisp':
         return (
-          `<g class="tw-wisp band-building" style="--phase:${(node.phase ?? 0).toFixed(1)}deg">` +
+          `<g class="tw-wisp band-${node.phaseBand ?? 'building'}" style="--phase:${(node.phase ?? 0).toFixed(1)}deg">` +
           (node.title ? `<title>${esc(node.title)}</title>` : '') +
           childrenSvg(node, storyId) +
           `</g>`
