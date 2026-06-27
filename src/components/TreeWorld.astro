@@ -261,6 +261,16 @@ const filters = [
   .tw-wisp .wisp-hit { fill: transparent; }
   .tw-wisp.band-stale .glow { fill: #c98a3e; } .tw-wisp.band-stale .dot { fill: #c98a3e; }
   .tw-wisp.band-building .glow { fill: #2f9e8f; } .tw-wisp.band-building .dot { fill: #2f9e8f; }
+  /* PHASE-RESOLVED build wisp (ADR-0048 §3 v2): the teal "building" band resolves
+     into a steady RED cast while the failing test is authored/confirmed, and a
+     GREEN pulse once the build is observed green / signed at the gate — the same
+     red=unhealthy / green=healthy vocabulary the rest of the map speaks. The band
+     flows from the shared scene's phaseBand (the studio's SceneView paints the same
+     three bands), so the public demo can't drift from the studio. */
+  .tw-wisp.band-red .glow { fill: var(--crimson); opacity: 0.32; animation: none; }
+  .tw-wisp.band-red .dot { fill: var(--crimson); }
+  .tw-wisp.band-green .glow { fill: var(--evergreen); animation: tw-glow 1.2s ease-in-out infinite; }
+  .tw-wisp.band-green .dot { fill: var(--evergreen); }
   @keyframes tw-glow { 0%,100% { opacity: 0.14; } 50% { opacity: 0.42; } }
   /* the shared scene orbits each wisp around its island; the core sets the start
      phase via --phase, the website's CSS spins it (the studio uses SMIL). */
