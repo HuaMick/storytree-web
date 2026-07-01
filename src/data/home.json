@@ -1,12 +1,32 @@
 {
   "eyebrow": "An experiment in building software with AI agents",
   "headline": "Software you can watch grow.",
-  "disclaimer": "An honest heads-up: this site was written by AI agents. storytree is a one-person project right now — I'm a solo dev and a dad to a 3-year-old, short on spare hours and no great writer, so I've leaned on the very tools I'm building to put it into words and min-max the time I've got. The ideas are mine; the prose is the machine's.",
-  "lede": "Building software with AI feels like black magic, you just say what you want and the code writes itself. \n\n<em>The hard part is understanding what was built and validating it.</em> \n\nStorytree turns your project into a living map so you can watch your project grow while your agents build.\n\nYou can still look at the code if you want to, its just how do you know what you want to look at if you dont have a map. ",
+  "disclaimer": "An honest heads-up: this site was written by AI agents. storytree is a one-person project right now — I'm a solo dev and a dad to a 3-year-old, short on spare hours and no great writer, so I've leaned on the very tools I'm building to put it into words and min-max the time I've got. The ideas are mine; the prose is the machine's.",
+  "lede": "Building software with AI feels like black magic, you just say what you want and the code writes itself. \n\n<em>The hard part is understanding what was built and validating it.</em> \n\nStorytree turns your project into a living map so you can watch your project grow while your agents build.\n\nYou can still look at the code if you want to, its just how do you know what you want to look at if you dont have a map. ",
   "map": {
     "eyebrow": "A map for you and your AI&nbsp;agents",
-    "body1": "What you're looking at is a software project being built by AI&nbsp;agents — drawn as a living map instead of millions of lines of unverified code. Each tree is one <strong>story</strong>: a single slice of the product, a piece of behaviour the agents are building.",
-    "body2": "Every line the agents write turns into something you can see here. A bigger island is a more complex part of the system, with more built and tested behind it; a <strong>green</strong> tree means that part is tested and healthy, while <strong>red</strong> means a check is failing — where your attention goes next. It's a bird's-eye view of the whole system, and you can drop into any tree to unpack it with your agents. They read the map too — it's how they find their way around the system instead of getting lost in the code.",
+    "faqs": [
+      {
+        "q": "What am I looking at?",
+        "a": "A software project being built by AI&nbsp;agents — drawn as a living map instead of millions of lines of unverified code. Each tree is one <strong>story</strong>: a single slice of the product, a piece of behaviour the agents are building. It's a bird's-eye view of the whole system, and you can drop into any tree to unpack it with your agents."
+      },
+      {
+        "q": "Is this a game?",
+        "a": "No — though it borrows the look of one on purpose. A game-style map turns out to be a good way to take in a whole codebase at a glance, but everything here is real: every tree and every colour is tied to actual code and actual tests. Nothing is decorative."
+      },
+      {
+        "q": "What do the colours and the sizes mean?",
+        "a": "A bigger island is a more complex part of the system, with more built and tested behind it. A <strong>green</strong> tree means that part is tested and healthy; <strong>red</strong> means a check is failing — that's where your attention goes next."
+      },
+      {
+        "q": "Why a map instead of just the code?",
+        "a": "You can still read the code if you want to. But how do you know <em>what</em> to look at without a map? It's how you find the part that matters — and your agents read it too, so it's how they find their way around the system instead of getting lost in the code."
+      },
+      {
+        "q": "Is this real — are the agents actually building it?",
+        "a": "Yes. Every line the agents write turns into something you can see here, as they build it. It's early and small on purpose, but it's a live system — not a mock-up."
+      }
+    ],
     "ctaPrimary": "See how it works →",
     "ctaGhost": "Why this exists · get involved",
     "note": "Small on purpose. Invite-only for now — but the door to ask is wide open."
