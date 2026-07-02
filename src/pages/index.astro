@@ -6,39 +6,194 @@ import TreeWorld from '../components/TreeWorld.astro';
 // Rendered with set:html so inline emphasis (<em>/<strong>) and entities (&nbsp;)
 // in the copy render as authored.
 import home from '../data/home.json';
+// ---------------------------------------------------------------------------
+// THE HOME FLIP (ADR-0134 Act 1): the page ships two top-level branches.
+//   1. The storm  — [data-experience-entry] — a diegetic AI-agent terminal
+//      storm, hidden by default and armed before paint by the inline script
+//      below ONLY when JS is available and the visitor has no reduced-motion
+//      preference. Plain DOM/CSS + one 2D grain canvas + Web Audio synthesis;
+//      no WebGL anywhere in this page's static import closure.
+//   2. The calm view — [data-experience-fallback] — today's home content,
+//      exactly: no-JS visitors, reduced-motion visitors, and anyone who skips
+//      or steps out of the storm land here. The storm is a choice, not a toll
+//      booth.
+// The skip control [data-experience-skip] is persistent from boot; all three
+// markers are machine-held by the parent repo's `check:web-experience`.
+// ---------------------------------------------------------------------------
+import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
 ---
 
 <Base active="home">
-  <!-- ───────────────────────── hero: a quick intro ───────────────────────── -->
-  <section class="hero section">
-    <div class="wrap hero__copy">
-      <p class="eyebrow" set:html={home.eyebrow}></p>
-      <h1 set:html={home.headline}></h1>
-      <p class="hero__disclaimer" set:html={home.disclaimer}></p>
-      <p class="lede" set:html={home.lede}></p>
+  <!-- Arm the storm BEFORE first paint (is:inline — Astro must not defer this):
+       calm by default; enhance to storm only for motion-OK, JS-on visitors.
+       The disarm path (skip / calm affordance / Escape) lives here too, so the
+       exit works even if the storm engine module never loads. -->
+  <script is:inline>
+    (function () {
+      var de = document.documentElement;
+      try {
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          de.classList.add('storm-armed');
+        }
+      } catch (e) {
+        /* no matchMedia → stay calm */
+      }
+      function disarm() {
+        if (!de.classList.contains('storm-armed')) return;
+        de.classList.remove('storm-armed');
+        try {
+          if (window.__stormHalt) window.__stormHalt();
+        } catch (e) {
+          /* the engine may never have loaded — the calm view stands anyway */
+        }
+        window.scrollTo(0, 0);
+        var calm = document.getElementById('calm-view');
+        if (calm) {
+          try {
+            calm.focus({ preventScroll: true });
+          } catch (e) {
+            calm.focus();
+          }
+        }
+      }
+      document.addEventListener('click', function (ev) {
+        var t = ev.target && ev.target.closest ? ev.target.closest('[data-storm-disarm]') : null;
+        if (!t) return;
+        ev.preventDefault();
+        disarm();
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') disarm();
+      });
+    })();
+  </script>
+
+  <!-- ─────────────────────────── the storm ─────────────────────────── -->
+  <section
+    class="storm-root"
+    data-experience-entry
+    aria-label="A staged demo: one prompt spawns a storm of AI coding agents. Skip any time."
+  >
+    <div class="storm-hud">
+      <a class="storm-skip" href="#calm-view" data-experience-skip data-storm-disarm
+        >skip the storm →</a
+      >
+      <span class="storm-count" id="storm-count" aria-hidden="true">AGENTS: 01</span>
+      <button class="storm-sound" id="storm-sound" type="button" aria-pressed="true">
+        SOUND ON
+      </button>
     </div>
-  </section>
 
-  <!-- ───────────────────────── the live map, front and centre ───────────────────────── -->
-  <section class="section--tight">
-    <div class="wrap">
-      <TreeWorld />
-
-      <div class="dive prose">
-        <p class="taster-eyebrow" set:html={home.map.eyebrow}></p>
-        <p set:html={home.map.body1}></p>
-        <p set:html={home.map.body2}></p>
-        <div class="hero__cta">
-          <a class="btn btn--primary" href="/how-it-works/" set:html={home.map.ctaPrimary}></a>
-          <a class="btn btn--ghost" href="/get-involved/" set:html={home.map.ctaGhost}></a>
+    <div class="storm-stage" id="storm-stage">
+      <!-- the boot terminal: already "logged in", prompt ready, silent -->
+      <div class="storm-term storm-boot ph-green" id="storm-boot">
+        <div class="term-bar" aria-hidden="true">
+          <span class="term-dots">● ● ●</span>
+          <span class="term-name">swarm — ~/app</span>
+          <span class="term-status" id="storm-boot-status">idle</span>
         </div>
-        <p class="hero__note muted" set:html={home.map.note}></p>
+        <div class="term-body" id="storm-boot-body" aria-hidden="true">
+          {BOOT_BANNER.map((l) => <div class="term-line k-banner">{l}</div>)}
+        </div>
+        <div class="term-chips" id="storm-chips" role="group" aria-label="Suggested tasks">
+          {PROMPT_CHIPS.map((c) => (
+            <button type="button" class="term-chip" data-chip>
+              {c}
+            </button>
+          ))}
+        </div>
+        <form class="term-prompt" id="storm-form">
+          <label class="storm-sr" for="storm-input">Give the coding agent a task</label>
+          <span class="term-ps1" aria-hidden="true">~/app $</span>
+          <input
+            id="storm-input"
+            name="prompt"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="120"
+            placeholder="or type your own task…"
+          />
+          <button type="submit" class="term-send">run</button>
+        </form>
       </div>
+
+      <!-- the spawned sub-agent terminals materialize here (streaming noise —
+           hidden from assistive tech; the exits above stay in the tree) -->
+      <div class="storm-spawn" id="storm-spawn" aria-hidden="true"></div>
+    </div>
+
+    <!-- ONE full-viewport grain pass: animated noise on the canvas, scanlines +
+         vignette as its CSS background — never per-terminal filters -->
+    <canvas class="storm-grain" id="storm-grain" aria-hidden="true"></canvas>
+
+    <div class="storm-dimmer" aria-hidden="true"></div>
+
+    <!-- at peak: the one calm affordance. For THIS increment it resolves like
+         the skip; the storm-to-forest transform is the next cap's job. -->
+    <div class="storm-calm-card" id="storm-calm" data-calm-affordance hidden>
+      <p class="calm-eyebrow">meanwhile, outside the storm</p>
+      <p class="calm-word">storytree</p>
+      <p class="calm-line">
+        Twelve agents, all waiting on you. There is a calmer way to watch software grow.
+      </p>
+      <button type="button" class="btn btn--primary" data-storm-disarm>
+        step out of the storm →
+      </button>
     </div>
   </section>
+
+  <!-- ────────────────────── the calm view (today's home) ────────────────────── -->
+  <div class="calm-view" id="calm-view" tabindex="-1" data-experience-fallback>
+    <!-- hero: a quick intro -->
+    <section class="hero section">
+      <div class="wrap hero__copy">
+        <p class="eyebrow" set:html={home.eyebrow} />
+        <h1 set:html={home.headline} />
+        <p class="hero__disclaimer" set:html={home.disclaimer} />
+        <p class="lede" set:html={home.lede} />
+      </div>
+    </section>
+
+    <!-- the live map, front and centre -->
+    <section class="section--tight">
+      <div class="wrap">
+        <TreeWorld />
+
+        <div class="dive prose">
+          <p class="taster-eyebrow" set:html={home.map.eyebrow} />
+          <p set:html={home.map.body1} />
+          <p set:html={home.map.body2} />
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="/how-it-works/" set:html={home.map.ctaPrimary} />
+            <a class="btn btn--ghost" href="/get-involved/" set:html={home.map.ctaGhost} />
+          </div>
+          <p class="hero__note muted" set:html={home.map.note} />
+        </div>
+      </div>
+    </section>
+  </div>
 </Base>
 
+<!-- the storm engine (module: deferred, bundled). If it fails for any reason,
+     fall back to the calm view — never a dead storm. -->
+<script>
+  import { runStorm } from '../scripts/act1-storm';
+  if (document.documentElement.classList.contains('storm-armed')) {
+    try {
+      runStorm();
+    } catch (err) {
+      console.error('storm engine failed — falling back to the calm view', err);
+      document.documentElement.classList.remove('storm-armed');
+    }
+  }
+</script>
+
 <style>
+  /* ---- calm view (today's home, unchanged) ---- */
+  #calm-view:focus {
+    outline: none;
+  }
   .hero { padding-top: clamp(2.4rem, 6vw, 4.4rem); padding-bottom: clamp(0.8rem, 2.5vw, 1.4rem); }
   .hero__copy { max-width: 50rem; }
   .hero__copy h1 { margin-top: 0.2rem; margin-bottom: 0.55rem; }
@@ -61,4 +216,245 @@ import home from '../data/home.json';
   }
   .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.2rem; }
   .hero__note { margin-top: 1.1rem; font-size: 0.95rem; }
+</style>
+
+<style is:global>
+  /* ======================================================================
+     Act 1 — the terminal storm. Global (not Astro-scoped) because the
+     sub-agent terminals are created by the engine at runtime. Everything
+     is namespaced storm-/term- to stay out of the site's way.
+     ====================================================================== */
+
+  /* ---- arming: calm by default, storm only under html.storm-armed ---- */
+  .storm-root { display: none; }
+  html.storm-armed .storm-root { display: block; }
+  html.storm-armed .nav,
+  html.storm-armed .foot,
+  html.storm-armed .calm-view { display: none; }
+  html.storm-armed body { background: #060a08; overflow: hidden; }
+
+  /* ---- the room: dark phosphor, the deliberate inverse of the cream calm ---- */
+  .storm-root {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: radial-gradient(120% 90% at 50% 30%, #0b1410 0%, #060a08 55%, #030504 100%);
+    color: #9fe8b4;
+    --font-term: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+    font-family: var(--font-term);
+  }
+
+  .storm-sr {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---- HUD: the skip (persistent from boot), the arcade counter, sound ---- */
+  .storm-hud {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 48;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px;
+    font: 600 11.5px/1 var(--font-term);
+    letter-spacing: 0.1em;
+  }
+  .storm-skip {
+    color: #d8ffe4; text-decoration: none; text-transform: lowercase;
+    border: 1px solid rgba(126, 255, 165, 0.4);
+    background: rgba(6, 14, 9, 0.72);
+    padding: 8px 13px; border-radius: 4px;
+  }
+  .storm-skip:hover { background: rgba(126, 255, 165, 0.14); color: #ffffff; }
+  .storm-count {
+    margin-left: auto; display: inline-block;
+    color: #baffcf; font-size: 13px;
+    text-shadow: 0 0 9px rgba(90, 255, 140, 0.55);
+  }
+  .storm-count.tick { animation: storm-count-pulse 0.5s ease-out; }
+  @keyframes storm-count-pulse {
+    0% { transform: scale(1.3); filter: brightness(2.2); }
+    45% { transform: scale(0.97); }
+    100% { transform: scale(1); filter: brightness(1); }
+  }
+  .storm-sound {
+    font: 600 10.5px/1 var(--font-term); letter-spacing: 0.1em;
+    color: #9fe8b4; background: rgba(6, 14, 9, 0.72);
+    border: 1px solid rgba(126, 255, 165, 0.28);
+    padding: 8px 11px; border-radius: 4px; cursor: pointer;
+  }
+  .storm-sound[aria-pressed='false'] { color: #57806a; text-decoration: line-through; }
+  .storm-sound:hover { background: rgba(126, 255, 165, 0.12); }
+
+  /* ---- stage + terminals ---- */
+  .storm-stage { position: absolute; inset: 0; z-index: 10; overflow: hidden; }
+  .storm-spawn { position: absolute; inset: 0; }
+
+  .storm-term {
+    position: absolute;
+    display: flex; flex-direction: column; overflow: hidden;
+    background: rgba(7, 16, 11, 0.93);
+    border: 1px solid rgba(126, 255, 165, 0.26);
+    border-radius: 6px;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 14px 34px rgba(0, 0, 0, 0.55),
+      0 0 22px rgba(80, 255, 140, 0.07);
+    --ph: #8affa8; --ph-soft: #b8ffcb; --ph-dim: #4e8d63;
+  }
+  .storm-term.ph-amber {
+    --ph: #ffc46b; --ph-soft: #ffe0a8; --ph-dim: #a67c3e;
+    border-color: rgba(255, 196, 107, 0.28);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 14px 34px rgba(0, 0, 0, 0.55),
+      0 0 22px rgba(255, 180, 80, 0.07);
+  }
+  /* CRT power-on (individual scale so it composes with the mobile translate) */
+  .storm-term.is-new { animation: storm-term-on 0.34s cubic-bezier(0.22, 1.5, 0.36, 1) both; }
+  @keyframes storm-term-on {
+    0% { scale: 1 0.05; filter: brightness(3); opacity: 0; }
+    40% { scale: 1.03 0.55; filter: brightness(1.9); opacity: 1; }
+    100% { scale: 1 1; filter: brightness(1); }
+  }
+
+  .term-bar {
+    flex: none;
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 9px;
+    background: rgba(10, 24, 16, 0.9);
+    border-bottom: 1px solid rgba(126, 255, 165, 0.14);
+    font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ph-dim);
+  }
+  .term-dots { font-size: 7px; letter-spacing: 2px; color: rgba(126, 255, 165, 0.4); }
+  .term-name { color: var(--ph-soft); font-weight: 600; }
+  .term-status { margin-left: auto; }
+  .storm-term.is-parked .term-status { color: var(--ph); animation: storm-status-blink 1.4s steps(1) infinite; }
+  @keyframes storm-status-blink { 50% { opacity: 0.25; } }
+
+  .term-body {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    overflow: hidden;
+    padding: 8px 10px 9px;
+    font-size: 12px; line-height: 1.5;
+    text-shadow: 0 0 7px rgba(120, 255, 160, 0.28);
+  }
+  .term-line { white-space: pre-wrap; overflow-wrap: break-word; color: var(--ph); }
+  .term-line.k-banner { color: var(--ph-dim); }
+  .term-line.k-sys { color: var(--ph-dim); font-style: italic; }
+  .term-line.k-cmd { color: #eafff0; font-weight: 600; }
+  .term-line.k-warn { color: #ff9d76; }
+  .term-line.k-ok { color: var(--ph-soft); }
+  .term-line.k-spawn { color: #eafff0; font-weight: 700; }
+  .term-line.k-demand {
+    align-self: flex-start;
+    background: var(--ph); color: #071009;
+    font-weight: 700;
+    padding: 1px 7px; margin-top: 5px; border-radius: 2px;
+    text-shadow: none;
+  }
+  .term-cursor { animation: storm-cur-blink 1.05s steps(1) infinite; }
+  @keyframes storm-cur-blink { 50% { opacity: 0; } }
+
+  /* ---- the boot terminal ---- */
+  .storm-boot {
+    left: 50%; top: 42%; translate: -50% -50%;
+    width: min(620px, 92vw);
+    z-index: 15;
+  }
+  .storm-boot .term-body { max-height: 42vh; font-size: 13px; }
+  .term-chips { flex: none; display: flex; flex-wrap: wrap; gap: 7px; padding: 6px 10px 2px; }
+  .term-chip {
+    font: 500 11.5px var(--font-term);
+    color: var(--ph-soft);
+    background: rgba(126, 255, 165, 0.08);
+    border: 1px solid rgba(126, 255, 165, 0.32);
+    border-radius: 4px;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+  .term-chip:hover { background: rgba(126, 255, 165, 0.16); }
+  .term-prompt { flex: none; display: flex; align-items: center; gap: 7px; padding: 7px 10px 11px; }
+  .term-ps1 { color: var(--ph-dim); font-size: 13px; }
+  .term-prompt input {
+    flex: 1; min-width: 0;
+    background: transparent; border: 0; outline: none;
+    color: #eafff0; font: 500 13px var(--font-term);
+    caret-color: var(--ph);
+  }
+  .term-prompt input::placeholder { color: rgba(126, 255, 165, 0.4); }
+  .term-prompt input:focus-visible { outline: none; box-shadow: 0 1px 0 0 var(--ph); }
+  .term-send {
+    font: 600 10.5px var(--font-term); letter-spacing: 0.1em; text-transform: uppercase;
+    color: #071009; background: var(--ph);
+    border: 0; border-radius: 3px;
+    padding: 5px 10px; cursor: pointer;
+  }
+  .storm-root.is-sent .term-chips,
+  .storm-root.is-sent .term-prompt { display: none; }
+
+  /* ---- grain: animated noise (canvas) + scanlines & vignette (its background) ---- */
+  .storm-grain {
+    position: absolute; inset: 0; z-index: 40;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(4, 10, 6, 0.28) 0px, rgba(4, 10, 6, 0.28) 1px,
+        transparent 1px, transparent 3px
+      ),
+      radial-gradient(ellipse 115% 90% at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+    animation: storm-flicker 7s steps(60) infinite;
+  }
+  @keyframes storm-flicker {
+    0%, 91%, 94%, 96%, 100% { opacity: 1; }
+    92% { opacity: 0.86; }
+    97% { opacity: 0.93; }
+  }
+
+  /* ---- peak: dim the scene, surface the one calm affordance ---- */
+  .storm-dimmer {
+    position: absolute; inset: 0; z-index: 45;
+    background: rgba(2, 4, 3, 0.55);
+    opacity: 0; transition: opacity 1.6s ease;
+    pointer-events: none;
+  }
+  .storm-root.is-peak .storm-dimmer { opacity: 1; }
+  .storm-calm-card {
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+    z-index: 46;
+    width: min(430px, 88vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+    padding: 1.9rem 2rem 1.7rem;
+    text-align: center;
+    font-family: var(--font-body);
+  }
+  .storm-root.is-peak .storm-calm-card { animation: storm-calm-rise 1.4s 0.9s ease both; }
+  @keyframes storm-calm-rise {
+    from { opacity: 0; translate: -50% -44%; }
+    to { opacity: 1; translate: -50% -50%; }
+  }
+  .storm-calm-card .calm-eyebrow {
+    font: 650 0.68rem var(--font-body); letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--amber); margin: 0 0 0.5rem;
+  }
+  .storm-calm-card .calm-word {
+    font-family: var(--font-display); font-weight: 600; font-size: 2rem;
+    color: var(--evergreen); margin: 0 0 0.5rem;
+  }
+  .storm-calm-card .calm-line {
+    font-size: 0.95rem; line-height: 1.55; color: var(--ink-soft); margin: 0 0 1.2rem;
+  }
+
+  /* ---- small screens: same cap, stacked windows ---- */
+  @media (max-width: 680px) {
+    .storm-hud { padding: 8px 10px; gap: 8px; font-size: 10.5px; }
+    .storm-count { font-size: 11.5px; }
+    .storm-term { left: 50% !important; translate: -50% 0; width: min(420px, 88vw) !important; }
+    .storm-boot { top: 40%; translate: -50% -50%; }
+    .storm-boot .term-body { font-size: 12px; }
+  }
 </style>
