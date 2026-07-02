@@ -147,30 +147,22 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
          noise literally becomes the ground of the calm world. -->
     <div class="storm-soil" id="storm-soil" aria-hidden="true"></div>
 
-    <!-- the calm land: the R3F island mounts here AFTER the inflection (the
-         bundle is only ever reached via dynamic import() at the click — the
-         no-WebGL-in-Act-1 wall). Hidden until the transform begins. -->
+    <!-- the calm land: the R3F island + the Act 2 guided walkthrough mount here
+         AFTER the inflection (the bundle is only ever reached via dynamic
+         import() at the click — the no-WebGL-in-Act-1 wall). Hidden until the
+         transform begins. The walkthrough overlay (ADR-0134 §3) — narration,
+         ONE Next per beat, Back, a quiet skip, the honest CTA at the end — is
+         module-created DOM (act2-walkthrough via the inflection seam), styled
+         by the .act2-* rules below; its classic-page exit rides the same
+         inline [data-storm-disarm] delegation as every other exit. -->
     <div
       class="storm-land"
       id="storm-land"
       tabindex="-1"
-      aria-label="A calm, empty land where stories will grow — drag to pan, scroll to zoom"
+      aria-label="A guided walkthrough on calm ground: watch one story grow into a small proven forest, one step per tap. Press Escape any time for the classic page."
       hidden
     >
       <div class="storm-land-canvas" id="storm-land-canvas"></div>
-      <div class="land-cta" id="storm-land-cta">
-        <p class="land-cta-line">
-          The storm settles into quiet ground. This is where storytree grows software — the
-          guided walk arrives here soon.
-        </p>
-        <nav class="land-cta-links" aria-label="Where to next">
-          <a class="btn btn--primary" href="/how-it-works/">how it works</a>
-          <a class="btn btn--ghost" href="/get-involved/">get involved</a>
-          <button type="button" class="land-cta-classic" data-storm-disarm>
-            prefer the classic front page? →
-          </button>
-        </nav>
-      </div>
     </div>
   </section>
 
@@ -564,35 +556,125 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
   }
   .storm-land[hidden] { display: none; }
   .storm-root.is-resolved .storm-land { opacity: 1; pointer-events: auto; }
-  .storm-land-canvas { position: absolute; inset: 0; }
+  /* explicit z-indexes make the canvas (and every drei Html label inside it) a
+     contained stacking context UNDER the pacing card */
+  .storm-land-canvas { position: absolute; inset: 0; z-index: 1; }
 
-  /* the interim CTA (owner decision 6): a mid-arc visitor is never stranded —
-     onward links + the classic front page via the existing inline disarm. */
-  .land-cta {
-    position: absolute; left: 50%; bottom: 4.5vh; translate: -50%;
-    width: min(560px, 92vw);
+  /* ======================================================================
+     Act 2 — the guided walkthrough (ADR-0134 §3). The pacing card + the
+     in-world labels are module-created DOM (act2-walkthrough); a visitor is
+     never stranded: every state carries Next/finish or the CTA links, plus
+     the quiet skip and the ever-present Escape disarm.
+     ====================================================================== */
+
+  .act2-panel {
+    position: absolute; left: 50%; bottom: 4vh; translate: -50%;
+    z-index: 2;
+    width: min(620px, 94vw);
     background: var(--surface); color: var(--ink);
     border-radius: var(--radius);
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
-    padding: 1.1rem 1.4rem 1rem;
-    text-align: center;
+    box-shadow: 0 18px 60px rgba(34, 31, 26, 0.35);
+    padding: 1.05rem 1.3rem 0.9rem;
     font-family: var(--font-body);
   }
-  .land-cta-line {
-    margin: 0 0 0.75rem;
-    font-size: 0.92rem; line-height: 1.5; color: var(--ink-soft);
+  .act2-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; margin-bottom: 0.4rem;
   }
-  .land-cta-links {
-    display: flex; flex-wrap: wrap; gap: 0.6rem;
-    justify-content: center; align-items: center;
+  .act2-step {
+    margin: 0;
+    font: 650 0.68rem var(--font-body); letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--amber);
   }
-  .land-cta-classic {
+  .act2-dots { display: flex; gap: 0.4rem; }
+  .act2-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line-strong);
+    transition: background 0.4s ease;
+  }
+  .act2-dot.is-lit { background: var(--evergreen); }
+  .act2-title {
+    margin: 0 0 0.3rem;
+    font-family: var(--font-display); font-weight: 600; font-size: 1.28rem;
+    color: var(--evergreen-deep);
+  }
+  .act2-body {
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem; line-height: 1.55; color: var(--ink-soft);
+  }
+  .act2-cta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+    margin-bottom: 0.85rem;
+  }
+  .act2-cta[hidden] { display: none; }
+  .act2-controls { display: flex; align-items: center; gap: 0.6rem; }
+  .act2-skip,
+  .act2-classic {
     border: 0; background: none; cursor: pointer;
-    font: 500 0.85rem var(--font-body);
+    font: 500 0.84rem var(--font-body);
     color: var(--ink-faint); text-decoration: underline;
     padding: 0.4rem 0.2rem;
   }
-  .land-cta-classic:hover { color: var(--ink); }
+  .act2-skip { margin-right: auto; }
+  .act2-skip:hover,
+  .act2-classic:hover { color: var(--ink); }
+  .act2-back {
+    border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--ink-soft); border-radius: var(--radius-sm);
+    font: 500 0.86rem var(--font-body);
+    padding: 0.5rem 0.85rem; cursor: pointer;
+  }
+  .act2-back:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .act2-back[hidden], .act2-next[hidden], .act2-skip[hidden] { display: none; }
+
+  /* ---- the in-world labels (drei Html portals inside the canvas) ---- */
+  .act2-html { pointer-events: none; }
+  .act2-chip {
+    display: inline-flex; align-items: center; gap: 0.45em;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 0.28em 0.75em;
+    font: 600 13px var(--font-body);
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(34, 31, 26, 0.14);
+  }
+  .act2-chip-state {
+    font-weight: 500; font-size: 10.5px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .act2-chip--proven { border-color: var(--evergreen); }
+  .act2-chip--proven .act2-chip-state { color: var(--evergreen); font-weight: 700; }
+  .act2-chip--ghost {
+    background: rgba(255, 253, 250, 0.88); color: var(--ink-soft);
+    font-weight: 500; border-style: dashed;
+  }
+  .act2-plate {
+    display: flex; flex-direction: column; align-items: center; gap: 0.12em;
+    background: var(--surface);
+    border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+    padding: 0.45em 0.95em;
+    text-align: center; white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(34, 31, 26, 0.16);
+  }
+  .act2-plate-outcome { font: 650 14px var(--font-body); color: var(--ink); }
+  .act2-plate-sub {
+    font: 500 10.5px var(--font-body);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--amber);
+  }
+  /* the violation flag: instantly distinguishable from every calm chip —
+     rust, bold, on its own dashed rust road (the data draws it this way) */
+  .act2-flag {
+    background: #fdf1ec; color: #8c2f1b;
+    border: 1.5px solid #b0452f;
+    border-radius: var(--radius-sm);
+    padding: 0.35em 0.75em;
+    font: 650 12.5px var(--font-body);
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(176, 69, 47, 0.28);
+  }
 
   /* ---- small screens: same cap, stacked windows ---- */
   @media (max-width: 680px) {
