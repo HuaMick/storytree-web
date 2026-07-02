@@ -71,7 +71,7 @@ export default config({
           multiline: true,
         }),
 
-        // ── below the live map: the "A map for you and your AI agents" intro ──
+        // ── below the live map: the "A map for you and your AI agents" Q&A drawers ──
         map: fields.object(
           {
             eyebrow: fields.text({
@@ -79,16 +79,23 @@ export default config({
               description:
                 'The small amber label above this block — e.g. "A map for you and your AI agents". Inline HTML/entities (e.g. &nbsp;) allowed.',
             }),
-            body1: fields.text({
-              label: 'Body paragraph 1',
-              description: 'Inline HTML allowed (<strong>, <em>); use &nbsp; for non-breaking spaces.',
-              multiline: true,
-            }),
-            body2: fields.text({
-              label: 'Body paragraph 2',
-              description: 'Inline HTML allowed (<strong>, <em>); use &nbsp; for non-breaking spaces.',
-              multiline: true,
-            }),
+            faqs: fields.array(
+              fields.object({
+                q: fields.text({ label: 'Question', description: 'The clickable drawer header.' }),
+                a: fields.text({
+                  label: 'Answer',
+                  description:
+                    'Shown when the drawer is expanded. Inline HTML allowed (<strong>, <em>); use &nbsp; for non-breaking spaces.',
+                  multiline: true,
+                }),
+              }),
+              {
+                label: 'Questions & answers (expandable drawers)',
+                description:
+                  'Each item is a drawer on the home page — the question is the clickable header, the answer opens below. Drag to reorder.',
+                itemLabel: (props) => props.fields.q.value || 'Question',
+              },
+            ),
             ctaPrimary: fields.text({
               label: 'Primary button text',
               description: 'Visible text only; the /how-it-works/ link is fixed in the page.',
@@ -103,7 +110,7 @@ export default config({
               multiline: true,
             }),
           },
-          { label: 'Below the map — intro for you & your agents' },
+          { label: 'Below the map — questions & answers' },
         ),
       },
     }),

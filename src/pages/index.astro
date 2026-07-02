@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import TreeWorld from '../components/TreeWorld.astro';
-// Home page copy (the hero + the "map for you and your agents" intro below the
+// Home page copy (the hero + the "map for you and your agents" Q&A below the
 // live map) is editable in Keystatic (/keystatic) and stored in src/data/home.json.
 // Rendered with set:html so inline emphasis (<em>/<strong>) and entities (&nbsp;)
 // in the copy render as authored.
@@ -185,8 +185,21 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
 
         <div class="dive prose">
           <p class="taster-eyebrow" set:html={home.map.eyebrow} />
-          <p set:html={home.map.body1} />
-          <p set:html={home.map.body2} />
+
+          <!-- Q&A drawers: expand a question to read the answer. Native <details>
+               so it works with no JS; questions/answers are CMS-editable (home.map.faqs). -->
+          <div class="faq">
+            {home.map.faqs.map((item) => (
+              <details class="faq__item">
+                <summary class="faq__q">
+                  <span class="faq__q-text" set:html={item.q} />
+                  <span class="faq__icon" aria-hidden="true"></span>
+                </summary>
+                <div class="faq__a" set:html={item.a} />
+              </details>
+            ))}
+          </div>
+
           <div class="hero__cta">
             <a class="btn btn--primary" href="/how-it-works/" set:html={home.map.ctaPrimary} />
             <a class="btn btn--ghost" href="/get-involved/" set:html={home.map.ctaGhost} />
@@ -235,9 +248,49 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
   .dive :global(strong) { color: var(--ink); font-weight: 650; }
   .taster-eyebrow {
     font: 650 0.72rem var(--font-body); letter-spacing: 0.13em; text-transform: uppercase;
-    color: var(--amber); margin: 0 0 0.55rem;
+    color: var(--amber); margin: 0 0 0.7rem;
   }
-  .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.2rem; }
+
+  /* ── Q&A drawers ── */
+  .faq { display: flex; flex-direction: column; gap: 0.55rem; }
+  .faq__item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+  .faq__item[open] { border-color: var(--line-strong); }
+  .faq__q {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.8rem 1.05rem;
+    cursor: pointer;
+    font: 600 1.02rem/1.4 var(--font-body);
+    color: var(--ink);
+    list-style: none;            /* drop the default disclosure triangle (Firefox) */
+    border-radius: var(--radius-sm);
+  }
+  .faq__q::-webkit-details-marker { display: none; }  /* …and WebKit */
+  .faq__q:hover { background: var(--surface-2); }
+
+  /* a +/− toggle drawn from two bars; the vertical bar hides when the drawer opens */
+  .faq__icon { position: relative; flex: none; width: 0.85rem; height: 0.85rem; }
+  .faq__icon::before,
+  .faq__icon::after {
+    content: ''; position: absolute; background: var(--amber); border-radius: 2px;
+  }
+  .faq__icon::before { top: 50%; left: 0; right: 0; height: 2px; transform: translateY(-50%); }
+  .faq__icon::after {
+    left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
+    transition: opacity 0.18s ease;
+  }
+  .faq__item[open] .faq__icon::after { opacity: 0; }
+
+  .faq__a {
+    padding: 0 1.05rem 0.9rem;
+    color: var(--ink-soft);
+    font-size: 0.98rem; line-height: 1.62;
+  }
+
+  .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.4rem; }
   .hero__note { margin-top: 1.1rem; font-size: 0.95rem; }
 </style>
 
