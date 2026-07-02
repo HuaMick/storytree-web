@@ -24,6 +24,11 @@ const MAX_LINES = 16; //   DOM lines kept per terminal (old ones drop)
 const PEAK_BEAT = 2600; // ms of parked cacophony before the calm affordance
 const MASTER_GAIN = 0.15;
 
+// — the inflection (ADR-0134 §2): one click transforms the storm in place —
+const COLLAPSE_STAGGER = 62; // ms between terminal power-offs (CRT-off feel)
+const FRAG_CAP = 88; //         falling text fragments across all terminals
+const SETTLE_BEAT = 2800; //    ms from the click before the land may resolve
+
 // ── audio: everything synthesized ───────────────────────────────────────────
 
 class StormAudio {
@@ -201,6 +206,35 @@ class StormAudio {
       }
     }
   }
+
+  /** The transform's decay — the storm resolves to silence rather than cutting:
+   *  the master gain ramps to nothing over ~1.6s, then the context closes for
+   *  good. `halt()` (the disarm path) stays the hard stop. */
+  quell(): void {
+    if (this.halted) return;
+    this.halted = true; // no new ticks/bells/blips; resume() is disabled
+    const ctx = this.ctx;
+    const master = this.master;
+    this.ctx = null; // nothing can reach the graph again through this instance
+    this.master = null;
+    if (!ctx || !master) return;
+    try {
+      const t = ctx.currentTime;
+      const g = master.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0.0001, t + 1.6);
+    } catch {
+      /* ramp failed — the close below still ends in silence */
+    }
+    window.setTimeout(() => {
+      try {
+        void ctx.close().catch(() => {});
+      } catch {
+        /* already closed */
+      }
+    }, 1800);
+  }
 }
 
 // ── grain: ONE low-res canvas pass for the whole viewport ───────────────────
@@ -283,6 +317,13 @@ export function runStorm(): void {
     'grain canvas',
   );
   const calmCard = need(document.getElementById('storm-calm'), 'calm affordance');
+  const transformBtn = need(
+    calmCard.querySelector<HTMLElement>('[data-storm-transform]'),
+    'transform trigger',
+  );
+  const soilEl = need(document.getElementById('storm-soil'), 'soil');
+  const landEl = need(document.getElementById('storm-land'), 'land layer');
+  const landCanvasEl = need(document.getElementById('storm-land-canvas'), 'land canvas mount');
 
   const plan = buildStormPlan();
   const audio = new StormAudio();
@@ -392,12 +433,166 @@ export function runStorm(): void {
   };
 
   // — at peak: a beat of sustained cacophony, then the scene dims and the one
-  //   calm affordance fades in (the transform itself is the NEXT cap) —
+  //   calm affordance fades in —
   const peak = (): void => {
     peaked = true;
     root.classList.add('is-peak');
     calmCard.hidden = false;
   };
+
+  // ── the inflection (ADR-0134 §2): one click transforms the storm in place ──
+  //
+  // The click is the visitor's second and last gesture: the R3F bundle starts
+  // loading AT the click (dynamic import() — the sanctioned seam in the
+  // no-WebGL-in-Act-1 wall), the audio decays rather than cuts, the terminals
+  // power off in a stagger, their text fragments drop into the ground as soil,
+  // and when the import has resolved AND the settle beat has passed, the calm
+  // empty land fades up. No URL change — a transform, not a navigation.
+
+  let transforming = false;
+  let islandHandle: { unmount(): void } | null = null;
+  let fallLayer: HTMLElement | null = null;
+  const transformTimers: number[] = [];
+
+  /** Fall back to the calm view via the existing inline disarm path — the
+   *  never-stranded guarantee when the island cannot load. */
+  const disarmToCalm = (): void => {
+    const exit = document.querySelector<HTMLElement>('[data-storm-disarm]');
+    if (exit) exit.click();
+    else document.documentElement.classList.remove('storm-armed');
+  };
+
+  /** Short phosphor fragments sampled from a terminal's visible lines. */
+  const sampleFragments = (ts: TermState, quota: number, rand: () => number): string[] => {
+    const words: string[] = [];
+    ts.body.querySelectorAll('.term-line').forEach((line) => {
+      for (const w of (line.textContent ?? '').split(/\s+/)) {
+        const t = w.trim();
+        if (t.length >= 2 && t.length <= 16) words.push(t);
+      }
+    });
+    const out: string[] = [];
+    while (out.length < quota && words.length > 0) {
+      out.push(words.splice(Math.floor(rand() * words.length), 1)[0]!);
+    }
+    return out;
+  };
+
+  const beginTransform = (): void => {
+    if (transforming || halted) return;
+    transforming = true;
+
+    // 1. the lazy-load starts AT the click — the exhale buys the fetch
+    const islandReady = import('./inflection');
+
+    // 2. the scene stops demanding: the stream freezes, the audio decays,
+    //    the chrome (grain / HUD / calm card) exhales out
+    cancelAnimationFrame(raf);
+    audio.quell();
+    root.classList.add('is-transforming');
+
+    // 3. terminals power off in a stagger; their fragments fall as soil
+    const rand = mulberry32(STORM_SEED ^ 0x501f); // deterministic choreography jitter
+    const live = terms.filter((t) => t.live);
+    const layer = document.createElement('div');
+    layer.className = 'storm-fall';
+    layer.setAttribute('aria-hidden', 'true');
+    root.appendChild(layer);
+    fallLayer = layer;
+
+    const quota = Math.max(3, Math.floor(FRAG_CAP / Math.max(1, live.length)));
+    let spawned = 0;
+    let settled = 0;
+    const soilTo = (grown: number): void => {
+      soilEl.style.transform = `scaleY(${(0.045 + 0.955 * Math.min(1, grown)).toFixed(3)})`;
+    };
+
+    live.forEach((ts, i) => {
+      const offAt = i * COLLAPSE_STAGGER + Math.round(rand() * 30);
+      transformTimers.push(
+        window.setTimeout(() => {
+          ts.el.classList.remove('is-new');
+          ts.el.classList.add('is-off');
+        }, offAt),
+      );
+
+      const rect = ts.el.getBoundingClientRect();
+      const frags = sampleFragments(ts, Math.min(quota, FRAG_CAP - spawned), rand);
+      for (const text of frags) {
+        spawned++;
+        const el = document.createElement('span');
+        el.className = `storm-frag ph-${ts.plan.phosphor}`;
+        el.textContent = text;
+        const sx = rect.left + rand() * rect.width;
+        const sy = rect.top + rand() * rect.height * 0.85;
+        el.style.left = `${sx.toFixed(1)}px`;
+        el.style.top = `${sy.toFixed(1)}px`;
+        layer.appendChild(el);
+        const settle = (): void => {
+          el.remove();
+          settled++;
+          soilTo(settled / Math.max(1, spawned));
+        };
+        if (typeof el.animate !== 'function') {
+          settle(); // no WAAPI → no fall, but the soil still accumulates
+          continue;
+        }
+        const dy = window.innerHeight - (4 + rand() * 36) - sy;
+        const dx = (rand() - 0.5) * 90;
+        const rot = (rand() - 0.5) * 70;
+        const anim = el.animate(
+          [
+            { transform: 'translate(0px, 0px) rotate(0deg)', opacity: 1 },
+            {
+              transform: `translate(${(dx * 0.35).toFixed(1)}px, ${(dy * 0.55).toFixed(1)}px) rotate(${(rot * 0.6).toFixed(1)}deg)`,
+              opacity: 0.95,
+              offset: 0.55,
+            },
+            { transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`, opacity: 0 },
+          ],
+          {
+            duration: 850 + Math.round(rand() * 700),
+            delay: offAt + Math.round(rand() * 260),
+            easing: 'cubic-bezier(0.45, 0.05, 0.8, 0.6)',
+            fill: 'forwards',
+          },
+        );
+        anim.addEventListener('finish', settle);
+        anim.addEventListener('cancel', () => el.remove());
+      }
+    });
+
+    // 4. the land fades up when the island is ready AND the beat has passed;
+    //    if the fetch is slower, the settled soil simply rests — no spinner
+    const beat = new Promise<void>((resolve) => {
+      transformTimers.push(window.setTimeout(() => resolve(), SETTLE_BEAT));
+    });
+    void Promise.all([islandReady, beat])
+      .then(([mod]) => {
+        if (halted) return;
+        landEl.hidden = false; // opacity 0 — visible only when .is-resolved lands
+        islandHandle = mod.mountForestLand(landCanvasEl);
+        // two frames so the canvas mounts and sizes before the fade begins
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (halted) return;
+            root.classList.add('is-resolved');
+            try {
+              landEl.focus({ preventScroll: true });
+            } catch {
+              landEl.focus();
+            }
+          });
+        });
+      })
+      .catch((err: unknown) => {
+        // 5. never stranded: a failed island load falls back to the calm view
+        if (halted) return;
+        console.error('storm inflection failed to load — stepping out to the calm view', err);
+        disarmToCalm();
+      });
+  };
+  transformBtn.addEventListener('click', beginTransform);
 
   // — the loop: one rAF drives grain + every stream —
   const loop = (now: number): void => {
@@ -478,12 +673,28 @@ export function runStorm(): void {
   const onResize = (): void => grain.resize();
   window.addEventListener('resize', onResize);
 
-  // — the halt hook the inline disarm script calls (skip / calm affordance / Esc) —
+  // — the halt hook the inline disarm script calls (skip / Esc / the land's
+  //   classic-front-page affordance) — also tears the transform down: pending
+  //   timers die, the fall layer goes, and a mounted island is unmounted —
   const halt = (): void => {
     if (halted) return;
     halted = true;
     cancelAnimationFrame(raf);
     audio.halt();
+    for (const t of transformTimers) window.clearTimeout(t);
+    transformTimers.length = 0;
+    if (fallLayer) {
+      fallLayer.remove();
+      fallLayer = null;
+    }
+    if (islandHandle) {
+      try {
+        islandHandle.unmount();
+      } catch {
+        /* the island is torn down with the page state regardless */
+      }
+      islandHandle = null;
+    }
     document.removeEventListener('visibilitychange', onVis);
     window.removeEventListener('resize', onResize);
   };

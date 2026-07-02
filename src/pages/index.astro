@@ -129,17 +129,48 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
 
     <div class="storm-dimmer" aria-hidden="true"></div>
 
-    <!-- at peak: the one calm affordance. For THIS increment it resolves like
-         the skip; the storm-to-forest transform is the next cap's job. -->
+    <!-- at peak: the one calm affordance. Its button is THE TRANSFORM trigger
+         (ADR-0134 §2): the engine binds [data-storm-transform] — one click and
+         the storm becomes soil, the calm land fades up in place. -->
     <div class="storm-calm-card" id="storm-calm" data-calm-affordance hidden>
       <p class="calm-eyebrow">meanwhile, outside the storm</p>
       <p class="calm-word">storytree</p>
       <p class="calm-line">
         Twelve agents, all waiting on you. There is a calmer way to watch software grow.
       </p>
-      <button type="button" class="btn btn--primary" data-storm-disarm>
+      <button type="button" class="btn btn--primary" data-storm-transform>
         step out of the storm →
       </button>
+    </div>
+
+    <!-- the soil: the terminals' fragments accumulate here as they fall — the
+         noise literally becomes the ground of the calm world. -->
+    <div class="storm-soil" id="storm-soil" aria-hidden="true"></div>
+
+    <!-- the calm land: the R3F island mounts here AFTER the inflection (the
+         bundle is only ever reached via dynamic import() at the click — the
+         no-WebGL-in-Act-1 wall). Hidden until the transform begins. -->
+    <div
+      class="storm-land"
+      id="storm-land"
+      tabindex="-1"
+      aria-label="A calm, empty land where stories will grow — drag to pan, scroll to zoom"
+      hidden
+    >
+      <div class="storm-land-canvas" id="storm-land-canvas"></div>
+      <div class="land-cta" id="storm-land-cta">
+        <p class="land-cta-line">
+          The storm settles into quiet ground. This is where storytree grows software — the
+          guided walk arrives here soon.
+        </p>
+        <nav class="land-cta-links" aria-label="Where to next">
+          <a class="btn btn--primary" href="/how-it-works/">how it works</a>
+          <a class="btn btn--ghost" href="/get-involved/">get involved</a>
+          <button type="button" class="land-cta-classic" data-storm-disarm>
+            prefer the classic front page? →
+          </button>
+        </nav>
+      </div>
     </div>
   </section>
 
@@ -448,6 +479,120 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
   .storm-calm-card .calm-line {
     font-size: 0.95rem; line-height: 1.55; color: var(--ink-soft); margin: 0 0 1.2rem;
   }
+
+  /* ======================================================================
+     The inflection (ADR-0134 §2) — one click at peak transforms the storm:
+     terminals power off, their fragments fall as soil, the calm land fades
+     up in place. State classes (engine-driven): .is-transforming from the
+     click, .is-resolved when the island is mounted and the beat has passed.
+     ====================================================================== */
+
+  /* the chrome exhales: grain, HUD and the calm card fade out (animations are
+     cancelled so the opacity transition owns the property) */
+  .storm-root.is-transforming .storm-grain {
+    animation: none;
+    opacity: 0;
+    transition: opacity 1.3s ease;
+  }
+  .storm-root.is-transforming .storm-hud {
+    opacity: 0;
+    transition: opacity 1.5s ease 0.3s;
+  }
+  .storm-root.is-transforming .storm-calm-card {
+    animation: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  /* CRT power-off — the inverse of storm-term-on (scale composes with the
+     mobile translate the same way) */
+  .storm-term.is-off {
+    animation: storm-term-off 0.5s cubic-bezier(0.55, 0, 0.75, 0.4) both;
+  }
+  @keyframes storm-term-off {
+    0% { scale: 1 1; filter: brightness(1); opacity: 1; }
+    30% { scale: 1.02 0.55; filter: brightness(2.6); opacity: 1; }
+    100% { scale: 1 0.04; filter: brightness(3); opacity: 0; }
+  }
+
+  /* falling fragments: phosphor text dropping out of the dying windows.
+     transform/opacity only — the engine animates each span via WAAPI. */
+  .storm-fall {
+    position: absolute; inset: 0; z-index: 47;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .storm-frag {
+    position: absolute;
+    font: 500 12px var(--font-term);
+    white-space: nowrap;
+    will-change: transform, opacity;
+    color: #8affa8;
+    text-shadow: 0 0 7px rgba(120, 255, 160, 0.35);
+  }
+  .storm-frag.ph-amber {
+    color: #ffc46b;
+    text-shadow: 0 0 7px rgba(255, 180, 80, 0.35);
+  }
+
+  /* the soil: a low dark mound the fragments accumulate into. Grows by an
+     engine-set scaleY (transform-only — compositor-friendly); rests as the
+     loading posture if the island fetch is slow. */
+  .storm-soil {
+    position: absolute; left: -4vw; right: -4vw; bottom: 0; z-index: 46;
+    height: 13vh;
+    background: radial-gradient(120% 100% at 50% 100%, #182419 0%, #0d1510 55%, #070c09 100%);
+    border-radius: 48% 48% 0 0 / 92% 92% 0 0;
+    transform: scaleY(0.045);
+    transform-origin: bottom;
+    transition: transform 0.5s cubic-bezier(0.25, 0.7, 0.4, 1), opacity 0.9s ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .storm-root.is-transforming .storm-soil { opacity: 1; }
+
+  /* the calm land: mounted hidden→opacity-0, then fades up as the quiet
+     resolves. Sits above all storm chrome (runtime hiding of the skip after
+     the transform — its source attribute is untouched). */
+  .storm-land {
+    position: absolute; inset: 0; z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    outline: none;
+    transition: opacity 2.4s ease;
+  }
+  .storm-land[hidden] { display: none; }
+  .storm-root.is-resolved .storm-land { opacity: 1; pointer-events: auto; }
+  .storm-land-canvas { position: absolute; inset: 0; }
+
+  /* the interim CTA (owner decision 6): a mid-arc visitor is never stranded —
+     onward links + the classic front page via the existing inline disarm. */
+  .land-cta {
+    position: absolute; left: 50%; bottom: 4.5vh; translate: -50%;
+    width: min(560px, 92vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+    padding: 1.1rem 1.4rem 1rem;
+    text-align: center;
+    font-family: var(--font-body);
+  }
+  .land-cta-line {
+    margin: 0 0 0.75rem;
+    font-size: 0.92rem; line-height: 1.5; color: var(--ink-soft);
+  }
+  .land-cta-links {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    justify-content: center; align-items: center;
+  }
+  .land-cta-classic {
+    border: 0; background: none; cursor: pointer;
+    font: 500 0.85rem var(--font-body);
+    color: var(--ink-faint); text-decoration: underline;
+    padding: 0.4rem 0.2rem;
+  }
+  .land-cta-classic:hover { color: var(--ink); }
 
   /* ---- small screens: same cap, stacked windows ---- */
   @media (max-width: 680px) {

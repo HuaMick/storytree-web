@@ -42,6 +42,15 @@ export default defineConfig({
   // adapter is present, Keystatic's own routes are emitted as on-demand alongside the
   // static pages (Astro's hybrid behaviour) and served by dist/server/entry.mjs.
   output: 'static',
+  // The inflection island (src/scripts/inflection.tsx + the synced forest-world-r3f
+  // .tsx artifact) is plain Vite-compiled JSX — the PUBLIC build deliberately has no
+  // @astrojs/react integration (it loads above for dev/editor only). Astro's base
+  // tsconfig says `jsx: "preserve"`, under which esbuild falls back to the classic
+  // `React.createElement` transform and the chunk throws `React is not defined` at
+  // runtime. Force the automatic runtime against react in EVERY target instead.
+  vite: {
+    esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
+  },
   // "always" for the published static edge; "ignore" whenever Keystatic is mounted
   // (its /api/keystatic/* calls carry no trailing slash and 404 under "always").
   trailingSlash: wantsKeystatic ? 'ignore' : 'always',
