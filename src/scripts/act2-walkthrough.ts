@@ -640,12 +640,24 @@ const easeInOutCubic = (t: number): number =>
 
 export interface WalkthroughHandle {
   unmount(): void;
+  /** Advance one beat programmatically — the orchestrator proposal's accept
+   *  (ADR-0148 §2) plants the first story so the visitor flows straight from
+   *  the proposal into beat 1 (a single felt gesture, not accept-then-tap). */
+  next(): void;
+  /** Reveal the beat callout that {@link WalkthroughOptions.deferCallout}
+   *  suppressed — called once the orchestrator overlay hands off. */
+  revealCallout(): void;
 }
 
 export interface WalkthroughOptions {
   /** Jump-cut everything (camera, growth, the stage fade) — the visitor prefers
    *  reduced motion. Read once by the caller at begin. */
   reducedMotion: boolean;
+  /** Keep the beat callout hidden until {@link WalkthroughHandle.revealCallout}
+   *  is called — the walk mounts UNDER the orchestrator proposal overlay
+   *  (ADR-0148 §2) and its narration must not compete while the proposal reads.
+   *  Defaults to false (the callout places itself on settle as before). */
+  deferCallout?: boolean;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -724,6 +736,9 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   let director = initialState;
   let cta = false;
   let disposed = false;
+  // While the orchestrator proposal overlay is up (ADR-0148 §2), the beat
+  // callout is suppressed so the two do not compete; revealCallout() lifts it.
+  let calloutDeferred = opts.deferCallout === true;
 
   // ── the stage scaffold (plain DOM; styled by index.astro's global CSS) ──
   const stage = el('div', 'act2-stage');
@@ -791,21 +806,26 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   done.setAttribute('aria-label', 'The end of the walk — where to next');
   const doneTitle = el('h2', 'act2-title', NARRATION[DONE_KEY]!.title);
   const doneBody = el('p', 'act2-body', NARRATION[DONE_KEY]!.body);
+  // The CTA hands off to "what's next" (ADR-0148 §5 / increment H): the mock's
+  // cart / payments / receipts cannot truly work without a backend, so the
+  // primary poses the upstream database + backend. Until increment H lands, that
+  // hand-off resolves to the real product (get-involved) — coherent, honest, and
+  // never a dead-end. The classic-front-page escape is REMOVED (a capable
+  // visitor is never offered it; the no-JS / reduced-motion fallback is the only
+  // graceful-degradation door, and it lives on index.astro).
   const doneNav = document.createElement('nav');
   doneNav.className = 'act2-done-links';
   doneNav.setAttribute('aria-label', 'Where to next');
+  const ctaNext = document.createElement('a');
+  ctaNext.className = 'btn btn--primary';
+  ctaNext.href = '/get-involved/';
+  ctaNext.setAttribute('data-act2-whats-next', '');
+  ctaNext.textContent = 'grow the backend next →';
   const ctaHow = document.createElement('a');
-  ctaHow.className = 'btn btn--primary';
+  ctaHow.className = 'btn btn--ghost';
   ctaHow.href = '/how-it-works/';
   ctaHow.textContent = 'how the real thing works';
-  const ctaInvolved = document.createElement('a');
-  ctaInvolved.className = 'btn btn--ghost';
-  ctaInvolved.href = '/get-involved/';
-  ctaInvolved.textContent = 'get involved';
-  const ctaClassic = el('button', 'act2-classic', 'prefer the classic front page? →');
-  ctaClassic.type = 'button';
-  ctaClassic.setAttribute('data-storm-disarm', '');
-  doneNav.append(ctaHow, ctaInvolved, ctaClassic);
+  doneNav.append(ctaNext, ctaHow);
   const doneBack = el('button', 'act2-back-forest', '← back to the forest');
   doneBack.type = 'button';
   doneBack.setAttribute('data-act2-back', '');
@@ -901,7 +921,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   };
 
   const placeCallout = (): void => {
-    if (cta || disposed) return;
+    if (cta || disposed || calloutDeferred) return;
     const fold = currentFold();
     const { rect } = anchorFor(fold, director.beatIndex);
     const a1 = sceneToStagePx({ x: rect.x, y: rect.y });
@@ -1079,6 +1099,9 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     onSettle = (): void => {
       if (cta || disposed) return;
       placeCallout();
+      // while the orchestrator proposal owns focus (calloutDeferred), the walk
+      // must not steal it back to Next behind the overlay.
+      if (calloutDeferred) return;
       try {
         nextBtn.focus({ preventScroll: true });
       } catch {
@@ -1099,7 +1122,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     callout.hidden = true;
     syncPanel();
     try {
-      ctaHow.focus({ preventScroll: true });
+      ctaNext.focus({ preventScroll: true }); // the "what's next" primary
     } catch {
       /* focus is a courtesy */
     }
@@ -1164,6 +1187,17 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   });
 
   return {
+    next(): void {
+      if (disposed) return;
+      onNext();
+    },
+    revealCallout(): void {
+      if (disposed || !calloutDeferred) return;
+      calloutDeferred = false;
+      // place the callout for the current beat (the walk has been sitting on
+      // beat 0/1 under the proposal); settle may already have passed.
+      if (!cta) placeCallout();
+    },
     unmount(): void {
       if (disposed) return;
       disposed = true;

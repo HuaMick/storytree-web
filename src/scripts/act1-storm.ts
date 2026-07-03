@@ -488,14 +488,17 @@ export function runStorm(): void {
     }
   };
 
-  // ── the inflection (ADR-0134 §2): one click transforms the storm in place ──
+  // ── the inflection (ADR-0134 §2, ADR-0148 §5): one click transforms the
+  //    storm straight into the 2.5D tutorial ──
   //
-  // The click is the visitor's second and last gesture: the R3F bundle starts
-  // loading AT the click (dynamic import() — the sanctioned seam in the
-  // no-WebGL-in-Act-1 wall), the audio decays rather than cuts, the terminals
-  // power off in a stagger, their text fragments drop into the ground as soil,
-  // and when the import has resolved AND the settle beat has passed, the calm
-  // empty land fades up. No URL change — a transform, not a navigation.
+  // The click is the visitor's second and last gesture: the 2.5D-tutorial module
+  // starts loading AT the click (dynamic import('./inflection') — a code-split
+  // seam; since ADR-0148 that module is pure SVG/DOM, ZERO WebGL — the ~1.2 MB
+  // R3F island is gone from the path entirely), the audio decays rather than
+  // cuts, the terminals power off in a stagger, their text fragments drop into
+  // the ground as soil, and when the import has resolved AND the settle beat has
+  // passed, the calm land fades up carrying the guided walk + the orchestrator's
+  // mock-website proposal. No URL change — a transform, not a navigation.
 
   let transforming = false;
   let islandHandle: { unmount(): void } | null = null;
@@ -530,7 +533,8 @@ export function runStorm(): void {
     if (transforming || halted) return;
     transforming = true;
 
-    // 1. the lazy-load starts AT the click — the exhale buys the fetch
+    // 1. the lazy-load starts AT the click — the exhale buys the fetch (the
+    //    2.5D tutorial module; pure SVG/DOM since ADR-0148, no WebGL chunk)
     const islandReady = import('./inflection');
 
     // 2. the scene stops demanding: the stream freezes, the audio decays,

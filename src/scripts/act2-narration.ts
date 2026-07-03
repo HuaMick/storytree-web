@@ -66,11 +66,12 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
       'for you — one quiet view of everything that matters.',
   },
   [DONE_KEY]: {
-    title: 'That was a diorama',
+    title: 'So… what’s next?',
     body:
-      'Everything you just watched was staged, on made-up data, to show the idea. The real ' +
-      'storytree grows real software exactly this way — watched live, proof by proof. Here’s ' +
-      'where to step out of the diorama.',
+      'That was a diorama — staged, on made-up data, to show the idea. And notice: the cart, ' +
+      'payments and receipts can’t truly work yet. A mock has no backend. The next step is to ' +
+      'grow the pieces underneath — a database, a real backend — upstream of the website you ' +
+      'just watched. The real storytree grows exactly this way: watched live, proof by proof.',
   },
 };
 
