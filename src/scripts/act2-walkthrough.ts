@@ -1,20 +1,31 @@
 // ---------------------------------------------------------------------------
-// act2-walkthrough — the visitor-paced five-beat walkthrough ON THE REAL 2.5D
-// MAP (ADR-0145, re-deciding ADR-0134 §3's substrate). STATE is the proven
-// engine's (the synced act2-director); the LOOK is the product's own: each beat
-// folds into the shared `buildScene` scene-graph and renders through the same
-// `sceneToSvg` rail the home map rides, so the walk inherits the site's `tw-*`
-// vocabulary (TreeWorld.astro's global CSS) — never a re-implementation.
+// act2-walkthrough — the visitor-paced SEVEN-beat walkthrough ON THE REAL 2.5D
+// MAP (ADR-0145, re-deciding ADR-0134 §3's substrate; grown to a PROGRESSIVE
+// multi-island forest by ADR-0147). STATE is the proven engine's (the synced
+// act2-director, now holding MULTIPLE stories each with a tri-state status); the
+// LOOK is the product's own: each beat folds into the shared `buildScene`
+// scene-graph and renders through the same `sceneToSvg` rail the home map rides,
+// so the walk inherits the site's `tw-*` vocabulary (TreeWorld.astro's global
+// CSS) — never a re-implementation.
 //
 // Reached EXCLUSIVELY through the inflection seam (act1-storm's dynamic
 // import('./inflection') at the transform click; inflection imports this
 // module). Plain TS + DOM — NO React, NO three.js, NO WebGL anywhere here.
 //
+// THE PROGRESSIVE SHAPE (ADR-0147): the walk OPENS on the loved single island
+// (one story on one island — beats 1–4 are pixel-identical to the PR #22 opening,
+// non-overwhelming) and then GROWS: beat-5 raises the neighbor story-islands,
+// beat-6 draws the inter-story roads, beat-7 pulls back to the whole legible
+// forest. The expansion is strictly ADDITIVE — the opening island never moves
+// when new ones grow in (layout stability), so it never reads as a second storm.
+//
 // Three layers, in file order:
-//   1. THE FOLD — pure: DirectorState.world + the script → a fresh SceneInput
-//      per beat state (fixed 19-tile disc, mesh ground + smoothed coast — the
-//      exact home-map substrate) plus the site metadata the scene cannot carry
-//      (limb greenness, road violations, ghost teaching pads, the story label).
+//   1. THE FOLD — pure: DirectorState.world (N stories) + the script → a fresh
+//      SceneInput with N non-overlapping island discs (mesh ground + smoothed
+//      coast — the exact home-map substrate), each tree wearing its story's
+//      status → SceneStatus (proven→healthy/green, building→proposed/sapling,
+//      broken→unhealthy/withered), plus the site metadata the scene cannot carry
+//      (limb greenness, road violations, ghost teaching pads, story labels).
 //   2. THE STAGE — per tap: fold → buildScene → sceneToSvg → replace the stage
 //      SVG contents; site teaching furniture (ghost pads, the violation flag)
 //      appended as an own SVG group; camera = a tweened viewBox resolved from
@@ -30,7 +41,7 @@
 // function of the beat data (hash/rand01 seeding — no Math.random, no
 // wall-clock); elapsed time drives MOTION only (the viewBox tween). The same
 // beat state renders the identical stage SVG on every visit — Back replay is
-// byte-identical.
+// byte-identical, including which islands/roads have grown in.
 // ---------------------------------------------------------------------------
 
 import {
@@ -47,6 +58,7 @@ import {
   smoothCoast,
   type Axial,
   type BoundarySeg,
+  type DrawTile,
   type Pt,
   type SceneInput,
   type ScenePlantInput,
@@ -61,34 +73,38 @@ import {
   type Beat,
   type CameraTarget,
   type DirectorState,
+  type StoryNode,
+  type StoryStatus,
   type WorldState,
 } from '../lib/forest-world-r3f/act2-director';
 // The FICTION is site-owned (ADR-0093 fictional-data precedent): the walk plays
-// the shopping-checkout script, not the director's default. The director's pure
+// the shopping-forest script, not the director's default. The director's pure
 // state machine (advance / initialState / the zod contract) is still the engine.
 import { walkthroughScript } from './act2-script';
 import { DONE_KEY, INTRO, NARRATION, type BeatNarration } from './act2-narration';
 
 // ── the parameters (few, meaningful, named — never a knob per pixel) ─────────
 
-/** Rings of hex tiles in the land disc (2 → 19 tiles, the inflection's island). */
+/** Rings of hex tiles in each land disc (2 → 19 tiles, the inflection's island). */
 const DISC_RINGS = 2;
 /** Scene frame carried into SceneInput (the empty-land idiom). */
 const SCENE_W = 1400;
 const SCENE_H = 1000;
-/** Where the island sits inside the scene frame. */
+/** Where the OPENING island (stories[0]) sits inside the scene frame — the
+ *  pixel origin of the whole forest. stories[0] stays at axial (0,0), so its
+ *  pixels are identical to the PR #22 single-island opening. */
 const OFFSET: Pt = { x: 700, y: 420 };
-/** The island territory's declared radius (wisp orbit + plate sizing ride it). */
+/** Each island territory's declared radius (wisp orbit + plate sizing ride it). */
 const ISLAND_R = 64;
 /** How far capability limbs sit from the story tree, and their fan spread. */
 const LIMB_RING_R = 40;
 const LIMB_FAN_STEP = 0.78; // radians between limbs, fanned south of the tree
-/** The nameplate row — FIXED for every beat so the plate never hops when the
- *  garden grows (layout stability across beats). */
-const PLATE_Y = 80;
-/** The fictional teaching pads (road endpoints with no island home) sit on a
- *  row on the open board, south of the island's coast. */
-const GHOST_ROW_Y = 190;
+/** The nameplate row OFFSET below each island's centre — FIXED per island so a
+ *  plate never hops when the garden grows (layout stability across beats). */
+const PLATE_DY = 80;
+/** The fictional teaching pads (road endpoints with no island home) sit on a row
+ *  on the open board, south of the OPENING island's coast. */
+const GHOST_ROW_DY = 190;
 const GHOST_SPACING = 190;
 const PAD_RX = 30; // pad platform half-width
 /** Road routing: gentle bow on a valid road; the swerve a violating road makes
@@ -99,6 +115,7 @@ const ROAD_SAMPLES = 12; // polyline samples per road
 const ROAD_TRIM_TREE = 8; // back a road's end off the tree trunk
 const ROAD_TRIM_PLANT = 12; // … off a capability plant
 const ROAD_TRIM_PAD = 36; // … off a teaching pad platform
+const ROAD_TRIM_ISLAND = 60; // … off an island centre (inter-story roads)
 /** Camera: zoom 0 = widest, 1 = tightest (the director's CameraTarget contract).
  *  half-width of the viewBox in scene units at the two extremes. */
 const HALF_WIDE = 660;
@@ -109,8 +126,39 @@ const FIT_PAD = 1.14; // a focus bbox always fits with this margin
 const CALLOUT_GAP = 20; // px between the anchor and the callout box
 const CALLOUT_MARGIN = 12; // px the callout keeps from the stage edges
 
+// ── the island layout (ADR-0147): a FIXED axial centre per story slot ─────────
+//
+// Each island is a 2-ring disc placed at a distinct axial centre so the discs
+// never overlap AND stay tile-level NON-ADJACENT — the mesh substrate only merges
+// same-owner triangles, and the layout keeping islands non-adjacent is exactly
+// what guarantees a merge never spans two stories (substrate.ts step 2). The
+// slots are verified clear (no shared tile, no hex-neighbour across islands).
+//
+// stories[0] (the opening) is ALWAYS slot 0 = axial origin, so its pixels are
+// unchanged from the single-island opening. Neighbours take the remaining slots
+// in the order the walk introduces them (the site script's grow-forest order),
+// and a story keeps its slot for the whole walk — an island never hops when a
+// later one grows in.
+const ISLAND_SLOTS: Axial[] = [
+  { q: 0, r: 0 }, // 0 — the opening story, centre (pixel-identical to PR #22)
+  { q: 9, r: -4 }, // 1 — upper-right
+  { q: -6, r: 6 }, // 2 — lower-left
+  { q: 6, r: 5 }, // 3 — lower-right
+];
+
+/** All axial tiles within `radius` rings of the origin (the inflection's disc). */
+function discTiles(radius: number): Axial[] {
+  const tiles: Axial[] = [];
+  for (let q = -radius; q <= radius; q++) {
+    for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
+      tiles.push({ q, r });
+    }
+  }
+  return tiles;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. THE FOLD — pure functions of the director's world + the script
+// 1. THE FOLD — pure functions of the director's world (N stories) + the script
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface LimbMeta {
@@ -138,26 +186,47 @@ export interface GhostMeta {
   bypassed: boolean;
 }
 
+/** One folded island — its story id/label/status, tree spot + centre, and (for
+ *  the opening island only) the limbs/ghosts that hang off it. */
+export interface IslandMeta {
+  storyId: string;
+  label: string;
+  status: StoryStatus;
+  hasWisp: boolean;
+  /** Slot index → the island's axial centre; drives its pixel placement. */
+  slot: number;
+  /** The island centre in scene space (pre-offset). */
+  centre: Pt;
+  /** The story tree's spot in scene space (pre-offset). */
+  treeSpot: Pt;
+  /** The disc's tiles, in ABSOLUTE axial coords (centre-shifted). */
+  tiles: Axial[];
+}
+
 export interface FoldedWorld {
   sceneInput: SceneInput;
-  /** True before beat 1: the land is empty. The synthetic ground territory
-   *  still exists in the scene graph (a territory always emits a tree), so the
-   *  pre-story render suppresses the flora/hits layers via the `is-prestory`
-   *  class on the stage svg. */
+  /** True before beat 1: the land is empty (no stories planted yet). The
+   *  synthetic ground territory still exists in the scene graph (a territory
+   *  always emits a tree), so the pre-story render suppresses the flora/hits
+   *  layers via the `is-prestory` class on the stage svg. */
   preStory: boolean;
-  /** The story label, read from the script's plant-story delta (the director's
-   *  WorldState stores only the storyId). Null before beat 1. */
-  storyLabel: string | null;
-  storyId: string;
-  treeSpot: Pt;
+  /** Every island currently in the world (stories[0] first). */
+  islands: IslandMeta[];
+  /** Capability limbs of the OPENING story (the director's branch-caps targets
+   *  stories[0]); positioned around island 0's tree. */
   limbs: LimbMeta[];
   roads: RoadMeta[];
   ghosts: GhostMeta[];
   /** The violation flag's anchor (the violating road's apex), when one exists. */
   flagAt: (Pt & { layer: string; violation: string }) | null;
-  /** The island's ground bounds (scene space, pre-offset) — camera + intro anchor. */
+  /** The OPENING island's ground bounds (scene space, pre-offset) — the camera's
+   *  single-island frame + intro anchor. */
   islandRect: Rect;
-  /** Everything drawn (island + pads + labels) — the full-forest frame. */
+  /** Bounds of every GROWN island (scene space, pre-offset) — the forest frame. */
+  forestRect: Rect;
+  /** Bounds of the inter-story road network (scene space, pre-offset). */
+  interRoadRect: Rect;
+  /** Everything drawn (islands + pads + labels + roads) — the full frame. */
   contentRect: Rect;
 }
 
@@ -168,15 +237,20 @@ interface Rect {
   h: number;
 }
 
-/** All axial tiles within `radius` rings of the origin (the inflection's disc). */
-function discTiles(radius: number): Axial[] {
-  const tiles: Axial[] = [];
-  for (let q = -radius; q <= radius; q++) {
-    for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-      tiles.push({ q, r });
-    }
+/** Union of a list of rects (empty → a zero rect at origin). */
+function unionRects(rects: Rect[]): Rect {
+  if (rects.length === 0) return { x: 0, y: 0, w: 0, h: 0 };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const r of rects) {
+    minX = Math.min(minX, r.x);
+    minY = Math.min(minY, r.y);
+    maxX = Math.max(maxX, r.x + r.w);
+    maxY = Math.max(maxY, r.y + r.h);
   }
-  return tiles;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 /** Sample a quadratic bezier A→(ctrl)→B into n points (emitted as an M/L
@@ -229,41 +303,94 @@ function ghostLabel(id: string): string {
   return KNOWN[id] ?? id;
 }
 
+/** The site's amber "in progress" hue for a story WITHOUT an explicit tri-state
+ *  status yet — the opening story (stories[0]) before the forest grows. It NEVER
+ *  folds 'healthy' (the story's own proof is not in this fiction; only one cap's
+ *  proof is — green is earned per-limb, never claimed at the story level). */
+const OPENING_STATUS: SceneStatus = 'proposed';
+
+/** Fold a story's tri-state proof status → the scene's visual status (ADR-0147).
+ *  This is what makes the pull-back legend HONEST: proven→green, building→sapling
+ *  (the young amber form), broken→withered. */
+function statusToScene(status: StoryStatus): SceneStatus {
+  switch (status) {
+    case 'proven':
+      return 'healthy';
+    case 'building':
+      return 'proposed';
+    case 'broken':
+      return 'unhealthy';
+  }
+}
+
+/** A story's scene status: the opening story (index 0, planted by plant-story)
+ *  wears the amber opening hue until it earns otherwise; a grown neighbour wears
+ *  its declared tri-state status. plant-story seeds stories[0] with status
+ *  'building', so we special-case index 0 to the opening hue (it is the arc's ONE
+ *  story whose own proof is deliberately not in the fiction). */
+function sceneStatusForStory(story: StoryNode, index: number): SceneStatus {
+  return index === 0 ? OPENING_STATUS : statusToScene(story.status);
+}
+
 /**
- * THE FOLD: the director's accumulated WorldState + the script → a fresh
- * SceneInput (the beat-driven rebuild) over the exact home-map substrate
- * (mesh ground + smoothed coast from the shared core), plus the site metadata
- * the scene cannot carry. Pure and deterministic — a beat state always folds
- * identically, and the GROUND layer is identical across every beat (the fixed
- * disc; decor/wheat seeded by tile key only, never by the story id).
+ * THE FOLD: the director's accumulated WorldState (N stories) + the script → a
+ * fresh SceneInput with one non-overlapping island disc per story, over the exact
+ * home-map substrate (mesh ground + smoothed coast from the shared core), plus
+ * the site metadata the scene cannot carry. Pure and deterministic — a beat state
+ * always folds identically (which islands/roads exist is a pure function of the
+ * beats applied), and every island's ground layer is identical across every beat
+ * (its fixed disc; decor/wheat seeded by absolute tile key only).
  */
 export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld {
-  const tiles = discTiles(DISC_RINGS);
-  const centres = tiles.map(hexCenter);
-  const cx = centres.reduce((s, c) => s + c.x, 0) / centres.length;
-  const cy = centres.reduce((s, c) => s + c.y, 0) / centres.length;
-  const treeSpot: Pt = { x: cx, y: cy - 6 };
+  const preStory = world.stories.length === 0;
 
-  const preStory = world.storyId === '';
+  // ── place every story on its fixed slot (layout-stable) ──
+  const islands: IslandMeta[] = world.stories.map((story, index) => {
+    const slot = Math.min(index, ISLAND_SLOTS.length - 1);
+    const c = ISLAND_SLOTS[slot] ?? { q: 0, r: 0 };
+    const localTiles = discTiles(DISC_RINGS);
+    const tiles = localTiles.map((t) => ({ q: t.q + c.q, r: t.r + c.r }));
+    const centres = tiles.map(hexCenter);
+    const cx = centres.reduce((s, p) => s + p.x, 0) / centres.length;
+    const cy = centres.reduce((s, p) => s + p.y, 0) / centres.length;
+    return {
+      storyId: story.id,
+      label: story.label,
+      status: story.status,
+      hasWisp: story.hasWisp,
+      slot,
+      centre: { x: cx, y: cy },
+      treeSpot: { x: cx, y: cy - 6 },
+      tiles,
+    };
+  });
+  // The opening island (stories[0]) — the anchor for limbs, ghosts, within-story
+  // roads. A safe synthetic origin island for the pre-story frame.
+  const opening: IslandMeta =
+    islands[0] ??
+    ((): IslandMeta => {
+      const localTiles = discTiles(DISC_RINGS);
+      const centres = localTiles.map(hexCenter);
+      const cx = centres.reduce((s, p) => s + p.x, 0) / centres.length;
+      const cy = centres.reduce((s, p) => s + p.y, 0) / centres.length;
+      return {
+        storyId: '',
+        label: '',
+        status: 'building',
+        hasWisp: false,
+        slot: 0,
+        centre: { x: cx, y: cy },
+        treeSpot: { x: cx, y: cy - 6 },
+        tiles: localTiles,
+      };
+    })();
+  const islandById = new Map(islands.map((i) => [i.storyId, i] as const));
 
-  // The story label lives on the script's plant-story delta (the director's
-  // WorldState stores only the id) — read it from the script when folding.
-  let storyLabel: string | null = null;
-  for (const beat of script) {
-    if (beat.delta.kind === 'plant-story' && beat.delta.storyId === world.storyId) {
-      storyLabel = beat.delta.label;
-    }
-  }
-
-  // Folded story status: the site's amber "proposed / building" hue for the
-  // whole walk — the young tree that has NOT earned green. It NEVER folds
-  // 'healthy' (the story's own proof is not in this fiction; only one cap's
-  // proof is — green is earned per-limb, never claimed).
-  const storyStatus: SceneStatus = 'proposed';
-
-  // Capability limbs fan south of the tree, deterministically jittered by id.
-  const limbs: LimbMeta[] = world.limbs.map((limb, i) => {
-    const n = world.limbs.length;
+  // ── the opening story's capability limbs (branch-caps targets stories[0]) ──
+  const openingStory = world.stories[0];
+  const worldLimbs = openingStory?.limbs ?? [];
+  const limbs: LimbMeta[] = worldLimbs.map((limb, i) => {
+    const n = worldLimbs.length;
     const a = Math.PI / 2 + (i - (n - 1) / 2) * LIMB_FAN_STEP;
     const r = LIMB_RING_R + (rand01(hash(`${limb.id}:ring`)) - 0.5) * 8;
     return {
@@ -272,38 +399,41 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
       green: limb.green,
       signedProof: limb.signedProof,
       pos: {
-        x: treeSpot.x + Math.cos(a) * r * 1.2,
-        y: treeSpot.y + Math.sin(a) * r * 0.85 + 8,
+        x: opening.treeSpot.x + Math.cos(a) * r * 1.2,
+        y: opening.treeSpot.y + Math.sin(a) * r * 0.85 + 8,
       },
     };
   });
   const limbById = new Map(limbs.map((l) => [l.id, l] as const));
 
-  // Fictional teaching pads: road endpoints with no island home get a spot on
-  // the row south of the coast, in encounter order.
+  // ── classify each road endpoint: a story island, a limb, or a teaching pad ──
+  const isStory = (id: string): boolean => islandById.has(id);
+  const isLimb = (id: string): boolean => limbById.has(id);
+
+  // Fictional teaching pads: within-story road endpoints with no island/limb home
+  // (the ui/db/service ids) get a spot on the row south of the OPENING island.
   const ghostIds: string[] = [];
   for (const road of world.roads) {
     for (const end of [road.from, road.to]) {
-      if (end !== world.storyId && !limbById.has(end) && !ghostIds.includes(end)) {
-        ghostIds.push(end);
-      }
+      if (!isStory(end) && !isLimb(end) && !ghostIds.includes(end)) ghostIds.push(end);
     }
   }
   const ghosts: GhostMeta[] = ghostIds.map((id, i) => ({
     id,
     label: ghostLabel(id),
     pos: {
-      x: cx + (i - (ghostIds.length - 1) / 2) * GHOST_SPACING,
-      y: cy + GHOST_ROW_Y,
+      x: opening.centre.x + (i - (ghostIds.length - 1) / 2) * GHOST_SPACING,
+      y: opening.centre.y + GHOST_ROW_DY,
     },
     bypassed: false,
   }));
   const ghostById = new Map(ghosts.map((g) => [g.id, g] as const));
 
-  const anchorOf = (id: string): Pt =>
-    id === world.storyId
-      ? { x: treeSpot.x, y: treeSpot.y + 4 }
-      : (limbById.get(id)?.pos ?? ghostById.get(id)?.pos ?? { x: cx, y: cy });
+  const anchorOf = (id: string): Pt => {
+    const isle = islandById.get(id);
+    if (isle) return { x: isle.treeSpot.x, y: isle.treeSpot.y + 4 };
+    return limbById.get(id)?.pos ?? ghostById.get(id)?.pos ?? opening.centre;
+  };
 
   // Stage the bypassed layer's pad for each violating road (data-derived: the
   // declared antipattern name says which layer was skipped).
@@ -323,14 +453,22 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
     ghostById.set(layer, pad);
   }
 
-  // Route the roads: a valid road bows gently; a violating road swerves AROUND
-  // the layer it skips (the shortcut read) — geometry from data + parameters.
+  // ── route the roads ──
+  // A within-story road (limb/pad endpoints) bows gently; a violating road
+  // swerves AROUND the layer it skips (the shortcut read). An INTER-STORY road
+  // (both endpoints are islands) bows gently island→island, trimmed off each
+  // centre. Geometry from data + parameters — no hand-placed coordinates.
+  const trimOf = (id: string): number => {
+    if (isStory(id)) return ROAD_TRIM_ISLAND;
+    if (isLimb(id)) return ROAD_TRIM_PLANT;
+    if (ghostById.has(id)) return ROAD_TRIM_PAD;
+    return ROAD_TRIM_TREE;
+  };
   let flagAt: FoldedWorld['flagAt'] = null;
+  const interRoadPts: Pt[] = [];
   const roads: RoadMeta[] = world.roads.map((road) => {
     const rawA = anchorOf(road.from);
     const rawB = anchorOf(road.to);
-    const trimOf = (id: string): number =>
-      id === world.storyId ? ROAD_TRIM_TREE : limbById.has(id) ? ROAD_TRIM_PLANT : ROAD_TRIM_PAD;
     const a = toward(rawA, rawB, trimOf(road.from));
     const b = toward(rawB, rawA, trimOf(road.to));
     const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -343,6 +481,7 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
     const side = rand01(hash(`${road.from}->${road.to}:side`)) < 0.5 ? 1 : -1;
     const ctrl: Pt = { x: mid.x + px * bow * side, y: mid.y + py * bow * side };
     const points = sampleQuadratic(a, ctrl, b, ROAD_SAMPLES);
+    if (isStory(road.from) && isStory(road.to)) interRoadPts.push(...points);
     if (road.violation !== undefined && flagAt === null) {
       const apex = points[Math.floor(points.length / 2)]!;
       const skipped = bypassedLayerOf(road.violation);
@@ -359,81 +498,146 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
     return { from: road.from, to: road.to, violation: road.violation, points };
   });
 
-  // The fixed ground: decor conifers + wheat patches seeded by TILE KEY only
-  // (never the story id), so the ground never changes between beats — the one
-  // deterministic roll per tile follows the home map's world.ts pattern.
-  const decor: { x: number; y: number; seed: number }[] = [];
-  const wheat = new Set<string>();
-  for (const tile of tiles) {
-    const key = axialKey(tile);
-    const c = hexCenter(tile);
-    const roll = rand01(hash(`act2:dec:${key}`));
-    const nearTree = Math.hypot(c.x - treeSpot.x, c.y - treeSpot.y) < 55;
-    const inGarden = c.y > cy + 8; // the southern band the limbs + plate own
-    if (roll < 0.42 && !nearTree && !inGarden) {
-      decor.push({ x: c.x, y: c.y, seed: hash(`act2:${key}:f`) });
-    } else if (roll >= 0.42 && roll < 0.62 && !nearTree) {
-      wheat.add(key);
+  // ── build every island's territory + its ground tiles + wheat ──
+  const territories: SceneTerritoryInput[] = [];
+  const drawTiles: DrawTile[] = [];
+  const wheatSets: Set<string>[] = [];
+
+  islands.forEach((isle, index) => {
+    const status = sceneStatusForStory(world.stories[index]!, index);
+    // fixed decor + wheat, seeded by ABSOLUTE tile key only (never the story id),
+    // so an island's ground never changes between beats.
+    const decor: { x: number; y: number; seed: number }[] = [];
+    const wheat = new Set<string>();
+    for (const tile of isle.tiles) {
+      const key = axialKey(tile);
+      const c = hexCenter(tile);
+      const roll = rand01(hash(`act2:dec:${key}`));
+      const nearTree = Math.hypot(c.x - isle.treeSpot.x, c.y - isle.treeSpot.y) < 55;
+      const inGarden = c.y > isle.centre.y + 8; // the southern band limbs+plate own
+      if (roll < 0.42 && !nearTree && !inGarden) {
+        decor.push({ x: c.x, y: c.y, seed: hash(`act2:${key}:f`) });
+      } else if (roll >= 0.42 && roll < 0.62 && !nearTree) {
+        wheat.add(key);
+      }
+      drawTiles.push({ h: tile, owner: index });
     }
-  }
+    wheatSets.push(wheat);
 
-  // The territory: the synthetic dormant ground holder before beat 1 (its
-  // tree/plate/hit are suppressed by the is-prestory render), the story after.
-  const plants: ScenePlantInput[] = limbs.map((l) => ({
-    id: l.id,
-    status: (l.green ? 'healthy' : 'proposed') as SceneStatus,
-    x: l.pos.x,
-    y: l.pos.y,
-    title: l.green
-      ? `${l.label} — proven (signed proof ${l.signedProof ?? ''})`
-      : `${l.label} — in progress, no signed proof yet`,
-  }));
+    // limbs render as flora only on the OPENING island (index 0).
+    const islePlants: ScenePlantInput[] =
+      index === 0
+        ? limbs.map((l) => ({
+            id: l.id,
+            status: (l.green ? 'healthy' : 'proposed') as SceneStatus,
+            x: l.pos.x,
+            y: l.pos.y,
+            title: l.green
+              ? `${l.label} — proven (signed proof ${l.signedProof ?? ''})`
+              : `${l.label} — in progress, no signed proof yet`,
+          }))
+        : [];
 
-  const plateW = Math.max(120, (storyLabel ?? '').length * 7.6 + 26);
-  const territory: SceneTerritoryInput = {
-    id: preStory ? 'first-light' : world.storyId,
-    status: storyStatus,
-    caps: limbs.length,
-    centroid: { x: cx, y: cy },
-    radius: ISLAND_R,
-    treeSpot,
-    labelY: cy + PLATE_Y,
-    coastPaths: [], // filled below (the smoothed coast)
-    decor,
-    plants,
-    treeTitle: preStory ? '' : `${storyLabel ?? world.storyId} — a story, not yet proven`,
-    wisps:
-      !preStory && world.hasWisp
-        ? [{ runId: `walk:${world.storyId}`, title: 'an agent at work — you can look away' }]
+    const plateW = Math.max(120, isle.label.length * 7.6 + 26);
+    const caps = index === 0 ? limbs.length : 0;
+    // the sub-line names the story's state in plain shopping words.
+    const sub =
+      index === 0
+        ? 'a story'
+        : world.stories[index]!.status === 'proven'
+          ? 'proven'
+          : world.stories[index]!.status === 'broken'
+            ? 'broken'
+            : 'in progress';
+
+    const territory: SceneTerritoryInput = {
+      id: isle.storyId,
+      status,
+      caps,
+      centroid: { x: isle.centre.x, y: isle.centre.y },
+      radius: ISLAND_R,
+      treeSpot: isle.treeSpot,
+      labelY: isle.centre.y + PLATE_DY,
+      coastPaths: [], // filled below (the smoothed coast)
+      decor,
+      plants: islePlants,
+      treeTitle: `${isle.label} — ${sub}`,
+      wisps: isle.hasWisp
+        ? [{ runId: `walk:${isle.storyId}`, title: 'an agent at work — you can look away' }]
         : [],
-    plate: {
-      w: plateW,
-      h: 34,
-      rx: 7,
-      idY: 15,
-      subY: 28,
-      idText: preStory ? '' : (storyLabel ?? world.storyId),
-      subText: preStory ? '' : 'a story',
-      title: preStory ? '' : (storyLabel ?? world.storyId),
-    },
-  };
+      plate: {
+        w: plateW,
+        h: 34,
+        rx: 7,
+        idY: 15,
+        subY: 28,
+        idText: isle.label,
+        subText: sub,
+        title: isle.label,
+      },
+    };
 
-  // The smoothed organic coastline of the disc (the exact home-map recipe),
-  // seeded by a FIXED island id — the coast belongs to the land, not the
-  // story, so it cannot pop when beat 1 renames the territory.
-  const mine = new Set(tiles.map(axialKey));
-  const segs: BoundarySeg[] = [];
-  for (const tile of tiles) {
-    const c = hexCenter(tile);
-    const cor = hexCorners(c.x, c.y, HEX_R);
-    AXIAL_DIRS.forEach((d, e) => {
-      if (mine.has(axialKey({ q: tile.q + d.q, r: tile.r + d.r }))) return;
-      const a = cor[e];
-      const b = cor[(e + 1) % 6];
-      if (a && b) segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+    // the smoothed organic coastline of THIS disc (the exact home-map recipe),
+    // seeded by the island's own id so each coast is stable + distinct.
+    const mine = new Set(isle.tiles.map(axialKey));
+    const segs: BoundarySeg[] = [];
+    for (const tile of isle.tiles) {
+      const c = hexCenter(tile);
+      const cor = hexCorners(c.x, c.y, HEX_R);
+      AXIAL_DIRS.forEach((d, e) => {
+        if (mine.has(axialKey({ q: tile.q + d.q, r: tile.r + d.r }))) return;
+        const a = cor[e];
+        const b = cor[(e + 1) % 6];
+        if (a && b) segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+      });
+    }
+    territory.coastPaths = smoothCoast(segs, `act2-island:${isle.slot}`).paths;
+    territories.push(territory);
+  });
+
+  // Pre-story: one synthetic dormant ground holder (its tree/plate/hit are
+  // suppressed by the is-prestory render) so the empty land still has material.
+  if (preStory) {
+    const localTiles = discTiles(DISC_RINGS);
+    const wheat = new Set<string>();
+    for (const tile of localTiles) {
+      const key = axialKey(tile);
+      const c = hexCenter(tile);
+      const roll = rand01(hash(`act2:dec:${key}`));
+      const nearTree = Math.hypot(c.x - opening.treeSpot.x, c.y - opening.treeSpot.y) < 55;
+      const inGarden = c.y > opening.centre.y + 8;
+      if (roll >= 0.42 && roll < 0.62 && !nearTree && !inGarden) wheat.add(key);
+      drawTiles.push({ h: tile, owner: 0 });
+    }
+    wheatSets.push(wheat);
+    const mine = new Set(localTiles.map(axialKey));
+    const segs: BoundarySeg[] = [];
+    for (const tile of localTiles) {
+      const c = hexCenter(tile);
+      const cor = hexCorners(c.x, c.y, HEX_R);
+      AXIAL_DIRS.forEach((d, e) => {
+        if (mine.has(axialKey({ q: tile.q + d.q, r: tile.r + d.r }))) return;
+        const a = cor[e];
+        const b = cor[(e + 1) % 6];
+        if (a && b) segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+      });
+    }
+    territories.push({
+      id: 'first-light',
+      status: 'proposed',
+      caps: 1,
+      centroid: { x: opening.centre.x, y: opening.centre.y },
+      radius: ISLAND_R,
+      treeSpot: opening.treeSpot,
+      labelY: opening.centre.y + PLATE_DY,
+      coastPaths: smoothCoast(segs, 'act2-island:0').paths,
+      decor: [],
+      plants: [],
+      treeTitle: '',
+      wisps: [],
+      plate: { w: 120, h: 34, rx: 7, idY: 15, subY: 28, idText: '', subText: '', title: '' },
     });
   }
-  territory.coastPaths = smoothCoast(segs, 'act2-island').paths;
 
   const sceneRoads: SceneRoadInput[] = roads.map((r) => ({
     from: r.from,
@@ -445,10 +649,9 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
         : `${r.from} → ${r.to} — flagged: ${r.violation}`,
   }));
 
-  // The mesh ground over the fixed disc — the same shared-core call the home
-  // map makes (`buildRelaxedCells(..., 'mesh')`), owner 0 throughout.
-  const drawTiles = tiles.map((h) => ({ h, owner: 0 }));
-  const relaxedCells = buildRelaxedCells(drawTiles, [wheat], 'mesh');
+  // The mesh ground over every island's disc — the same shared-core call the home
+  // map makes (`buildRelaxedCells(..., 'mesh')`); owner = the story index.
+  const relaxedCells = buildRelaxedCells(drawTiles, wheatSets, 'mesh');
 
   const sceneInput: SceneInput = {
     offset: { x: OFFSET.x, y: OFFSET.y },
@@ -459,35 +662,62 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
     drawTiles: [],
     wheatSets: [],
     roads: sceneRoads,
-    territories: [territory],
+    territories,
   };
 
-  // Bounds (scene space, pre-offset).
-  const islandRect: Rect = { x: -124, y: -116, w: 248, h: 232 };
-  const xs: number[] = [islandRect.x, islandRect.x + islandRect.w];
-  const ys: number[] = [islandRect.y, islandRect.y + islandRect.h];
-  for (const g of ghosts) {
-    xs.push(g.pos.x - PAD_RX - 26, g.pos.x + PAD_RX + 26);
-    ys.push(g.pos.y - 20, g.pos.y + 34);
-  }
-  ys.push(cy + PLATE_Y + 36);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const contentRect: Rect = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  // ── bounds (scene space, pre-offset) ──
+  const islandRectOf = (isle: IslandMeta): Rect => ({
+    x: isle.centre.x - 124,
+    y: isle.centre.y - 116,
+    w: 248,
+    h: 232 + (PLATE_DY - 80) + 36,
+  });
+  // the OPENING island frame (the single-island beats + intro anchor).
+  const islandRect: Rect = preStory
+    ? { x: opening.centre.x - 124, y: opening.centre.y - 116, w: 248, h: 232 }
+    : islandRectOf(opening);
+  // the forest frame — every grown island + its plate row.
+  const grownRects = islands.map((isle) => ({
+    x: isle.centre.x - 124,
+    y: isle.centre.y - 116,
+    w: 248,
+    h: 248 + PLATE_DY - 80,
+  }));
+  const forestRect = islands.length ? unionRects(grownRects) : islandRect;
+  // the inter-story road-network frame (beat 6). Falls back to the forest when
+  // no inter-story road exists yet.
+  const interRoadRect =
+    interRoadPts.length > 0
+      ? (() => {
+          const xs = interRoadPts.map((p) => p.x);
+          const ys = interRoadPts.map((p) => p.y);
+          const minX = Math.min(...xs) - 30;
+          const maxX = Math.max(...xs) + 30;
+          const minY = Math.min(...ys) - 30;
+          const maxY = Math.max(...ys) + 30;
+          return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+        })()
+      : forestRect;
+  // the full content frame — islands + pads + labels.
+  const extra: Rect[] = ghosts.map((g) => ({
+    x: g.pos.x - PAD_RX - 26,
+    y: g.pos.y - 20,
+    w: (PAD_RX + 26) * 2,
+    h: 54,
+  }));
+  const contentRect = unionRects([forestRect, islandRect, ...extra]);
 
   return {
     sceneInput,
     preStory,
-    storyLabel,
-    storyId: world.storyId,
-    treeSpot,
+    islands,
     limbs,
     roads,
     ghosts,
     flagAt,
     islandRect,
+    forestRect,
+    interRoadRect,
     contentRect,
   };
 }
@@ -549,8 +779,8 @@ function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string
   scene = scene.split('url(#tw-arrow)').join('url(#a2-arrow)');
 
   const label =
-    'A staged map of one fictional story growing on quiet ground — the same look as the real ' +
-    'storytree map. Nothing here is live; each Next step adds one idea.';
+    'A staged map of a fictional shopping project growing on quiet ground — the same look as ' +
+    'the real storytree map. Nothing here is live; each Next step adds one idea.';
   return (
     `<svg class="tw-svg act2-svg${fold.preStory ? ' is-prestory' : ''}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" role="group" aria-roledescription="illustrated map" aria-label="${escXml(label)}" data-act2-beat="${beatIndex}">` +
     `<defs>` +
@@ -569,8 +799,16 @@ function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string
  *  animation on arrival (a pure function of the beat index, so a Back-replay
  *  re-renders the identical DOM and replays the same growth). `scale` is only
  *  ever put on transform-attribute-free groups (a CSS transform would clobber
- *  an SVG transform attribute); everything else fades. */
-function enterSelectorsFor(beatIndex: number): { scale: string[]; fade: string[] } {
+ *  an SVG transform attribute); everything else fades.
+ *
+ *  ADR-0147 beats 5–7: beat-5 grows the NEIGHBOUR islands (their coast/ground/
+ *  flora groups scale/fade in — those groups carry the story-id `data-id`, so we
+ *  target the newly-present islands by id, NOT the opening island); beat-6 fades
+ *  the inter-story roads in; beat-7 pull-back is a camera move only. */
+function enterSelectorsFor(
+  beatIndex: number,
+  fold: FoldedWorld,
+): { scale: string[]; fade: string[] } {
   switch (beatIndex) {
     case 1:
       return { scale: ['.tw-flora-layer .tw-terr'], fade: [] };
@@ -581,9 +819,35 @@ function enterSelectorsFor(beatIndex: number): { scale: string[]; fade: string[]
     case 4:
       // pads + flag carry their enter class from the furniture string builder.
       return { scale: [], fade: ['.tw-roads .tw-road'] };
+    case 5: {
+      // the neighbour islands (every island except the opening, index 0): their
+      // ground, coast and flora groups fade in; the flora group scales (it is a
+      // transform-free `<g>`). Target by the story-id `data-id`.
+      const neighbourIds = fold.islands.slice(1).map((i) => i.storyId);
+      const fade: string[] = [];
+      const scale: string[] = [];
+      for (const id of neighbourIds) {
+        fade.push(`.tw-ground[data-id="${cssEsc(id)}"]`);
+        fade.push(`.tw-isle[data-id="${cssEsc(id)}"]`);
+        scale.push(`.tw-terr[data-id="${cssEsc(id)}"]`);
+      }
+      return { scale, fade };
+    }
+    case 6:
+      // the inter-story roads fade in (they are the roads added THIS beat; every
+      // road is re-rendered each beat, so fading all roads on beat 6 replays the
+      // same growth — the within-story roads were already visible at beat 4, so
+      // only the two new inter-story roads visibly appear).
+      return { scale: [], fade: ['.tw-roads .tw-road'] };
     default:
       return { scale: [], fade: [] };
   }
+}
+
+/** CSS.escape-lite for a story id inside an attribute selector (our ids are
+ *  `[a-z-]+`, so this is belt-and-braces for a stray char). */
+function cssEsc(s: string): string {
+  return s.replace(/["\\]/g, '\\$&');
 }
 
 // ── the camera: a beat's declared CameraTarget → a viewBox rect ──────────────
@@ -597,17 +861,33 @@ interface CamRect {
 
 /** Resolve a semantic focus anchor to a scene rect (pre-offset). */
 function focusRect(fold: FoldedWorld, focus: string): Rect {
-  const treeTop = fold.treeSpot.y - (2.72 * crownRadius(fold.limbs.length) + 18);
-  const plateBottom = PLATE_Y + 36;
+  const opening = fold.islands[0];
+  const openTree = opening?.treeSpot ?? { x: 0, y: 0 };
+  const treeTop = openTree.y - (2.72 * crownRadius(fold.limbs.length) + 18);
+  const plateBottom = (opening?.centre.y ?? 0) + PLATE_DY + 36;
   switch (focus) {
     case 'story-tree': {
       const w = Math.max(200, fold.sceneInput.territories[0]?.plate.w ?? 160) + 40;
-      return { x: -w / 2, y: treeTop - 8, w, h: plateBottom - treeTop + 16 };
+      const cx = openTree.x;
+      return { x: cx - w / 2, y: treeTop - 8, w, h: plateBottom - treeTop + 16 };
     }
     case 'dag-view': {
-      const r = fold.contentRect;
-      return { x: r.x, y: treeTop - 8, w: r.w, h: r.y + r.h - treeTop + 16 };
+      // the opening island + its teaching pads (beat 4).
+      const extra: Rect[] = fold.ghosts.map((g) => ({
+        x: g.pos.x - PAD_RX - 26,
+        y: g.pos.y - 20,
+        w: (PAD_RX + 26) * 2,
+        h: 54,
+      }));
+      return unionRects([fold.islandRect, ...extra]);
     }
+    case 'forest-overview':
+      // the growing multi-island bounds (beat 5).
+      return fold.forestRect;
+    case 'forest-dag':
+      // the inter-story road-network bounds (beat 6), padded to keep both
+      // connected islands legible.
+      return unionRects([fold.interRoadRect, fold.forestRect]);
     case 'full-forest':
       return fold.contentRect;
     case 'origin':
@@ -670,24 +950,31 @@ function stateAt(n: number, script: Beat[]): DirectorState {
  *  element the beat teaches. Also names the DOM selector the witness can hold
  *  the anchoring against. */
 function anchorFor(fold: FoldedWorld, beatIndex: number): { rect: Rect; selector: string } {
+  const opening = fold.islands[0];
+  const openTree = opening?.treeSpot ?? { x: 0, y: 0 };
   const orbitR = ISLAND_R * 0.72 + 10;
   switch (beatIndex) {
     case 1: {
       const w = (fold.sceneInput.territories[0]?.plate.w ?? 160) + 24;
-      const top = fold.treeSpot.y - (2.72 * crownRadius(fold.limbs.length) + 18);
+      const top = openTree.y - (2.72 * crownRadius(fold.limbs.length) + 18);
       return {
-        rect: { x: -w / 2, y: top, w, h: PLATE_Y + 34 - top },
+        rect: { x: openTree.x - w / 2, y: top, w, h: (opening?.centre.y ?? 0) + PLATE_DY + 34 - top },
         selector: '.tw-flora-layer .tw-terr',
       };
     }
     case 2:
       return {
-        rect: { x: -orbitR - 14, y: -orbitR - 14, w: orbitR * 2 + 28, h: orbitR * 2 + 28 },
+        rect: {
+          x: openTree.x - orbitR - 14,
+          y: (opening?.centre.y ?? 0) - orbitR - 14,
+          w: orbitR * 2 + 28,
+          h: orbitR * 2 + 28,
+        },
         selector: '.tw-wisps',
       };
     case 3: {
       const green = fold.limbs.find((l) => l.green);
-      const p = green?.pos ?? fold.treeSpot;
+      const p = green?.pos ?? openTree;
       return {
         rect: { x: p.x - 16, y: p.y - 22, w: 32, h: 34 },
         selector: green ? `.tw-flora[data-id="${green.id}"]` : '.tw-terr',
@@ -701,9 +988,40 @@ function anchorFor(fold: FoldedWorld, beatIndex: number): { rect: Rect; selector
           selector: '.act2-flag',
         };
       }
-      return { rect: fold.contentRect, selector: '.tw-roads' };
+      return { rect: fold.islandRect, selector: '.tw-roads' };
     }
-    case 5:
+    case 5: {
+      // near the newly-risen neighbours — the union of the neighbour islands.
+      const neighbours = fold.islands.slice(1);
+      if (neighbours.length > 0) {
+        const rect = unionRects(
+          neighbours.map((i) => ({ x: i.centre.x - 100, y: i.centre.y - 100, w: 200, h: 200 })),
+        );
+        const firstId = neighbours[0]?.storyId;
+        return { rect, selector: firstId ? `.tw-terr[data-id="${firstId}"]` : '.act2-svg' };
+      }
+      return { rect: fold.forestRect, selector: '.act2-svg' };
+    }
+    case 6: {
+      // near the blast-radius road into the withered (broken) story.
+      const broken = fold.islands.find((i) => i.status === 'broken');
+      const interRoad = fold.roads.find(
+        (r) =>
+          r.violation === undefined &&
+          fold.islands.some((i) => i.storyId === r.from) &&
+          fold.islands.some((i) => i.storyId === r.to) &&
+          (broken ? r.to === broken.storyId || r.from === broken.storyId : true),
+      );
+      if (interRoad) {
+        const mid = interRoad.points[Math.floor(interRoad.points.length / 2)]!;
+        return {
+          rect: { x: mid.x - 70, y: mid.y - 50, w: 140, h: 100 },
+          selector: `.tw-road[data-from="${interRoad.from}"][data-to="${interRoad.to}"]`,
+        };
+      }
+      return { rect: fold.interRoadRect, selector: '.tw-roads' };
+    }
+    case 7:
       return { rect: fold.contentRect, selector: '.act2-svg' };
     case 0:
     default:
@@ -765,7 +1083,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const title = el('h2', 'act2-title');
   const body = el('p', 'act2-body');
   voice.append(title, body);
-  // the beat-5 legend (site furniture, shown only on the pull-back)
+  // the pull-back legend (site furniture, shown only on the final pull-back)
   const legend = el('ul', 'act2-legend');
   legend.setAttribute('aria-label', 'How to read the map');
   legend.innerHTML =
@@ -941,9 +1259,14 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       const fits = x >= M && y >= M && x + cw <= sr.width - M && y + ch <= sr.height - M;
       return { side, x, y, fits };
     };
-    // beat 5 speaks about the whole board — a calm fixed corner spot; otherwise
-    // hug the anchor on the first side that fits.
-    const wide = director.beatIndex === 5 || director.beatIndex === 0;
+    // the wide-view beats (intro, forest-overview, forest-dag, pull-back) speak
+    // about the whole board — a calm fixed corner spot; otherwise hug the anchor
+    // on the first side that fits.
+    const wide =
+      director.beatIndex === 0 ||
+      director.beatIndex === 5 ||
+      director.beatIndex === 6 ||
+      director.beatIndex === 7;
     const order: Cand['side'][] = wide
       ? ['bottom', 'right', 'left', 'top']
       : ['right', 'left', 'bottom', 'top'];
@@ -1017,7 +1340,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
 
     // growth: what THIS beat added scales/fades in (deterministic per beat —
     // a Back-replay re-renders the identical DOM and replays the same growth).
-    const enter = enterSelectorsFor(director.beatIndex);
+    const enter = enterSelectorsFor(director.beatIndex, fold);
     for (const sel of enter.scale) {
       canvas.querySelectorAll(sel).forEach((n) => n.classList.add('act2-enter'));
     }
@@ -1028,7 +1351,12 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
         if (director.beatIndex === 3) {
           const id = n.getAttribute('data-id');
           const greenLast = fold.limbs.filter((l) => !l.green).map((l) => l.id);
-          const ei = id === null ? i : greenLast.indexOf(id) === -1 ? greenLast.length : greenLast.indexOf(id);
+          const ei =
+            id === null
+              ? i
+              : greenLast.indexOf(id) === -1
+                ? greenLast.length
+                : greenLast.indexOf(id);
           (n as SVGElement).style.setProperty('--ei', String(ei));
         }
       });

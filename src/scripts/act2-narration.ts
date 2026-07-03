@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// act2-narration — the plain-language copy for the five-beat walkthrough
-// (ADR-0134 §3). Site-side, keyed by beat id against the synced director's
-// exported zod contract; validated at build time by act2-validate.ts (a missing
-// or orphaned key FAILS `astro build`).
+// act2-narration — the plain-language copy for the seven-beat walkthrough
+// (ADR-0134 §3, grown to seven beats by ADR-0147). Site-side, keyed by beat id
+// against the synced director's exported zod contract; validated at build time by
+// act2-validate.ts (a missing or orphaned key FAILS `astro build`).
 //
 // Pure data, no engine imports — importable from anywhere (the validation wall
 // in astro.config.mjs, the walkthrough overlay, a future test).
@@ -23,10 +23,10 @@ export interface BeatNarration {
 export const DONE_KEY = 'done';
 
 /**
- * The narration copy, keyed by beat id (`beat-1-plant-story` … `beat-5-pull-back`)
- * plus the `done` CTA entry. EXACT coverage against the director's default script
- * is enforced at build time — edit freely, but every beat keeps a voice and no
- * key may outlive its beat.
+ * The narration copy, keyed by beat id (`beat-1-plant-story` … `beat-7-pull-back`)
+ * plus the `done` CTA entry. EXACT coverage against the site walk script is
+ * enforced at build time — edit freely, but every beat keeps a voice and no key
+ * may outlive its beat.
  */
 export const NARRATION: Readonly<Record<string, BeatNarration>> = {
   'beat-1-plant-story': {
@@ -58,12 +58,27 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
       'screen to the database, skipping the payment service that should sit in between. It’s ' +
       'flagged the instant it appears, because the map knows the shape of a shortcut.',
   },
-  'beat-5-pull-back': {
+  'beat-5-grow-forest': {
+    title: 'One tree becomes a forest',
+    body:
+      'Checkout was never alone. The same shop is growing other stories too — order emails, ' +
+      'faster search, a loyalty-points sync — and each rises as its own little island. You ' +
+      'don’t open a folder to find them; the whole shop is laid out in front of you, one glance.',
+  },
+  'beat-6-connect-stories': {
+    title: 'What leans on what',
+    body:
+      'Roads reach between the islands now, showing which story depends on which. See the one ' +
+      'running into that withered island? Checkout leans on the loyalty-points sync — and that ' +
+      'one is broken. In a flat pile of files you’d never spot the reach. Here, the blast radius ' +
+      'is right there on the map.',
+  },
+  'beat-7-pull-back': {
     title: 'The whole picture, one calm screen',
     body:
-      'Step back and the forest reads at a glance: green means proven, a sapling means in ' +
-      'progress, a withered tree would mean something broke. No twelve terminals shouting ' +
-      'for you — one quiet view of everything that matters.',
+      'Step all the way back and the forest reads at a glance: green is proven, a sapling is in ' +
+      'progress, a withered tree is something broken, and each soft light is work happening right ' +
+      'now. No twelve terminals shouting for you — one quiet view of everything that matters.',
   },
   [DONE_KEY]: {
     title: 'That was a diorama',
@@ -83,5 +98,5 @@ export const INTRO: BeatNarration = {
   title: 'Quiet ground',
   body:
     'The storm settles into soil. This is a guided walk — nothing moves until you do. ' +
-    'One tap per step, five steps, and you can leave any time.',
+    'One tap per step, seven steps, and you can leave any time.',
 };
