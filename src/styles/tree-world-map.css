@@ -1,0 +1,146 @@
+/* ===========================================================================
+   tree-world-map — the MAP-LAYER paint vocabulary for the 2.5D story world SVG
+   (the `tw-*` classes emitted by src/lib/worldSvg.ts's sceneToSvg / renderWorld).
+
+   Extracted from TreeWorld.astro so it has ONE home and both consumers share it
+   (reference, don't restate — asset:reference-dont-restate):
+     • TreeWorld.astro (the real interactive map on /how-it-works and friends)
+     • index.astro (the Act 2 guided walk — the same buildScene → sceneToSvg rail,
+       ADR-0145; the walk is NOT accompanied by <TreeWorld/>, so without this
+       shared sheet its territory/flora fell back to unstyled BLACK fill).
+
+   This is the WORLD paint only — the ground cells, the smoothed shore, the story
+   trees, garden flora, roads, wisps, blooms, signposts, nameplates, and their
+   status colours + gentle idle animations. It carries NONE of TreeWorld's shell
+   chrome (toolbar, filters, inspector, legend) — that stays component-scoped in
+   TreeWorld.astro. All colours resolve against the site tokens in global.css
+   (--ink / --evergreen / --amber / --crimson / --font-body), which Base.astro
+   loads globally, so this sheet needs no variable definitions of its own.
+
+   Determinism note: nothing here depends on the story id — the same scene data
+   paints identically on every load (the geometry is the fold's; this is only its
+   look). Keep this in sync with the studio's SceneView vocabulary via the synced
+   engine, never by drifting a colour here alone.
+   =========================================================================== */
+
+/* the SVG frame */
+.tw-svg { width: 100%; height: auto; display: block; }
+
+/* the board backdrop (defs gradient referenced by id — each host provides it:
+   TreeWorld uses #tw-board, the Act 2 stage uses #a2-board) */
+.tw-bg { fill: url(#tw-board); }
+
+/* smoothed organic shore — each island reads as one sandy landmass */
+.tw-shore { fill: #ecdcb4; stroke: #ddc79a; stroke-width: 1; }
+
+/* relaxed Townscaper land cells (flat, soft cell seams) */
+.tw-cell { stroke: rgba(95, 120, 60, 0.28); stroke-width: 0.7; stroke-linejoin: round; }
+.tw-cell.v0 { fill: #a9c87f; }
+.tw-cell.v1 { fill: #9fc174; }
+.tw-cell.v2 { fill: #b2cf8b; }
+.tw-cell.wheat { fill: #d6b271; }
+
+/* ---- WASTELAND (a failing story dries to barren scorched earth — dusty tan
+   with ash/char patches, NOT a solid black slab) ---- */
+.tw-isle.st-unhealthy .tw-shore { fill: #c4b48f; stroke: #a3946f; }
+.tw-ground.st-unhealthy .tw-cell { stroke: rgba(70, 55, 35, 0.3); }
+.tw-ground.st-unhealthy .tw-cell.v0 { fill: #a3946f; }
+.tw-ground.st-unhealthy .tw-cell.v1 { fill: #877a5c; }
+.tw-ground.st-unhealthy .tw-cell.v2 { fill: #6a5f4b; }
+.tw-ground.st-unhealthy .tw-cell.wheat { fill: #574d3d; }
+.tw-terr.st-unhealthy .tw-conifer .body { fill: #7a6c52; }
+.tw-terr.st-unhealthy .tw-conifer .snow { opacity: 0; }
+.tw-terr.st-unhealthy .tw-flora .accent,
+.tw-terr.st-unhealthy .tw-flora .dead-head { fill: #6f5a44; }
+
+/* dependency roads */
+.tw-road .bed { fill: none; stroke: #cdb285; stroke-width: 9; stroke-linecap: round; opacity: 0.4; }
+.tw-road .line {
+  fill: none; stroke: #a98e5f; stroke-width: 2.2; stroke-linecap: round;
+  stroke-dasharray: 1 9; opacity: 0.7;
+}
+
+/* the story tree */
+.tw-terr .sh { fill: rgba(60, 42, 22, 0.13); }
+.tw-terr .trunk { fill: #6e533d; }
+.tw-terr .bare path { fill: none; stroke: #6e533d; stroke-width: 1.4; stroke-linecap: round; }
+.tw-terr .litter { fill: #b07a3c; opacity: 0.75; }
+.tw-terr .lo circle { fill: #6b7280; }
+.tw-terr .hi circle { fill: #9ca3af; }
+.tw-terr.st-healthy .lo circle { fill: #2f6b3f; } .tw-terr.st-healthy .hi circle { fill: #55a06a; }
+.tw-terr.st-mapped .lo circle { fill: #7d5f3b; } .tw-terr.st-mapped .hi circle { fill: #a8854f; }
+.tw-terr.st-proposed .lo circle { fill: #b06a24; } .tw-terr.st-proposed .hi circle { fill: #e09a4b; }
+.tw-terr.st-unhealthy .lo circle { fill: #9f2d22; } .tw-terr.st-unhealthy .hi circle { fill: #c75545; }
+
+/* garden-flora capabilities */
+.tw-flora .sh { fill: rgba(60, 42, 22, 0.12); }
+.tw-flora .bed { fill: #c6a36a; opacity: 0.5; }
+.tw-flora .stem { fill: none; stroke: #5d8a46; stroke-width: 1.5; stroke-linecap: round; }
+.tw-flora .core { fill: #f7ecd2; }
+.tw-flora .sap-trunk { fill: #7d5f44; }
+.tw-flora .dark { fill: #6b7280; } .tw-flora .light { fill: #9ca3af; }
+.tw-flora.st-healthy .dark { fill: #2f6b3f; } .tw-flora.st-healthy .light { fill: #55a06a; }
+.tw-flora.st-mapped .dark { fill: #7d5f3b; } .tw-flora.st-mapped .light { fill: #a8854f; }
+.tw-flora.st-proposed .dark { fill: #b06a24; } .tw-flora.st-proposed .light { fill: #e09a4b; }
+.tw-flora .dead { fill: none; stroke: #8a6a4a; stroke-width: 1.2; stroke-linecap: round; }
+.tw-flora .dead-twig {
+  fill: none; stroke: #8a6a4a; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round;
+}
+.tw-flora .dead-head { fill: #a8704a; } .tw-flora .accent { fill: #9f2d22; }
+.tw-flora .dead-ground { fill: rgba(90, 70, 45, 0.18); }
+.tw-flora .litter { fill: #a07a4a; opacity: 0.7; }
+.tw-flora .flora-hit { fill: transparent; }
+
+/* decorative conifers */
+.tw-conifer .body { fill: #4f7a3f; } .tw-conifer.c-1 .body { fill: #5d8a46; } .tw-conifer.c-2 .body { fill: #46703a; }
+.tw-conifer .snow { fill: #cfe3b3; opacity: 0.8; }
+
+/* witness signposts */
+.tw-sign .sh { fill: rgba(60, 42, 22, 0.13); }
+.tw-sign .post { fill: #8a6f4c; }
+.tw-sign .head { fill: #fffdfa; stroke-width: 2.4; }
+.tw-sign.seal-filled .head { stroke: #2f6b3f; }
+.tw-sign.seal-filled .tick {
+  fill: none; stroke: #2f6b3f; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.tw-sign.seal-blank .head { stroke: #b9a489; stroke-dasharray: 3 3; }
+
+/* fresh-verdict bloom */
+.tw-bloom { transform-box: fill-box; transform-origin: center; animation: tw-pulse 2.6s ease-in-out infinite; }
+.tw-bloom .ring { fill: none; stroke: #6fbf86; stroke-width: 2; opacity: 0.85; }
+.tw-bloom .spark { fill: #a9ebbf; }
+@keyframes tw-pulse { 0%, 100% { opacity: 0.45; transform: scale(0.88); } 50% { opacity: 1; transform: scale(1.12); } }
+
+/* live-session wisps (phase-banded per ADR-0048 §3) */
+.tw-wisp .glow { fill: #2f9e8f; opacity: 0.2; animation: tw-glow 3s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.tw-wisp .dot { fill: #2f9e8f; }
+.tw-wisp .wisp-hit { fill: transparent; }
+.tw-wisp.band-stale .glow { fill: #c98a3e; } .tw-wisp.band-stale .dot { fill: #c98a3e; }
+.tw-wisp.band-building .glow { fill: #2f9e8f; } .tw-wisp.band-building .dot { fill: #2f9e8f; }
+.tw-wisp.band-red .glow { fill: var(--crimson); opacity: 0.32; animation: none; }
+.tw-wisp.band-red .dot { fill: var(--crimson); }
+.tw-wisp.band-green .glow { fill: var(--evergreen); animation: tw-glow 1.2s ease-in-out infinite; }
+.tw-wisp.band-green .dot { fill: var(--evergreen); }
+@keyframes tw-glow { 0%, 100% { opacity: 0.14; } 50% { opacity: 0.42; } }
+.tw-wisp { transform-box: fill-box; transform-origin: center; animation: tw-orbit 6s linear infinite; }
+@keyframes tw-orbit { from { transform: rotate(var(--phase, 0deg)); } to { transform: rotate(calc(var(--phase, 0deg) + 360deg)); } }
+
+/* the tree crown's gentle sway */
+.tw-crown { transform-box: fill-box; transform-origin: 50% 100%; animation: tw-sway var(--sway, 7s) ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes tw-sway { 0%, 100% { transform: rotate(-1.1deg); } 50% { transform: rotate(1.1deg); } }
+
+/* the story nameplate */
+.tw-plate .bg { fill: rgba(255, 253, 250, 0.97); stroke: rgba(70, 50, 25, 0.14); stroke-width: 1; }
+.tw-plate .ttl { font: 650 12px var(--font-body); fill: var(--ink); }
+.tw-plate .sub { font: 500 9.5px var(--font-body); fill: #5d564c; text-transform: capitalize; }
+
+/* the interactive hit disc (inert in the Act 2 diorama — the walk makes it so) */
+.tw-hit { fill: transparent; cursor: pointer; outline: none; }
+.tw-hit:focus-visible { outline: 2.5px solid var(--amber); outline-offset: -3px; }
+
+/* idle transitions shared by the layers */
+.tw-terr, .tw-road, .tw-ground, .tw-isle { transition: opacity 0.18s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-bloom, .tw-wisp, .tw-crown { animation: none; }
+}

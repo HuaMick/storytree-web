@@ -457,7 +457,7 @@ export const FINALE_LINES: readonly string[] = [
   'I’m still waiting on you…',
   'we can’t really move forward with you moving at this pace.',
   'I suspect you’re feeling a little overwhelmed?',
-  '+ I know of a better way, it feels like playing a game.',
+  '+ I know of a better way — it feels like playing a game.',
   'want me to show you?',
 ];
 

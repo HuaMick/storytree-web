@@ -6,6 +6,12 @@ import Base from '../layouts/Base.astro';
 // (The live map + marketing intro were retired from the front door by ADR-0148 §5;
 // the map still lives on /how-it-works and its own pages via TreeWorld.astro.)
 import home from '../data/home.json';
+// The Act 2 guided walk (ADR-0145) renders the SAME buildScene → sceneToSvg map
+// SVG the real TreeWorld uses, but this page does NOT mount <TreeWorld/> (the map
+// retired from the front door, ADR-0148 §5) — so the map's `tw-*` paint rules are
+// not otherwise on the page and the territory/flora would fall back to black fill.
+// Pull in the SHARED map-layer stylesheet (one home, referenced by both surfaces).
+import '../styles/tree-world-map.css';
 // ---------------------------------------------------------------------------
 // THE HOME FLIP (ADR-0134 Act 1): the page ships two top-level branches.
 //   1. The storm  — [data-experience-entry] — a diegetic AI-agent terminal
