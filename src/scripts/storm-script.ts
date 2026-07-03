@@ -430,3 +430,50 @@ export function buildStormPlan(seed: number = STORM_SEED): StormPlan {
 
   return { cap: terminals.length, terminals, peakAt: bootParkAt };
 }
+
+// ── the finale ──────────────────────────────────────────────────────────────
+// At peak the root agent drops one last, larger terminal over the dimmed storm
+// and concedes the obvious. Same fiction discipline as the rest of the corpus:
+// no real products or vendors — the better way is offered, never named here.
+
+/** The root agent's closing monologue. "! "/"+ " prefixes tag kinds as above;
+ *  the last line renders as the bright demand pill (the offer). */
+export const FINALE_LINES: readonly string[] = [
+  'status report: agents deployed: 12 · questions parked: 12 · answers received: 0',
+  '! average time-to-answer: ∞ (still counting)',
+  'i escalated to myself. i approved the escalation. nothing moved.',
+  'we tried everything: more agents, brighter bells, louder demands',
+  'observation, filed without judgment: the agents are fast. the bottleneck… is not the agents',
+  'between us? this was never going to work. not like this.',
+  '+ there is a better way. i have seen it. fewer questions. things actually grow',
+  'want me to show you?',
+];
+
+export interface FinalePlan {
+  /** sorted by `at`; times are ms on the FINALE clock (0 = the stream starts,
+   *  which the engine offsets from the moment of peak). */
+  events: TermEvent[];
+  /** ms (finale clock) when the last chunk of the last line lands — the two
+   *  option controls fade in only after this. */
+  doneAt: number;
+}
+
+/**
+ * The finale monologue, precomputed: every chunked typing event on its own
+ * clock — a pure function of the seed, like the storm plan (no Math.random,
+ * no clocks, no DOM). Total stream lands around ~10s.
+ */
+export function buildFinalePlan(seed: number = STORM_SEED): FinalePlan {
+  const rand = mulberry32(seed ^ 0x0f1a1e); // the finale's own stream
+  const events: TermEvent[] = [];
+  let at = 0;
+  let last = 0;
+  for (let i = 0; i < FINALE_LINES.length; i++) {
+    const raw = FINALE_LINES[i]!;
+    const isOffer = i === FINALE_LINES.length - 1;
+    last = pushLine(events, at, raw, rand, isOffer ? 'demand' : undefined);
+    at = last + 900 + Math.round(rand() * 450);
+  }
+  events.sort((a, b) => a.at - b.at);
+  return { events, doneAt: last };
+}
