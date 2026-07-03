@@ -1,5 +1,10 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+// The Act 2 narration/script validator — imported STATICALLY so Astro's esbuild
+// config bundling inlines the TS module graph (a dynamic import() survives into
+// the bundled temp config and then fails Node's runtime resolution — no .ts
+// extension resolution outside the bundler). The CALL stays in the build hook.
+import { validateNarration } from './src/scripts/act2-validate';
 
 // storytree-web builds in THREE shapes from this one config, chosen by env/argv:
 //
@@ -21,8 +26,24 @@ const isDev = process.argv.includes('dev');
 const isEditor = process.env.PUBLIC_STORYTREE_WEB_EDITOR === 'github';
 const wantsKeystatic = isDev || isEditor;
 
+// The Act 2 narration wall (ADR-0134 §3): `astro build` FAILS when the site-side
+// narration copy and the synced director script drift — a beat id without a
+// narration entry, an orphaned narration key, or a default script that no longer
+// parses against the exported BeatScript zod contract. Astro bundles this config
+// with esbuild, so the relative TS import resolves in every build shape; the
+// validator only touches the pure director artifact (zod — no React, no three).
+/** @type {import('astro').AstroIntegration} */
+const act2NarrationWall = {
+  name: 'act2-narration-wall',
+  hooks: {
+    'astro:build:start': () => {
+      validateNarration();
+    },
+  },
+};
+
 /** @type {import('astro').AstroIntegration[]} */
-const integrations = [];
+const integrations = [act2NarrationWall];
 if (wantsKeystatic) {
   const [{ default: react }, { default: keystatic }] = await Promise.all([
     import('@astrojs/react'),

@@ -158,14 +158,20 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
       hidden
     >
       <div class="storm-land-canvas" id="storm-land-canvas"></div>
-      <div class="land-cta" id="storm-land-cta">
+      <!-- the walk entry (ADR-0145): the guided walk begins here, ON the real
+           2.5D map. The inflection module binds [data-act2-begin]; the classic
+           front page stays one quiet tap away via the existing inline disarm
+           (the never-stranded guarantee — it works even if no engine loaded).
+           The old onward links live on in the walk's closing CTA. -->
+      <div class="land-cta" id="storm-land-cta" data-act2-entry>
         <p class="land-cta-line">
-          The storm settles into quiet ground. This is where storytree grows software — the
-          guided walk arrives here soon.
+          The storm settles into quiet ground. This is where storytree grows software — take
+          the guided walk and watch one story take root, a single step at a time.
         </p>
-        <nav class="land-cta-links" aria-label="Where to next">
-          <a class="btn btn--primary" href="/how-it-works/">how it works</a>
-          <a class="btn btn--ghost" href="/get-involved/">get involved</a>
+        <nav class="land-cta-links" aria-label="Begin the guided walk, or step out">
+          <button type="button" class="btn btn--primary" data-act2-begin>
+            begin the guided walk →
+          </button>
           <button type="button" class="land-cta-classic" data-storm-disarm>
             prefer the classic front page? →
           </button>
@@ -601,5 +607,172 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
     .storm-term { left: 50% !important; translate: -50% 0; width: min(420px, 88vw) !important; }
     .storm-boot { top: 40%; translate: -50% -50%; }
     .storm-boot .term-body { font-size: 12px; }
+  }
+
+  /* ======================================================================
+     Act 2 — the guided walk on the REAL 2.5D map (ADR-0145). Global because
+     the stage / callout DOM is created at runtime by act2-walkthrough.ts.
+     The MAP itself is styled by TreeWorld.astro's tw-* vocabulary (always on
+     the page); only the walk chrome + the site's teaching furniture (ghost
+     pads, the violation flag) live here, namespaced act2-.
+     ====================================================================== */
+
+  /* ---- the stage: fades up over the R3F canvas at begin ---- */
+  .act2-stage {
+    position: absolute; inset: 0; z-index: 2;
+    opacity: 0;
+    transition: opacity 0.9s ease;
+    background: radial-gradient(120% 90% at 50% 38%, #fbf3ea 0%, #f3e3d2 55%, #edd9c9 100%);
+    font-family: var(--font-body);
+  }
+  .act2-stage.is-live { opacity: 1; }
+  .storm-land.act2-cut .act2-stage { transition: none; }
+  .act2-canvas { position: absolute; inset: 0; }
+  .act2-stage .tw-svg { width: 100%; height: 100%; display: block; }
+  .act2-stage .act2-bg { fill: url(#a2-board); }
+  #a2-arrow path { fill: #a98e5f; }
+  #a2-arrow-bad path { fill: var(--crimson); }
+  /* the walk is a diorama, not the studio: the delegation hit layer is inert */
+  .act2-stage .tw-hit { pointer-events: none; cursor: default; }
+  /* before beat 1 the land is empty — the synthetic territory's tree/plate/hit
+     stay out of the render */
+  .act2-svg.is-prestory .tw-flora-layer,
+  .act2-svg.is-prestory .tw-hits { display: none; }
+
+  /* ---- growth: what a beat ADDS scales/fades in (deterministic classes;
+          scale only ever rides transform-attribute-free groups) ---- */
+  .act2-enter {
+    transform-box: fill-box; transform-origin: center;
+    animation: act2-grow 0.8s cubic-bezier(0.34, 1.4, 0.44, 1) both;
+    animation-delay: calc(var(--ei, 0) * 0.22s);
+  }
+  .act2-enter-fade {
+    animation: act2-fade 0.9s ease-out both;
+    animation-delay: calc(var(--ei, 0) * 0.3s);
+  }
+  @keyframes act2-grow { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: scale(1); } }
+  @keyframes act2-fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---- the site's teaching furniture (ghost pads + the violation flag) ---- */
+  .act2-pad .pad-shadow { fill: rgba(60, 42, 22, 0.12); }
+  .act2-pad .pad-top { fill: #e9dcc0; stroke: #cbb894; stroke-width: 1.2; }
+  .act2-pad .pad-label { font: 600 11px var(--font-body); fill: #6d6252; }
+  .act2-pad .pad-tag {
+    font: 700 8.5px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+    fill: var(--crimson);
+  }
+  .act2-pad.is-bypassed .pad-top { stroke: var(--crimson); stroke-dasharray: 5 4; fill: #efe3cd; }
+  .act2-pad.is-bypassed .pad-label { fill: #8a5a44; }
+  .act2-flag .flag-post { stroke: #7a3d2c; stroke-width: 2; fill: none; stroke-linecap: round; }
+  .act2-flag .flag-cloth { fill: var(--crimson); }
+  .act2-flag .flag-bg { fill: rgba(255, 251, 245, 0.96); stroke: var(--crimson); stroke-width: 1.2; }
+  .act2-flag .flag-text { font: 650 9.5px var(--font-body); fill: var(--crimson); }
+
+  /* the violating road: flagged FROM ITS DATA (the fold marks the group) —
+     instantly distinguishable from a good road */
+  .act2-stage .tw-road.act2-violation .line {
+    stroke: var(--crimson); stroke-dasharray: 7 5; stroke-width: 2.6; opacity: 0.95;
+    animation: act2-wrongway 1.1s linear infinite;
+  }
+  .act2-stage .tw-road.act2-violation .bed { stroke: #d8a08d; }
+  @keyframes act2-wrongway { to { stroke-dashoffset: -12; } }
+
+  /* ---- the anchored callout (the game-tutorial box, tail at its anchor) ---- */
+  .act2-callout {
+    position: absolute; z-index: 6;
+    width: min(340px, 84vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 16px 48px rgba(40, 26, 12, 0.28);
+    padding: 0.95rem 1.1rem 0.9rem;
+    opacity: 0; translate: 0 6px; pointer-events: none;
+    transition: opacity 0.28s ease, translate 0.28s ease;
+  }
+  .act2-callout.is-placed { opacity: 1; translate: 0 0; pointer-events: auto; }
+  .act2-callout[hidden] { display: none; }
+  .act2-tail {
+    position: absolute; width: 14px; height: 14px;
+    background: var(--surface); rotate: 45deg;
+  }
+  .act2-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.35rem; }
+  .act2-step {
+    margin: 0; font: 650 0.66rem var(--font-body); letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .act2-dots { display: flex; gap: 0.28rem; }
+  .act2-dot { width: 0.42rem; height: 0.42rem; border-radius: 999px; background: var(--line-strong); }
+  .act2-dot.is-lit { background: var(--amber); }
+  .act2-title { margin: 0 0 0.3rem; font-family: var(--font-display); font-size: 1.12rem; color: var(--evergreen); }
+  .act2-body { margin: 0; font-size: 0.88rem; line-height: 1.5; color: var(--ink-soft); }
+  .act2-legend {
+    list-style: none; display: grid; gap: 0.35rem;
+    margin: 0.65rem 0 0; padding: 0.65rem 0 0; border-top: 1px solid var(--line);
+    font-size: 0.8rem; color: var(--ink-soft);
+  }
+  /* display:grid would defeat the UA's [hidden] rule — the legend shows ONLY
+     on the pull-back beat */
+  .act2-legend[hidden] { display: none; }
+  .act2-legend li { display: flex; align-items: center; gap: 0.5rem; }
+  .act2-legend .k { width: 0.65rem; height: 0.65rem; border-radius: 999px; flex: none; }
+  .act2-legend .k-green { background: var(--evergreen); }
+  .act2-legend .k-pale { background: var(--amber); }
+  .act2-legend .k-with { background: var(--crimson); }
+  .act2-controls { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.85rem; }
+  .act2-back {
+    background: none; border: 0; cursor: pointer;
+    font: 500 0.82rem var(--font-body); color: var(--ink-faint); padding: 0.35rem 0.3rem;
+  }
+  .act2-back:hover { color: var(--ink); }
+  /* keep Next pinned right while Back is absent (intro) */
+  .act2-back[hidden] { display: block; visibility: hidden; }
+
+  /* ---- the quiet persistent skip (top corner, out of the way) ---- */
+  .act2-skipbar { position: absolute; top: 12px; right: 14px; z-index: 7; }
+  .act2-skipbar[hidden] { display: none; }
+  .act2-skip {
+    border: 1px solid var(--line-strong); border-radius: 999px; cursor: pointer;
+    background: rgba(255, 253, 250, 0.85);
+    font: 500 0.78rem var(--font-body); color: var(--ink-faint);
+    padding: 0.35rem 0.75rem;
+  }
+  .act2-skip:hover { color: var(--ink); background: var(--surface); }
+
+  /* ---- the honest diorama-closing CTA ---- */
+  .act2-done {
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 8;
+    width: min(470px, 90vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(40, 26, 12, 0.4);
+    padding: 1.5rem 1.7rem 1.3rem;
+    text-align: center;
+  }
+  .act2-done[hidden] { display: none; }
+  .act2-done .act2-title { font-size: 1.3rem; margin-bottom: 0.45rem; }
+  .act2-done .act2-body { margin-bottom: 1.05rem; }
+  .act2-done-links {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    justify-content: center; align-items: center;
+  }
+  .act2-classic {
+    border: 0; background: none; cursor: pointer;
+    font: 500 0.85rem var(--font-body);
+    color: var(--ink-faint); text-decoration: underline;
+    padding: 0.4rem 0.2rem;
+  }
+  .act2-classic:hover { color: var(--ink); }
+  .act2-back-forest {
+    margin-top: 0.65rem; border: 0; background: none; cursor: pointer;
+    font: 500 0.78rem var(--font-body); color: var(--ink-faint);
+    padding: 0.3rem 0.2rem;
+  }
+  .act2-back-forest:hover { color: var(--ink); }
+
+  /* ---- reduced motion: jump-cuts, no growth, no dash march ---- */
+  @media (prefers-reduced-motion: reduce) {
+    .act2-stage { transition: none; }
+    .act2-enter, .act2-enter-fade { animation: none; }
+    .act2-stage .tw-road.act2-violation .line { animation: none; }
+    .act2-callout { transition: none; translate: 0 0; }
   }
 </style>
