@@ -510,9 +510,16 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
     opacity: 0;
     transition: opacity 1.3s ease;
   }
+  /* Once the storm transforms into the tutorial the skip/disarm HUD retires
+     entirely — go all in on Act 2 (ADR-0148 §5): fade it out, then flip it
+     `visibility: hidden` so it is not just invisible but fully inert (no mouse
+     click, out of the tab order) — no capable-visitor escape to the fallback.
+     The `data-experience-skip` marker stays in the SOURCE, so check:web-experience
+     (which greps the page text) is unaffected; this is runtime-only. */
   .storm-root.is-transforming .storm-hud {
     opacity: 0;
-    transition: opacity 1.5s ease 0.3s;
+    visibility: hidden;
+    transition: opacity 1.5s ease 0.3s, visibility 0s linear 1.8s;
   }
   .storm-root.is-transforming .storm-finale {
     animation: storm-term-off 0.55s 0.3s cubic-bezier(0.55, 0, 0.75, 0.4) both;
