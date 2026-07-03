@@ -32,9 +32,9 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
   'beat-1-plant-story': {
     title: 'Plant a story',
     body:
-      'Start by writing down what done looks like — a promise of what this piece will do, ' +
-      'like “API latency < 200 ms”. It takes root here as a young tree with that promise on ' +
-      'its label. That’s called a story: the intent lives on the map, not buried in a chat log.',
+      'Start by writing down what done looks like — a plain promise of what you want, ' +
+      'like “shoppers can check out”. It takes root here as a young tree with that promise on ' +
+      'its label. That’s called a story: what you want lives on the map, not buried in a chat log.',
   },
   'beat-2-attach-wisp': {
     title: 'See it working — without watching it',
@@ -46,16 +46,17 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
   'beat-3-branch-caps': {
     title: 'Green means proven',
     body:
-      'The story branches into the smaller pieces it needs. One just turned green — not ' +
-      'because an agent said “done”, but because a signed, passing test run proves it. The ' +
-      'pale plants are still in progress. Here, green is earned. It can’t be claimed.',
+      'Checkout branches into the smaller pieces it needs — a cart, payments, receipts. The ' +
+      'cart just turned green: not because an agent said “done”, but because a signed, passing ' +
+      'test run proves it. The pale plants are still in progress. Here, green is earned. It ' +
+      'can’t be claimed.',
   },
   'beat-4-add-roads': {
     title: 'A wrong turn has nowhere to hide',
     body:
-      'Roads show what depends on what. And look — one road cuts straight from the screen to ' +
-      'the database, skipping the layer that should sit in between. It’s flagged the instant ' +
-      'it appears, because the map knows the shape of a shortcut.',
+      'Roads show what depends on what. And look — one road cuts straight from the checkout ' +
+      'screen to the database, skipping the payment service that should sit in between. It’s ' +
+      'flagged the instant it appears, because the map knows the shape of a shortcut.',
   },
   'beat-5-pull-back': {
     title: 'The whole picture, one calm screen',

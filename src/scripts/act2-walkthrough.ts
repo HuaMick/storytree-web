@@ -57,13 +57,16 @@ import {
 import { sceneToSvg } from '../lib/worldSvg';
 import {
   advance,
-  defaultScript,
   initialState,
   type Beat,
   type CameraTarget,
   type DirectorState,
   type WorldState,
 } from '../lib/forest-world-r3f/act2-director';
+// The FICTION is site-owned (ADR-0093 fictional-data precedent): the walk plays
+// the shopping-checkout script, not the director's default. The director's pure
+// state machine (advance / initialState / the zod contract) is still the engine.
+import { walkthroughScript } from './act2-script';
 import { DONE_KEY, INTRO, NARRATION, type BeatNarration } from './act2-narration';
 
 // ── the parameters (few, meaningful, named — never a knob per pixel) ─────────
@@ -214,12 +217,14 @@ export function bypassedLayerOf(violation: string): string | null {
   return m ? m[1]! : null;
 }
 
-/** Plain display label for a fictional teaching pad. */
+/** Plain display label for a fictional teaching pad — tuned to the shopping
+ *  fiction so beat 4's furniture reads concrete (the ids stay ui/db/service so
+ *  bypassedLayerOf still resolves the skipped layer from the violation data). */
 function ghostLabel(id: string): string {
   const KNOWN: Record<string, string> = {
-    ui: 'the screen (UI)',
-    db: 'the database',
-    service: 'the service layer',
+    ui: 'the checkout screen',
+    db: 'the orders database',
+    service: 'the payment service',
   };
   return KNOWN[id] ?? id;
 }
@@ -252,8 +257,8 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
 
   // Folded story status: the site's amber "proposed / building" hue for the
   // whole walk — the young tree that has NOT earned green. It NEVER folds
-  // 'healthy' (the story's own proof is not in this fiction; only cap-auth's
-  // is — green is earned per-limb, never claimed).
+  // 'healthy' (the story's own proof is not in this fiction; only one cap's
+  // proof is — green is earned per-limb, never claimed).
   const storyStatus: SceneStatus = 'proposed';
 
   // Capability limbs fan south of the tree, deterministically jittered by id.
@@ -340,10 +345,14 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
     const points = sampleQuadratic(a, ctrl, b, ROAD_SAMPLES);
     if (road.violation !== undefined && flagAt === null) {
       const apex = points[Math.floor(points.length / 2)]!;
+      const skipped = bypassedLayerOf(road.violation);
       flagAt = {
         x: apex.x,
         y: apex.y,
-        layer: bypassedLayerOf(road.violation) ?? 'required',
+        // the friendly label (e.g. 'the payment service'), so the flag caption
+        // matches the bypassed pad exactly — no 'the service layer' vs
+        // 'the payment service' mismatch between the two teaching marks.
+        layer: skipped === null ? 'a required layer' : ghostLabel(skipped),
         violation: road.violation,
       };
     }
@@ -517,9 +526,9 @@ function furnitureSvg(fold: FoldedWorld, entering: boolean): string {
   if (fold.flagAt) {
     const v = fold.flagAt;
     const enter = entering ? ' act2-enter' : '';
-    const line = `wrong way — skips the ${v.layer} layer`;
+    const line = `wrong way — skips ${v.layer}`;
     out +=
-      `<g class="act2-flag${enter}" data-act2-violation="${escXml(v.violation)}" role="img" aria-label="${escXml(`Flagged: this road skips the ${v.layer} layer`)}">` +
+      `<g class="act2-flag${enter}" data-act2-violation="${escXml(v.violation)}" role="img" aria-label="${escXml(`Flagged: this road skips ${v.layer}`)}">` +
       `<g transform="translate(${f(v.x + OFFSET.x)} ${f(v.y + OFFSET.y)})">` +
       `<path class="flag-post" d="M 0 2 L 0 -20"/>` +
       `<path class="flag-cloth" d="M 0 -20 L 15 -15.5 L 0 -11 Z"/>` +
@@ -708,7 +717,7 @@ function anchorFor(fold: FoldedWorld, beatIndex: number): { rect: Rect; selector
  * (Escape / skip / the classic-page affordance), so teardown is total.
  */
 export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): WalkthroughHandle {
-  const script = defaultScript;
+  const script = walkthroughScript;
   const reducedMotion = opts.reducedMotion;
 
   // ── state ──
