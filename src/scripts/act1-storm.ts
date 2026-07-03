@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import {
+  buildFinalePlan,
   buildStormPlan,
   mulberry32,
   STORM_SEED,
@@ -21,8 +22,12 @@ import {
 } from './storm-script';
 
 const MAX_LINES = 16; //   DOM lines kept per terminal (old ones drop)
-const PEAK_BEAT = 2600; // ms of parked cacophony before the calm affordance
+const PEAK_BEAT = 2600; // ms of parked cacophony before the finale terminal
 const MASTER_GAIN = 0.15;
+
+// — the finale terminal (the peak affordance) —
+const FINALE_TYPE_DELAY = 1300; // ms from peak to the first typed finale line
+const FINALE_ACTIONS_BEAT = 650; // ms after the last line before the options fade in
 
 // — the inflection (ADR-0134 §2): one click transforms the storm in place —
 const COLLAPSE_STAGGER = 62; // ms between terminal power-offs (CRT-off feel)
@@ -316,9 +321,12 @@ export function runStorm(): void {
     document.getElementById('storm-grain') as HTMLCanvasElement | null,
     'grain canvas',
   );
-  const calmCard = need(document.getElementById('storm-calm'), 'calm affordance');
+  const finaleEl = need(document.getElementById('storm-finale'), 'finale terminal');
+  const finaleBody = need(document.getElementById('storm-finale-body'), 'finale body');
+  const finaleActions = need(document.getElementById('storm-finale-actions'), 'finale actions');
+  const finaleStatus = document.getElementById('storm-finale-status');
   const transformBtn = need(
-    calmCard.querySelector<HTMLElement>('[data-storm-transform]'),
+    finaleEl.querySelector<HTMLElement>('[data-storm-transform]'),
     'transform trigger',
   );
   const soilEl = need(document.getElementById('storm-soil'), 'soil');
@@ -326,6 +334,7 @@ export function runStorm(): void {
   const landCanvasEl = need(document.getElementById('storm-land-canvas'), 'land canvas mount');
 
   const plan = buildStormPlan();
+  const finale = buildFinalePlan();
   const audio = new StormAudio();
   const grain = makeGrain(grainCv);
 
@@ -432,12 +441,51 @@ export function runStorm(): void {
     audio.setIntensity(spawnedCount / Math.max(1, plan.terminals.length - 1));
   };
 
-  // — at peak: a beat of sustained cacophony, then the scene dims and the one
-  //   calm affordance fades in —
-  const peak = (): void => {
+  // — at peak: a beat of sustained cacophony, then the scene dims and the
+  //   root agent's finale terminal powers on above it. Its monologue streams
+  //   from the seeded finale plan on the same rAF loop (t is the send clock);
+  //   the two option controls appear only after the last line lands. —
+  let finaleT0 = 0; // send-clock ms when the finale stream starts
+  let finaleCursor = 0;
+  let finaleLastLine: HTMLElement | null = null;
+  let finaleDone = false;
+
+  const peak = (t: number): void => {
     peaked = true;
     root.classList.add('is-peak');
-    calmCard.hidden = false;
+    finaleEl.hidden = false;
+    finaleT0 = t + FINALE_TYPE_DELAY; // let the CRT power-on land first
+    audio.blip();
+  };
+
+  const applyFinaleEvent = (ev: TermEvent): void => {
+    if (ev.nl) {
+      const line = document.createElement('div');
+      line.className = `term-line k-${ev.kind}`;
+      line.textContent = ev.text;
+      finaleBody.appendChild(line);
+      finaleLastLine = line;
+      trimLines(finaleBody);
+    } else if (finaleLastLine) {
+      finaleLastLine.textContent = (finaleLastLine.textContent ?? '') + ev.text;
+    }
+    audio.tick(0.5);
+  };
+
+  const streamFinale = (t: number): void => {
+    const ft = t - finaleT0;
+    const evs = finale.events;
+    while (finaleCursor < evs.length && evs[finaleCursor]!.at <= ft) {
+      applyFinaleEvent(evs[finaleCursor]!);
+      finaleCursor++;
+    }
+    if (finaleCursor >= evs.length && ft >= finale.doneAt + FINALE_ACTIONS_BEAT) {
+      finaleDone = true;
+      finaleActions.hidden = false;
+      finaleEl.classList.add('is-done', 'is-parked');
+      if (finaleStatus) finaleStatus.textContent = 'waiting on you';
+      audio.bell(0.5);
+    }
   };
 
   // ── the inflection (ADR-0134 §2): one click transforms the storm in place ──
@@ -486,7 +534,8 @@ export function runStorm(): void {
     const islandReady = import('./inflection');
 
     // 2. the scene stops demanding: the stream freezes, the audio decays,
-    //    the chrome (grain / HUD / calm card) exhales out
+    //    the chrome (grain / HUD) exhales out and the finale terminal joins
+    //    the collapse with its own CRT power-off (CSS: .is-transforming)
     cancelAnimationFrame(raf);
     audio.quell();
     root.classList.add('is-transforming');
@@ -612,7 +661,8 @@ export function runStorm(): void {
           ts.cursor++;
         }
       }
-      if (!peaked && parkedCount >= terms.length && t >= plan.peakAt + PEAK_BEAT) peak();
+      if (!peaked && parkedCount >= terms.length && t >= plan.peakAt + PEAK_BEAT) peak(t);
+      if (peaked && !finaleDone) streamFinale(t);
     }
     raf = requestAnimationFrame(loop);
   };

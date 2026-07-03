@@ -26,7 +26,7 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
 <Base active="home">
   <!-- Arm the storm BEFORE first paint (is:inline — Astro must not defer this):
        calm by default; enhance to storm only for motion-OK, JS-on visitors.
-       The disarm path (skip / calm affordance / Escape) lives here too, so the
+       The disarm path (skip / Escape / the land's classic affordance) lives here too, so the
        exit works even if the storm engine module never loads. -->
   <script is:inline>
     (function () {
@@ -76,7 +76,7 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
   >
     <div class="storm-hud">
       <a class="storm-skip" href="#calm-view" data-experience-skip data-storm-disarm
-        >skip the storm →</a
+        >show me a better way →</a
       >
       <span class="storm-count" id="storm-count" aria-hidden="true">AGENTS: 01</span>
       <button class="storm-sound" id="storm-sound" type="button" aria-pressed="true">
@@ -129,18 +129,35 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
 
     <div class="storm-dimmer" aria-hidden="true"></div>
 
-    <!-- at peak: the one calm affordance. Its button is THE TRANSFORM trigger
+    <!-- at peak: the root agent's finale terminal drops in above the dimmed
+         storm and concedes the obvious. Its dialogue streams from the seeded
+         plan (storm-script.ts); its primary button is THE TRANSFORM trigger
          (ADR-0134 §2): the engine binds [data-storm-transform] — one click and
-         the storm becomes soil, the calm land fades up in place. -->
-    <div class="storm-calm-card" id="storm-calm" data-calm-affordance hidden>
-      <p class="calm-eyebrow">meanwhile, outside the storm</p>
-      <p class="calm-word">storytree</p>
-      <p class="calm-line">
-        Twelve agents, all waiting on you. There is a calmer way to watch software grow.
-      </p>
-      <button type="button" class="btn btn--primary" data-storm-transform>
-        step out of the storm →
-      </button>
+         the storm becomes soil, the calm land fades up in place. The ghost
+         link is the joke exit: if a wall of terminals is genuinely your thing,
+         that product exists. This window holds the page's real controls, so it
+         stays in the accessibility tree (only the streamed noise is hidden). -->
+    <div
+      class="storm-term storm-finale ph-green"
+      id="storm-finale"
+      role="group"
+      aria-label="The lead agent concedes the storm is not working and offers to show a better way"
+      hidden
+    >
+      <div class="term-bar" aria-hidden="true">
+        <span class="term-dots">● ● ●</span>
+        <span class="term-name">swarm — root</span>
+        <span class="term-status" id="storm-finale-status">reporting</span>
+      </div>
+      <div class="term-body" id="storm-finale-body" aria-hidden="true"></div>
+      <div class="finale-actions" id="storm-finale-actions" hidden>
+        <button type="button" class="finale-btn finale-btn--primary" data-storm-transform>
+          show me the better way →
+        </button>
+        <a class="finale-btn finale-btn--ghost" href="https://claude.com/product/claude-code">
+          i'm fine with this
+        </a>
+      </div>
     </div>
 
     <!-- the soil: the terminals' fragments accumulate here as they fall — the
@@ -444,7 +461,7 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
     97% { opacity: 0.93; }
   }
 
-  /* ---- peak: dim the scene, surface the one calm affordance ---- */
+  /* ---- peak: dim the scene, the root agent's finale terminal drops in ---- */
   .storm-dimmer {
     position: absolute; inset: 0; z-index: 45;
     background: rgba(2, 4, 3, 0.55);
@@ -452,33 +469,50 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
     pointer-events: none;
   }
   .storm-root.is-peak .storm-dimmer { opacity: 1; }
-  .storm-calm-card {
-    position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  /* the finale terminal: same CRT species as the storm windows, just bigger,
+     centered above the dimmer (dimmer z 45). CRT power-on entrance reuses
+     storm-term-on — `scale` composes with the centering translate. */
+  .storm-finale {
+    left: 50%; top: 50%; translate: -50% -50%;
     z-index: 46;
-    width: min(430px, 88vw);
-    background: var(--surface); color: var(--ink);
-    border-radius: var(--radius);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
-    padding: 1.9rem 2rem 1.7rem;
-    text-align: center;
-    font-family: var(--font-body);
+    width: min(640px, 92vw);
+    max-height: min(70vh, 560px);
   }
-  .storm-root.is-peak .storm-calm-card { animation: storm-calm-rise 1.4s 0.9s ease both; }
-  @keyframes storm-calm-rise {
-    from { opacity: 0; translate: -50% -44%; }
-    to { opacity: 1; translate: -50% -50%; }
+  .storm-finale[hidden] { display: none; }
+  .storm-root.is-peak .storm-finale {
+    animation: storm-term-on 0.42s 0.9s cubic-bezier(0.22, 1.5, 0.36, 1) both;
   }
-  .storm-calm-card .calm-eyebrow {
-    font: 650 0.68rem var(--font-body); letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--amber); margin: 0 0 0.5rem;
+  .storm-finale .term-body {
+    min-height: 200px;
+    max-height: 46vh;
+    font-size: 13px;
   }
-  .storm-calm-card .calm-word {
-    font-family: var(--font-display); font-weight: 600; font-size: 2rem;
-    color: var(--evergreen); margin: 0 0 0.5rem;
+  /* the two options: hidden until the stream lands, then a soft fade-up */
+  .finale-actions {
+    flex: none;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 12px 14px 14px;
+    border-top: 1px solid rgba(126, 255, 165, 0.14);
   }
-  .storm-calm-card .calm-line {
-    font-size: 0.95rem; line-height: 1.55; color: var(--ink-soft); margin: 0 0 1.2rem;
+  .finale-actions[hidden] { display: none; }
+  .storm-finale.is-done .finale-actions { animation: finale-actions-in 0.7s ease both; }
+  @keyframes finale-actions-in {
+    from { opacity: 0; translate: 0 7px; }
+    to { opacity: 1; translate: 0 0; }
   }
+  .finale-btn {
+    font: 600 12px var(--font-term);
+    letter-spacing: 0.05em; text-transform: lowercase;
+    border-radius: 4px; padding: 9px 14px;
+    cursor: pointer; text-decoration: none;
+  }
+  .finale-btn--primary { color: #071009; background: var(--ph); border: 0; }
+  .finale-btn--primary:hover { filter: brightness(1.15); }
+  .finale-btn--ghost {
+    color: #6fa585; background: transparent;
+    border: 1px solid rgba(126, 255, 165, 0.22);
+  }
+  .finale-btn--ghost:hover { color: #9fe8b4; background: rgba(126, 255, 165, 0.08); }
 
   /* ======================================================================
      The inflection (ADR-0134 §2) — one click at peak transforms the storm:
@@ -487,8 +521,10 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
      click, .is-resolved when the island is mounted and the beat has passed.
      ====================================================================== */
 
-  /* the chrome exhales: grain, HUD and the calm card fade out (animations are
-     cancelled so the opacity transition owns the property) */
+  /* the chrome exhales: grain and HUD fade out (animations are cancelled so
+     the opacity transition owns the property); the finale terminal joins the
+     collapse with the same CRT power-off as the storm windows (later in the
+     cascade than the is-peak power-on, so it wins while both classes stand) */
   .storm-root.is-transforming .storm-grain {
     animation: none;
     opacity: 0;
@@ -498,11 +534,9 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
     opacity: 0;
     transition: opacity 1.5s ease 0.3s;
   }
-  .storm-root.is-transforming .storm-calm-card {
-    animation: none;
-    opacity: 0;
+  .storm-root.is-transforming .storm-finale {
+    animation: storm-term-off 0.55s 0.3s cubic-bezier(0.55, 0, 0.75, 0.4) both;
     pointer-events: none;
-    transition: opacity 0.6s ease;
   }
 
   /* CRT power-off — the inverse of storm-term-on (scale composes with the
@@ -601,5 +635,14 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
     .storm-term { left: 50% !important; translate: -50% 0; width: min(420px, 88vw) !important; }
     .storm-boot { top: 40%; translate: -50% -50%; }
     .storm-boot .term-body { font-size: 12px; }
+    /* the finale keeps its center + width on small screens (more specific than
+       the generic .storm-term stack rule above) */
+    .storm-term.storm-finale {
+      top: 50%;
+      translate: -50% -50%;
+      width: min(640px, 92vw) !important;
+      max-height: 78vh;
+    }
+    .storm-finale .term-body { min-height: 150px; font-size: 12px; }
   }
 </style>
