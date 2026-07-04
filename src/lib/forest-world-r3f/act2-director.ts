@@ -18,6 +18,10 @@
 // before applying it, so the teaching claims are RUNTIME contracts, not type
 // hints: a green-without-marker limb is refused loudly, never rendered.
 //
+// WorldState holds MULTIPLE stories each with a dependsOn edge set and a
+// tri-state status (proven/building/broken → green/sapling/withered) so the
+// pull-back legend is HONEST. (ADR-0150)
+//
 // FENCES: no live data ever; no React/three.js; interpolation is the canvas
 // layer's job.
 
@@ -72,6 +76,10 @@ export type LimbDelta = z.infer<typeof LimbDelta>;
  * A road in the add-roads delta. `violation` is non-empty when this road is a
  * declared layer violation — the antipattern name, flagged FROM THE DATA, not
  * added as a presentation hint by the canvas. Absent on valid DAG dependency roads.
+ *
+ * NOTE (ADR-0150 §4): the violation field is a LATENT CAPABILITY — roads can
+ * still declare a layer violation — but the exported defaultScript does NOT use
+ * a violation-flagged road as a teaching beat. The wrong-way road teach is retired.
  */
 export const RoadDelta = z
   .object({
@@ -85,14 +93,49 @@ export const RoadDelta = z
   .strict();
 export type RoadDelta = z.infer<typeof RoadDelta>;
 
+/** Tri-state story status — backs the pull-back legend (green/sapling/withered). */
+export const StoryStatus = z.enum(['proven', 'building', 'broken']);
+export type StoryStatus = z.infer<typeof StoryStatus>;
+
 /** The delta for a single beat — what the world GAINS this beat, in the
  *  mapper's semantic vocabulary (never pixels). */
 export const BeatDelta = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('plant-story'), storyId: z.string().min(1), label: z.string().min(1) }).strict(),
+  // plant-story: seeds a new story node on the world with an explicit status.
+  // status = 'building' marks it as in-progress (sapling in the legend).
+  z
+    .object({
+      kind: z.literal('plant-story'),
+      storyId: z.string().min(1),
+      label: z.string().min(1),
+      status: StoryStatus,
+    })
+    .strict(),
   z.object({ kind: z.literal('attach-wisp'), storyId: z.string().min(1) }).strict(),
   z.object({ kind: z.literal('branch-caps'), limbs: z.array(LimbDelta) }).strict(),
+  // add-roads: latent capability; the default script no longer uses violation roads
+  // as a teaching beat (ADR-0150 §4 — wrong-way road teach is retired).
   z.object({ kind: z.literal('add-roads'), roads: z.array(RoadDelta) }).strict(),
-  z.object({ kind: z.literal('pull-back') }).strict(),
+  // add-upstream-story: raises a story ABOVE an existing one on a real dependency
+  // edge. dependsOn points DOWN to the story this story is upstream of (ADR-0150).
+  z
+    .object({
+      kind: z.literal('add-upstream-story'),
+      id: z.string().min(1),
+      label: z.string().min(1),
+      status: StoryStatus,
+      dependsOn: z.array(z.string().min(1)),
+    })
+    .strict(),
+  // pull-back: widen to the whole forest AND resolve any listed story to 'proven'
+  // (the culminating reveal — the website you grew is proven/green, the upstream
+  // layers proposed above it). `proven` lists the story ids that resolve to proven
+  // at the pull-back (ADR-0150 honest legend). Absent → a pure camera move.
+  z
+    .object({
+      kind: z.literal('pull-back'),
+      proven: z.array(z.string().min(1)).optional(),
+    })
+    .strict(),
 ]);
 export type BeatDelta = z.infer<typeof BeatDelta>;
 
@@ -129,12 +172,35 @@ export type BeatScript = z.infer<typeof BeatScript>;
 // Director state
 // ---------------------------------------------------------------------------
 
-/** The accumulated world state as beats are applied. */
-export interface WorldState {
-  storyId: string;
+/**
+ * A single story node in the world. Each story carries a tri-state status
+ * (proven / building / broken → green / sapling / withered in the legend)
+ * and a real dependsOn edge set — so the pull-back legend is backed by data,
+ * not a claim over a uniformly-amber forest (ADR-0150).
+ */
+export interface StoryNode {
+  /** Stable id matching the beat delta that planted this story. */
+  id: string;
+  /** Display label (fictional; actual copy lives site-side). */
+  label: string;
+  /** Whether a wisp is currently drifting over this story's tree. */
   hasWisp: boolean;
+  /** Tri-state status: proven (green), building (sapling), broken (withered). */
+  status: 'proven' | 'building' | 'broken';
+  /**
+   * Dependency edges — ids of stories THIS story depends on (i.e. stories that
+   * must exist BEFORE this one). An upstream story's dependsOn points down to
+   * the story it is upstream of (the backend dependsOn the website).
+   */
+  dependsOn: string[];
+  /** Capability limbs attached to this story. Green limbs carry signedProof. */
   limbs: LimbDelta[];
-  roads: RoadDelta[];
+}
+
+/** The accumulated world state as beats are applied.
+ *  Holds an array of per-story nodes — NOT a single flat storyId (ADR-0150). */
+export interface WorldState {
+  stories: StoryNode[];
 }
 
 /**
@@ -148,7 +214,7 @@ export interface DirectorState {
    * Increments by exactly 1 per advance() call. Parked at script.length when done.
    */
   beatIndex: number;
-  /** The accumulated world state. */
+  /** The accumulated world state (multi-story, ADR-0150). */
   world: WorldState;
   /** The current camera target (follows each beat's declared camera). */
   camera: CameraTarget;
@@ -163,7 +229,7 @@ export interface DirectorState {
 /** The zero DirectorState: no beats applied yet, camera at the origin. */
 export const initialState: DirectorState = {
   beatIndex: 0,
-  world: { storyId: '', hasWisp: false, limbs: [], roads: [] },
+  world: { stories: [] },
   camera: { focus: 'origin', zoom: 0.5 },
   done: false,
 };
@@ -175,16 +241,70 @@ export const initialState: DirectorState = {
 /** Apply a beat delta to the current world, returning a new WorldState. Pure. */
 function applyDelta(world: WorldState, delta: BeatDelta): WorldState {
   switch (delta.kind) {
-    case 'plant-story':
-      return { ...world, storyId: delta.storyId };
-    case 'attach-wisp':
-      return { ...world, hasWisp: true };
-    case 'branch-caps':
-      return { ...world, limbs: delta.limbs };
-    case 'add-roads':
-      return { ...world, roads: delta.roads };
-    case 'pull-back':
+    case 'plant-story': {
+      const newStory: StoryNode = {
+        id: delta.storyId,
+        label: delta.label,
+        hasWisp: false,
+        status: delta.status,
+        dependsOn: [],
+        limbs: [],
+      };
+      return { stories: [...world.stories, newStory] };
+    }
+
+    case 'attach-wisp': {
+      return {
+        stories: world.stories.map((s) =>
+          s.id === delta.storyId ? { ...s, hasWisp: true } : s,
+        ),
+      };
+    }
+
+    case 'branch-caps': {
+      // Apply capability limbs to the first story in the world (the planted
+      // website story — the branch-caps beat follows immediately after plant-story).
+      if (world.stories.length === 0) return world;
+      return {
+        stories: world.stories.map((s, i) =>
+          i === 0 ? { ...s, limbs: delta.limbs } : s,
+        ),
+      };
+    }
+
+    case 'add-roads': {
+      // Latent capability: roads are recorded as a world mutation but the default
+      // script no longer uses violation-flagged roads as a teaching beat (ADR-0150 §4).
+      // WorldState does not carry a top-level roads array — roads are structural
+      // edges resolved by the canvas layer. No state change needed here.
       return world;
+    }
+
+    case 'add-upstream-story': {
+      const newStory: StoryNode = {
+        id: delta.id,
+        label: delta.label,
+        hasWisp: false,
+        status: delta.status,
+        dependsOn: delta.dependsOn,
+        limbs: [],
+      };
+      return { stories: [...world.stories, newStory] };
+    }
+
+    case 'pull-back': {
+      // The camera widens (advance() applies the beat's camera). As it does, any
+      // story listed in `proven` resolves to 'proven' — the culminating reveal
+      // that the grown website is proven (green), the upstream layers still
+      // proposed above it (ADR-0150 honest legend). No ids → a pure camera move.
+      if (delta.proven === undefined || delta.proven.length === 0) return world;
+      const proven = new Set(delta.proven);
+      return {
+        stories: world.stories.map((s) =>
+          proven.has(s.id) ? { ...s, status: 'proven' as const } : s,
+        ),
+      };
+    }
   }
 }
 
@@ -205,6 +325,8 @@ export function advance(state: DirectorState, script: Beat[]): DirectorState {
   // Guard: beatIndex out of bounds (e.g. empty script) → park as done.
   if (beat === undefined) return { ...state, done: true };
 
+  // Runtime contract enforcement: refuses green-without-marker limbs LOUDLY
+  // (a faked "done" cannot colour the tree even in fiction — ADR-0150).
   Beat.parse(beat);
 
   const newIndex = state.beatIndex + 1;
@@ -217,22 +339,37 @@ export function advance(state: DirectorState, script: Beat[]): DirectorState {
 }
 
 // ---------------------------------------------------------------------------
-// The five approved research-table beats — the exported default script
+// The ONE continuous default script — website walk THEN upstream reveal
+// (ADR-0150: 3 website-walk beats + 2 upstream-reveal beats + 1 pull-back CTA)
 // ---------------------------------------------------------------------------
 
-/** The exported default script IS the five approved research-table beats
- *  (docs/research/vibe-coding-gripes-2026.md "The Act 2 spine", via ADR-0134). */
+/**
+ * The exported default script IS the ONE continuous arc: the website walk then
+ * the upstream dependency-layer reveal, walking end-to-end to the CTA.
+ *
+ * The wrong-way UI→DB road teach is RETIRED (ADR-0150 §4). The positive
+ * dependency-layer teach — you SEE the upstream stack, in order — replaces it.
+ *
+ * Narration copy and fictional story names live in the web repo keyed by beat id
+ * (the fictional-data precedent, ADR-0093 §3/§4). Beat ids are position-honest
+ * (id number = position) — a rename must be matched by a site-side narration key
+ * update or `astro build` fails.
+ */
 export const defaultScript: BeatScript = [
-  // Beat 1 — Plant a story: a seed grows into a tree with its OUTCOME on a label.
-  // Intent becomes a thing on the map, not buried in a chat log.
+  // ─── Website walk ──────────────────────────────────────────────────────────
+
+  // Beat 1 — Plant a story: a seed grows into the mock website tree with its
+  // OUTCOME on a label. Intent is a thing on the map, not buried in a chat log.
+  // The website story starts as 'building' (sapling in the legend).
   {
     id: 'beat-1-plant-story',
     narrationKey: 'act2.beat1.plantStory',
     camera: { focus: 'story-tree', zoom: 0.7 },
     delta: {
       kind: 'plant-story',
-      storyId: 'story-outcome-api',
-      label: 'API latency < 200 ms',
+      storyId: 'story-website',
+      label: 'The storytree website',
+      status: 'building',
     },
   },
 
@@ -244,13 +381,15 @@ export const defaultScript: BeatScript = [
     camera: { focus: 'story-tree', zoom: 0.65 },
     delta: {
       kind: 'attach-wisp',
-      storyId: 'story-outcome-api',
+      storyId: 'story-website',
     },
   },
 
   // Beat 3 — It branches: capability limbs appear.
   // Green ONLY on a signed passing proof — a limb without the marker cannot be
-  // coloured green (the verification-gap answer, enforced in data).
+  // coloured green (the verification-gap answer, enforced in data — PRESERVED).
+  // At least one green limb (with signedProof) and at least one not-green limb
+  // (demonstrates the honest verification gap).
   {
     id: 'beat-3-branch-caps',
     narrationKey: 'act2.beat3.branchCaps',
@@ -258,57 +397,82 @@ export const defaultScript: BeatScript = [
     delta: {
       kind: 'branch-caps',
       limbs: [
-        // Proven limb — carries the signed-proof marker (required for green)
+        // Proven limb — carries the signed-proof marker (required for green).
+        {
+          id: 'cap-content',
+          label: 'Content pages',
+          green: true,
+          signedProof: 'sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
+        },
+        // In-progress limb — no signed-proof marker (demonstrates the gap).
         {
           id: 'cap-auth',
           label: 'Auth',
-          green: true,
-          signedProof: 'sha256:a1b2c3d4e5f6a7b8',
-        },
-        // In-progress limbs — no signed-proof marker (demonstrates the gap)
-        {
-          id: 'cap-cache',
-          label: 'Cache',
           green: false,
         },
+        // In-progress limb — also not yet proven.
         {
-          id: 'cap-rate-limit',
-          label: 'Rate limit',
+          id: 'cap-search',
+          label: 'Search',
           green: false,
         },
       ],
     },
   },
 
-  // Beat 4 — Stories connect: roads draw the DAG.
-  // One road is the wrong-way UI→DB road skipping the service layer, flagged as
-  // an antipattern FROM ITS DATA (a declared layer violation, not a canvas hint).
+  // ─── Upstream forest reveal ─────────────────────────────────────────────────
+
+  // Beat 4 — Grow upstream: the backend. add-upstream-story raises a backend
+  // story UPSTREAM of the website on a real dependsOn edge. The teach: the
+  // website needs a backend — you SEE the layer, up front, in order.
+  // This REPLACES the old wrong-way-road antipattern beat (ADR-0150 §4).
   {
-    id: 'beat-4-add-roads',
-    narrationKey: 'act2.beat4.addRoads',
+    id: 'beat-4-add-upstream-backend',
+    narrationKey: 'act2.beat4.addUpstreamBackend',
     camera: { focus: 'dag-view', zoom: 0.5 },
     delta: {
-      kind: 'add-roads',
-      roads: [
-        // Valid DAG dependency road
-        { from: 'story-outcome-api', to: 'cap-auth' },
-        // Wrong-way UI→DB road: declared layer violation FROM ITS DATA
-        {
-          from: 'ui',
-          to: 'db',
-          violation: 'layer-violation:ui-bypasses-service',
-        },
-      ],
+      kind: 'add-upstream-story',
+      id: 'story-backend',
+      label: 'Backend API',
+      status: 'building',
+      dependsOn: ['story-website'],
     },
   },
 
-  // Beat 5 — Pull back: camera widens to the whole legible forest.
-  // Green = proven, sapling = in-progress, withered = broken. → done: true (CTA).
+  // Beat 5 — Grow upstream: the database. add-upstream-story raises a database
+  // story UPSTREAM of the backend on a dependsOn edge. The forest now holds the
+  // layered stack website → backend → database. The backend AND the database are
+  // both PROPOSED (building) — the layers you now build, shown up front, in order.
+  // (UAT 2: the upstream forest is proposed/sapling, NEVER green.)
   {
-    id: 'beat-5-pull-back',
-    narrationKey: 'act2.beat5.pullBack',
+    id: 'beat-5-add-upstream-database',
+    narrationKey: 'act2.beat5.addUpstreamDatabase',
+    camera: { focus: 'dag-view', zoom: 0.45 },
+    delta: {
+      kind: 'add-upstream-story',
+      id: 'story-database',
+      label: 'Database',
+      status: 'building',
+      dependsOn: ['story-backend'],
+    },
+  },
+
+  // Beat 6 — Pull back: the camera widens to the whole legible forest AND the
+  // website you grew resolves to 'proven' (the culminating reveal). The forest now
+  // reads: website = proven (green), backend + database = building (the proposed
+  // layers above it). Green = proven, sapling = in-progress, withered = broken —
+  // the legend is backed by real story statuses, not a claim over uniform amber.
+  // done: true → CTA state (parked here by advance()).
+  //
+  // The website greens HERE, at the pull-back — preserving G's convention that the
+  // story stays a sapling with a green CAP during the walk, then resolving proven
+  // at the reveal (green is never claimed before its cap earns proof at beat 3).
+  // Moving the promotion earlier is a one-line data tune.
+  {
+    id: 'beat-6-pull-back',
+    narrationKey: 'act2.beat6.pullBack',
     camera: { focus: 'full-forest', zoom: 0.1 },
-    delta: { kind: 'pull-back' },
+    delta: { kind: 'pull-back', proven: ['story-website'] },
   },
 ];
 
