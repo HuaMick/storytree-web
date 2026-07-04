@@ -724,10 +724,19 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   .act2-canvas { position: absolute; inset: 0; }
   .act2-stage .tw-svg { width: 100%; height: 100%; display: block; }
   .act2-stage .act2-bg { fill: url(#a2-board); }
-  #a2-arrow path { fill: #a98e5f; }
-  #a2-arrow-bad path { fill: var(--crimson); }
+  #a2-arrow path { fill: #9c7f52; }
   /* the walk is a diorama, not the studio: the delegation hit layer is inert */
   .act2-stage .tw-hit { pointer-events: none; cursor: default; }
+
+  /* the upstream DEPENDENCY edges (ADR-0150): every road on this stage is a
+     "depends on / needs" edge pointing UP at the layer above. Give it a touch
+     more presence than the home map's faint dots, and a clearer arrowhead, so
+     the direction ("my website depends on these") reads — WITHOUT becoming heavy
+     road furniture (no flag, no antipattern; the honest layers ARE the teach). */
+  .act2-stage .tw-road .bed { stroke: #ddc9a3; opacity: 0.5; }
+  .act2-stage .tw-road .line {
+    stroke: #9c7f52; stroke-width: 2.4; stroke-dasharray: 3 6; opacity: 0.85;
+  }
   /* before beat 1 the land is empty — the synthetic territory's tree/plate/hit
      stay out of the render */
   .act2-svg.is-prestory .tw-flora-layer,
@@ -747,29 +756,81 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   @keyframes act2-grow { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: scale(1); } }
   @keyframes act2-fade { from { opacity: 0; } to { opacity: 1; } }
 
-  /* ---- the site's teaching furniture (ghost pads + the violation flag) ---- */
-  .act2-pad .pad-shadow { fill: rgba(60, 42, 22, 0.12); }
-  .act2-pad .pad-top { fill: #e9dcc0; stroke: #cbb894; stroke-width: 1.2; }
-  .act2-pad .pad-label { font: 600 11px var(--font-body); fill: #6d6252; }
-  .act2-pad .pad-tag {
-    font: 700 8.5px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
-    fill: var(--crimson);
+  /* ---- an inspectable upstream story (UAT 5): the proposed backend / database
+          tree reads as openable — a soft hover ring + pointer cursor. ADR-0150
+          §4 RETIRED the old wrong-way ghost-pad + violation-flag furniture; the
+          honest dependency layers ARE the teach, so nothing here is a flag. ---- */
+  .act2-stage .tw-terr.act2-inspectable { cursor: pointer; }
+  .act2-stage .tw-terr.act2-inspectable .tw-crown circle { transition: filter 0.18s ease; }
+  .act2-stage .tw-terr.act2-inspectable:hover .tw-crown circle,
+  .act2-stage .tw-terr.act2-inspectable:focus-visible .tw-crown circle {
+    filter: drop-shadow(0 0 6px rgba(176, 106, 36, 0.7));
   }
-  .act2-pad.is-bypassed .pad-top { stroke: var(--crimson); stroke-dasharray: 5 4; fill: #efe3cd; }
-  .act2-pad.is-bypassed .pad-label { fill: #8a5a44; }
-  .act2-flag .flag-post { stroke: #7a3d2c; stroke-width: 2; fill: none; stroke-linecap: round; }
-  .act2-flag .flag-cloth { fill: var(--crimson); }
-  .act2-flag .flag-bg { fill: rgba(255, 251, 245, 0.96); stroke: var(--crimson); stroke-width: 1.2; }
-  .act2-flag .flag-text { font: 650 9.5px var(--font-body); fill: var(--crimson); }
+  .act2-stage .tw-terr.act2-inspectable:focus-visible { outline: none; }
+  .act2-stage .tw-terr.act2-inspectable:focus-visible .tw-plate .bg,
+  .act2-stage .tw-terr.act2-inspectable:hover .tw-plate .bg {
+    stroke: var(--amber); stroke-width: 1.5;
+  }
 
-  /* the violating road: flagged FROM ITS DATA (the fold marks the group) —
-     instantly distinguishable from a good road */
-  .act2-stage .tw-road.act2-violation .line {
-    stroke: var(--crimson); stroke-dasharray: 7 5; stroke-width: 2.6; opacity: 0.95;
-    animation: act2-wrongway 1.1s linear infinite;
+  /* the "inspect this" prompt inside the callout (the first-class way in) */
+  .act2-inspect-open {
+    display: inline-block; margin-top: 0.6rem;
+    border: 1px solid var(--amber); border-radius: 999px; cursor: pointer;
+    background: rgba(176, 106, 36, 0.08);
+    font: 600 0.8rem var(--font-body); color: #8a5a1c;
+    padding: 0.4rem 0.8rem;
+    transition: background 0.16s ease;
   }
-  .act2-stage .tw-road.act2-violation .bed { stroke: #d8a08d; }
-  @keyframes act2-wrongway { to { stroke-dashoffset: -12; } }
+  .act2-inspect-open:hover { background: rgba(176, 106, 36, 0.16); }
+  .act2-inspect-open[hidden] { display: none; }
+
+  /* ---- the inspect panel (UAT 5): what a proposed upstream story is + why ---- */
+  .act2-inspect {
+    position: absolute; inset: 0; z-index: 9;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.2rem;
+    background: rgba(40, 26, 12, 0.28);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.24s ease;
+  }
+  .act2-inspect.is-open { opacity: 1; pointer-events: auto; }
+  .act2-inspect[hidden] { display: none; }
+  .act2-inspect-card {
+    width: min(430px, 92vw);
+    max-height: 86vh; overflow-y: auto;
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(40, 26, 12, 0.4);
+    padding: 1.3rem 1.45rem 1.2rem;
+    translate: 0 8px; transition: translate 0.24s ease;
+  }
+  .act2-inspect.is-open .act2-inspect-card { translate: 0 0; }
+  .act2-inspect-badge {
+    display: inline-block; margin-bottom: 0.6rem;
+    font: 700 0.62rem var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+    color: #8a5a1c; background: rgba(176, 106, 36, 0.12);
+    padding: 0.28rem 0.6rem; border-radius: 999px;
+  }
+  .act2-inspect-title {
+    margin: 0 0 0.55rem; font-family: var(--font-display);
+    font-size: 1.2rem; color: var(--evergreen);
+  }
+  .act2-inspect-h {
+    margin: 0.7rem 0 0.15rem; font: 650 0.7rem var(--font-body);
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber);
+  }
+  .act2-inspect-p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-soft); }
+  .act2-inspect-close {
+    margin-top: 1.1rem;
+    border: 1px solid var(--line-strong); border-radius: 999px; cursor: pointer;
+    background: var(--surface);
+    font: 500 0.82rem var(--font-body); color: var(--ink-faint);
+    padding: 0.4rem 0.9rem;
+  }
+  .act2-inspect-close:hover { color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) {
+    .act2-inspect, .act2-inspect-card { transition: none; translate: 0 0; }
+  }
 
   /* ---- the anchored callout (the game-tutorial box, tail at its anchor) ---- */
   .act2-callout {
