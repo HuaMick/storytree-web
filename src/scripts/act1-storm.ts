@@ -488,26 +488,64 @@ export function runStorm(): void {
     }
   };
 
-  // ── the inflection (ADR-0134 §2): one click transforms the storm in place ──
+  // ── the inflection (ADR-0134 §2, ADR-0148 §5): one click transforms the
+  //    storm straight into the 2.5D tutorial ──
   //
-  // The click is the visitor's second and last gesture: the R3F bundle starts
-  // loading AT the click (dynamic import() — the sanctioned seam in the
-  // no-WebGL-in-Act-1 wall), the audio decays rather than cuts, the terminals
-  // power off in a stagger, their text fragments drop into the ground as soil,
-  // and when the import has resolved AND the settle beat has passed, the calm
-  // empty land fades up. No URL change — a transform, not a navigation.
+  // The click is the visitor's second and last gesture: the 2.5D-tutorial module
+  // starts loading AT the click (dynamic import('./inflection') — a code-split
+  // seam; since ADR-0148 that module is pure SVG/DOM, ZERO WebGL — the ~1.2 MB
+  // R3F island is gone from the path entirely), the audio decays rather than
+  // cuts, the terminals power off in a stagger, their text fragments drop into
+  // the ground as soil, and when the import has resolved AND the settle beat has
+  // passed, the calm land fades up carrying the guided walk + the orchestrator's
+  // mock-website proposal. No URL change — a transform, not a navigation.
 
   let transforming = false;
   let islandHandle: { unmount(): void } | null = null;
   let fallLayer: HTMLElement | null = null;
   const transformTimers: number[] = [];
 
-  /** Fall back to the calm view via the existing inline disarm path — the
-   *  never-stranded guarantee when the island cannot load. */
+  /** Never-stranded fallback when the tutorial island cannot load. Disarms
+   *  DIRECTLY to the calm fallback — it must not route through the skip button,
+   *  which now jumps to the tutorial (ADR-0148), i.e. the very thing that just
+   *  failed to load. Mirrors the inline disarm: drop storm-armed, focus calm. */
   const disarmToCalm = (): void => {
-    const exit = document.querySelector<HTMLElement>('[data-storm-disarm]');
-    if (exit) exit.click();
-    else document.documentElement.classList.remove('storm-armed');
+    document.documentElement.classList.remove('storm-armed');
+    const calm = document.getElementById('calm-view');
+    if (calm) {
+      try {
+        calm.focus({ preventScroll: true });
+      } catch {
+        calm.focus();
+      }
+    }
+  };
+
+  /** Mount the 2.5D tutorial onto the land and fade it up — shared by the
+   *  finale transform and the skip-straight-to-tutorial jump (ADR-0148 §5). */
+  const resolveToLand = (mod: { mountForestLand(el: HTMLElement): { unmount(): void } }): void => {
+    if (halted) return;
+    landEl.hidden = false; // opacity 0 — visible only when .is-resolved lands
+    islandHandle = mod.mountForestLand(landCanvasEl);
+    // two frames so the canvas mounts and sizes before the fade begins
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (halted) return;
+        root.classList.add('is-resolved');
+        try {
+          landEl.focus({ preventScroll: true });
+        } catch {
+          landEl.focus();
+        }
+      });
+    });
+  };
+
+  /** Never stranded: a failed island load steps out to the calm fallback. */
+  const failToCalm = (err: unknown): void => {
+    if (halted) return;
+    console.error('storm inflection failed to load — stepping out to the calm view', err);
+    disarmToCalm();
   };
 
   /** Short phosphor fragments sampled from a terminal's visible lines. */
@@ -530,7 +568,8 @@ export function runStorm(): void {
     if (transforming || halted) return;
     transforming = true;
 
-    // 1. the lazy-load starts AT the click — the exhale buys the fetch
+    // 1. the lazy-load starts AT the click — the exhale buys the fetch (the
+    //    2.5D tutorial module; pure SVG/DOM since ADR-0148, no WebGL chunk)
     const islandReady = import('./inflection');
 
     // 2. the scene stops demanding: the stream freezes, the audio decays,
@@ -616,32 +655,32 @@ export function runStorm(): void {
     const beat = new Promise<void>((resolve) => {
       transformTimers.push(window.setTimeout(() => resolve(), SETTLE_BEAT));
     });
+    // 5. mount the land once both settle — never stranded on a failed load
     void Promise.all([islandReady, beat])
-      .then(([mod]) => {
-        if (halted) return;
-        landEl.hidden = false; // opacity 0 — visible only when .is-resolved lands
-        islandHandle = mod.mountForestLand(landCanvasEl);
-        // two frames so the canvas mounts and sizes before the fade begins
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (halted) return;
-            root.classList.add('is-resolved');
-            try {
-              landEl.focus({ preventScroll: true });
-            } catch {
-              landEl.focus();
-            }
-          });
-        });
-      })
-      .catch((err: unknown) => {
-        // 5. never stranded: a failed island load falls back to the calm view
-        if (halted) return;
-        console.error('storm inflection failed to load — stepping out to the calm view', err);
-        disarmToCalm();
-      });
+      .then(([mod]) => resolveToLand(mod))
+      .catch(failToCalm);
   };
   transformBtn.addEventListener('click', beginTransform);
+
+  // ── the skip: "show me a better way" (top-left, live from boot) jumps
+  //    STRAIGHT into the 2.5D tutorial. ADR-0148 §5 makes the tutorial the front
+  //    door, so the skip no longer drops a capable visitor on the static page —
+  //    it is the SAME mount as the finale transform, minus the storm-collapse
+  //    theatre (the visitor may skip before the storm even starts, so there is
+  //    nothing to collapse into soil — a clean cross-dissolve instead). The
+  //    inline skip handler calls this via window.__stormSkipToTutorial; if the
+  //    engine has not loaded it disarms to the calm fallback instead, so a
+  //    no-JS / early click still degrades gracefully. ──
+  const jumpToTutorial = (): void => {
+    if (transforming || halted) return;
+    transforming = true;
+    const islandReady = import('./inflection'); // lazy-load the pure-SVG tutorial
+    cancelAnimationFrame(raf); // the grain loop stops — nothing left to demand
+    audio.quell();
+    root.classList.add('is-transforming', 'is-skip'); // hide storm chrome; no soil theatre
+    void islandReady.then(resolveToLand).catch(failToCalm);
+  };
+  (window as unknown as { __stormSkipToTutorial?: () => void }).__stormSkipToTutorial = jumpToTutorial;
 
   // — the loop: one rAF drives grain + every stream —
   const loop = (now: number): void => {

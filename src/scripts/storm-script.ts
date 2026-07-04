@@ -36,12 +36,21 @@ export const BOOT_BANNER: string[] = [
   'describe what you want. the agents handle the rest.',
 ];
 
-/** Suggested prompts — the one gesture the visitor performs. */
+/**
+ * Suggested prompts — the one gesture the visitor performs. The FIRST chip is
+ * the reused Act 1↔Act 2 prompt (ADR-0148 §1): "build me a shopping website" is
+ * the obvious primary the storm mangles and Act 2 later answers — one prompt,
+ * two ways. The others stay as menu texture; the shopping one leads.
+ */
 export const PROMPT_CHIPS: string[] = [
-  'Build me a SaaS dashboard',
+  'Build me a shopping website',
   'Add auth to my app',
   'Fix my flaky tests',
 ];
+
+/** Pre-filled into the boot terminal's input so the reused prompt is the obvious
+ *  default even before a chip is tapped (the visitor can still type their own). */
+export const DEFAULT_PROMPT = 'Build me a shopping website';
 
 // ── the corpus ──────────────────────────────────────────────────────────────
 // Line prefixes tag the render kind (stripped before display):
@@ -436,16 +445,19 @@ export function buildStormPlan(seed: number = STORM_SEED): StormPlan {
 // and concedes the obvious. Same fiction discipline as the rest of the corpus:
 // no real products or vendors — the better way is offered, never named here.
 
-/** The root agent's closing monologue. "! "/"+ " prefixes tag kinds as above;
- *  the last line renders as the bright demand pill (the offer). */
+/** The root agent's closing monologue (ADR-0148 §5 — the finale now turns to
+ *  address the visitor directly, replacing the earlier cryptic "the bottleneck
+ *  is not the agents" report). The owner's exact direction: the root agent is
+ *  waiting on YOU, names your likely overwhelm, and offers a better way that
+ *  "feels like playing a game". "! "/"+ " prefixes tag kinds as above; the last
+ *  line renders as the bright demand pill (the offer). */
 export const FINALE_LINES: readonly string[] = [
   'status report: agents deployed: 12 · questions parked: 12 · answers received: 0',
   '! average time-to-answer: ∞ (still counting)',
-  'i escalated to myself. i approved the escalation. nothing moved.',
-  'we tried everything: more agents, brighter bells, louder demands',
-  'observation, filed without judgment: the agents are fast. the bottleneck… is not the agents',
-  'between us? this was never going to work. not like this.',
-  '+ there is a better way. i have seen it. fewer questions. things actually grow',
+  'I’m still waiting on you…',
+  'we can’t really move forward with you moving at this pace.',
+  'I suspect you’re feeling a little overwhelmed?',
+  '+ I know of a better way — it feels like playing a game.',
   'want me to show you?',
 ];
 

@@ -1,11 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
-import TreeWorld from '../components/TreeWorld.astro';
-// Home page copy (the hero + the "map for you and your agents" intro below the
-// live map) is editable in Keystatic (/keystatic) and stored in src/data/home.json.
-// Rendered with set:html so inline emphasis (<em>/<strong>) and entities (&nbsp;)
-// in the copy render as authored.
+// The accessibility-fallback copy (eyebrow / headline / lede) is editable in
+// Keystatic (/keystatic) and stored in src/data/home.json. Rendered with set:html
+// so inline emphasis (<em>/<strong>) and entities (&nbsp;) render as authored.
+// (The live map + marketing intro were retired from the front door by ADR-0148 §5;
+// the map still lives on /how-it-works and its own pages via TreeWorld.astro.)
 import home from '../data/home.json';
+// The Act 2 guided walk (ADR-0145) renders the SAME buildScene → sceneToSvg map
+// SVG the real TreeWorld uses, but this page does NOT mount <TreeWorld/> (the map
+// retired from the front door, ADR-0148 §5) — so the map's `tw-*` paint rules are
+// not otherwise on the page and the territory/flora would fall back to black fill.
+// Pull in the SHARED map-layer stylesheet (one home, referenced by both surfaces).
+import '../styles/tree-world-map.css';
 // ---------------------------------------------------------------------------
 // THE HOME FLIP (ADR-0134 Act 1): the page ships two top-level branches.
 //   1. The storm  — [data-experience-entry] — a diegetic AI-agent terminal
@@ -20,7 +26,7 @@ import home from '../data/home.json';
 // The skip control [data-experience-skip] is persistent from boot; all three
 // markers are machine-held by the parent repo's `check:web-experience`.
 // ---------------------------------------------------------------------------
-import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
+import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-script';
 ---
 
 <Base active="home">
@@ -60,6 +66,18 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
         var t = ev.target && ev.target.closest ? ev.target.closest('[data-storm-disarm]') : null;
         if (!t) return;
         ev.preventDefault();
+        // ADR-0148 §5: the top-left "show me a better way" skip jumps a capable
+        // (JS) visitor STRAIGHT into the 2.5D tutorial — the tutorial is the front
+        // door, not the static page. If the engine has not loaded (or cannot),
+        // fall through to the calm fallback so the exit is never dead.
+        if (t.hasAttribute('data-experience-skip') && window.__stormSkipToTutorial) {
+          try {
+            window.__stormSkipToTutorial();
+            return;
+          } catch (e) {
+            /* engine present but threw — degrade to the calm view below */
+          }
+        }
         disarm();
       });
       document.addEventListener('keydown', function (ev) {
@@ -112,6 +130,7 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
             autocomplete="off"
             spellcheck="false"
             maxlength="120"
+            value={DEFAULT_PROMPT}
             placeholder="or type your own task…"
           />
           <button type="submit" class="term-send">run</button>
@@ -164,60 +183,46 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
          noise literally becomes the ground of the calm world. -->
     <div class="storm-soil" id="storm-soil" aria-hidden="true"></div>
 
-    <!-- the calm land: the R3F island mounts here AFTER the inflection (the
-         bundle is only ever reached via dynamic import() at the click — the
-         no-WebGL-in-Act-1 wall). Hidden until the transform begins. -->
+    <!-- the calm land (ADR-0148 §5): the transform lands the visitor STRAIGHT
+         in the 2.5D guided tutorial — no R3F 3D island, no "begin the guided
+         walk" second click, no classic-front-page detour. The tutorial module
+         is only ever reached via dynamic import() at the transform click and is
+         pure SVG/DOM (zero WebGL). Hidden until the transform begins; the walk
+         stage + the orchestrator's mock-website proposal mount onto this layer.
+         Escape / the storm skip stay the never-stranded exit to the fallback. -->
     <div
       class="storm-land"
       id="storm-land"
       tabindex="-1"
-      aria-label="A calm, empty land where stories will grow — drag to pan, scroll to zoom"
+      aria-label="A guided 2.5D walk where one story grows — one step at a time"
       hidden
     >
       <div class="storm-land-canvas" id="storm-land-canvas"></div>
-      <div class="land-cta" id="storm-land-cta">
-        <p class="land-cta-line">
-          The storm settles into quiet ground. This is where storytree grows software — the
-          guided walk arrives here soon.
-        </p>
-        <nav class="land-cta-links" aria-label="Where to next">
-          <a class="btn btn--primary" href="/how-it-works/">how it works</a>
-          <a class="btn btn--ghost" href="/get-involved/">get involved</a>
-          <button type="button" class="land-cta-classic" data-storm-disarm>
-            prefer the classic front page? →
-          </button>
-        </nav>
-      </div>
     </div>
   </section>
 
-  <!-- ────────────────────── the calm view (today's home) ────────────────────── -->
+  <!-- ─────────────────── the accessibility fallback (ADR-0148 §5) ───────────────────
+       A CLEAN MINIMAL static page — NOT the old marketing homepage, and NOT an
+       escape a capable visitor is offered. It is graceful degradation only: no-JS
+       and reduced-motion visitors land here (and the storm's skip / Escape route
+       here too), never stranded, with honest links onward. `data-experience-fallback`
+       stays physically in this source (the parent's check:web-experience greps for
+       it, and for data-experience-skip in the storm HUD above). The headline copy
+       stays editable in Keystatic (home.json). -->
   <div class="calm-view" id="calm-view" tabindex="-1" data-experience-fallback>
-    <!-- hero: a quick intro -->
-    <section class="hero section">
-      <div class="wrap hero__copy">
+    <section class="fallback section">
+      <div class="wrap fallback__copy">
         <p class="eyebrow" set:html={home.eyebrow} />
         <h1 set:html={home.headline} />
-        <p class="hero__disclaimer" set:html={home.disclaimer} />
         <p class="lede" set:html={home.lede} />
-      </div>
-    </section>
-
-    <!-- the live map, front and centre -->
-    <section class="section--tight">
-      <div class="wrap">
-        <TreeWorld />
-
-        <div class="dive prose">
-          <p class="taster-eyebrow" set:html={home.map.eyebrow} />
-          <p set:html={home.map.body1} />
-          <p set:html={home.map.body2} />
-          <div class="hero__cta">
-            <a class="btn btn--primary" href="/how-it-works/" set:html={home.map.ctaPrimary} />
-            <a class="btn btn--ghost" href="/get-involved/" set:html={home.map.ctaGhost} />
-          </div>
-          <p class="hero__note muted" set:html={home.map.note} />
-        </div>
+        <p class="fallback__note">
+          storytree grows software as a living map of stories, watched as it happens. This is
+          the plain-text door; the full guided experience needs JavaScript and motion.
+        </p>
+        <nav class="fallback__cta" aria-label="Learn more about storytree">
+          <a class="btn btn--primary" href="/how-it-works/">how it works</a>
+          <a class="btn btn--ghost" href="/get-involved/">get involved</a>
+        </nav>
       </div>
     </section>
   </div>
@@ -238,32 +243,25 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
 </script>
 
 <style>
-  /* ---- calm view (today's home, unchanged) ---- */
+  /* ---- the accessibility fallback (ADR-0148 §5): a clean minimal static page,
+         graceful degradation only ---- */
   #calm-view:focus {
     outline: none;
   }
-  .hero { padding-top: clamp(2.4rem, 6vw, 4.4rem); padding-bottom: clamp(0.8rem, 2.5vw, 1.4rem); }
-  .hero__copy { max-width: 50rem; }
-  .hero__copy h1 { margin-top: 0.2rem; margin-bottom: 0.55rem; }
-  .hero__disclaimer {
-    max-width: 42rem; margin: 0 0 1.2rem; font-size: 0.85rem; line-height: 1.55;
-    color: var(--ink-faint); border-left: 3px solid var(--line-strong); padding-left: 0.9rem;
+  .fallback {
+    padding-top: clamp(2.8rem, 8vw, 5.5rem);
+    padding-bottom: clamp(1.4rem, 4vw, 2.6rem);
   }
-  /* :global so emphasis authored in the editable hero copy (rendered via set:html,
-     which Astro does not scope) still picks up the hero's em styling. */
-  .hero :global(em) { font-style: italic; color: var(--ink); }
-
-  .dive { margin-top: 1.9rem; max-width: 44rem; }
-  /* :global so emphasis authored in the CMS copy (rendered via set:html, which
-     Astro does not scope) still picks up the dive's styling. */
-  .dive :global(em) { font-style: italic; }
-  .dive :global(strong) { color: var(--ink); font-weight: 650; }
-  .taster-eyebrow {
-    font: 650 0.72rem var(--font-body); letter-spacing: 0.13em; text-transform: uppercase;
-    color: var(--amber); margin: 0 0 0.55rem;
+  .fallback__copy { max-width: 42rem; }
+  .fallback__copy h1 { margin-top: 0.2rem; margin-bottom: 0.7rem; }
+  /* :global so emphasis authored in the editable copy (rendered via set:html,
+     which Astro does not scope) still picks up the italic styling. */
+  .fallback :global(em) { font-style: italic; color: var(--ink); }
+  .fallback__note {
+    margin: 1rem 0 0; max-width: 38rem;
+    font-size: 0.92rem; line-height: 1.6; color: var(--ink-soft);
   }
-  .hero__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.2rem; }
-  .hero__note { margin-top: 1.1rem; font-size: 0.95rem; }
+  .fallback__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.5rem; }
 </style>
 
 <style is:global>
@@ -530,9 +528,16 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
     opacity: 0;
     transition: opacity 1.3s ease;
   }
+  /* Once the storm transforms into the tutorial the skip/disarm HUD retires
+     entirely — go all in on Act 2 (ADR-0148 §5): fade it out, then flip it
+     `visibility: hidden` so it is not just invisible but fully inert (no mouse
+     click, out of the tab order) — no capable-visitor escape to the fallback.
+     The `data-experience-skip` marker stays in the SOURCE, so check:web-experience
+     (which greps the page text) is unaffected; this is runtime-only. */
   .storm-root.is-transforming .storm-hud {
     opacity: 0;
-    transition: opacity 1.5s ease 0.3s;
+    visibility: hidden;
+    transition: opacity 1.5s ease 0.3s, visibility 0s linear 1.8s;
   }
   .storm-root.is-transforming .storm-finale {
     animation: storm-term-off 0.55s 0.3s cubic-bezier(0.55, 0, 0.75, 0.4) both;
@@ -586,6 +591,13 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
   }
   .storm-root.is-transforming .storm-soil { opacity: 1; }
 
+  /* the skip-straight-to-tutorial jump (ADR-0148 §5): the top-left "show me a
+     better way" crosses straight to the tutorial. Unlike the finale transform,
+     there is no storm to collapse — so suppress the soil mound and fade any live
+     terminals out fast, for a clean cross-dissolve into the land, not a collapse. */
+  .storm-root.is-transforming.is-skip .storm-soil { opacity: 0; }
+  .storm-root.is-transforming.is-skip .storm-term { opacity: 0; transition: opacity 0.4s ease; }
+
   /* the calm land: mounted hidden→opacity-0, then fades up as the quiet
      resolves. Sits above all storm chrome (runtime hiding of the skip after
      the transform — its source attribute is untouched). */
@@ -600,33 +612,78 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
   .storm-root.is-resolved .storm-land { opacity: 1; pointer-events: auto; }
   .storm-land-canvas { position: absolute; inset: 0; }
 
-  /* the interim CTA (owner decision 6): a mid-arc visitor is never stranded —
-     onward links + the classic front page via the existing inline disarm. */
-  .land-cta {
-    position: absolute; left: 50%; bottom: 4.5vh; translate: -50%;
-    width: min(560px, 92vw);
-    background: var(--surface); color: var(--ink);
-    border-radius: var(--radius);
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
-    padding: 1.1rem 1.4rem 1rem;
-    text-align: center;
+  /* ======================================================================
+     The session orchestrator's mock-website proposal (ADR-0148 §2) — a short
+     scripted chat card over the calm 2.5D ground, shown right after the
+     transform and before the walk beats. Global because act2-orchestrator.ts
+     creates the DOM at runtime; namespaced a2o-. The card reads as a planning
+     agent scoping the work, then hands to the walk on accept.
+     ====================================================================== */
+  .a2o-overlay {
+    position: absolute; inset: 0; z-index: 9;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.2rem;
+    opacity: 0;
+    transition: opacity 0.5s ease;
     font-family: var(--font-body);
   }
-  .land-cta-line {
-    margin: 0 0 0.75rem;
-    font-size: 0.92rem; line-height: 1.5; color: var(--ink-soft);
+  .a2o-overlay.is-live { opacity: 1; }
+  .a2o-overlay.is-leaving { opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .a2o-overlay, .a2o-overlay.is-leaving { transition: none; }
   }
-  .land-cta-links {
-    display: flex; flex-wrap: wrap; gap: 0.6rem;
-    justify-content: center; align-items: center;
+  .a2o-card {
+    width: min(500px, 94vw);
+    max-height: 86vh; overflow-y: auto;
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(40, 26, 12, 0.4);
+    padding: 1.3rem 1.4rem 1.2rem;
   }
-  .land-cta-classic {
+  .a2o-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.85rem; }
+  .a2o-badge {
+    font: 700 0.62rem var(--font-body); letter-spacing: 0.1em; text-transform: uppercase;
+    color: #fff; background: var(--evergreen);
+    padding: 0.28rem 0.55rem; border-radius: 999px;
+  }
+  .a2o-who { margin: 0; font: 650 0.82rem var(--font-body); color: var(--ink-soft); }
+  .a2o-thread { display: flex; flex-direction: column; gap: 0.6rem; }
+  .a2o-line {
+    margin: 0; font-size: 0.95rem; line-height: 1.55; color: var(--ink);
+    transition: opacity 0.4s ease, translate 0.4s ease;
+  }
+  .a2o-line.is-hidden { opacity: 0; translate: 0 6px; }
+  .a2o-orchestrator {
+    background: rgba(60, 42, 22, 0.05);
+    border-radius: 0.6rem;
+    padding: 0.55rem 0.75rem;
+  }
+  /* the honest "this is a mock" aside — quiet, set apart */
+  .a2o-note {
+    font-size: 0.85rem; color: var(--ink-faint); font-style: italic;
+    border-left: 3px solid var(--line-strong); padding-left: 0.75rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .a2o-line { transition: none; }
+    .a2o-line.is-hidden { opacity: 1; translate: 0 0; }
+  }
+  .a2o-actions {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem;
+    margin-top: 1.1rem;
+    transition: opacity 0.4s ease;
+  }
+  .a2o-actions.is-hidden { opacity: 0; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .a2o-actions { transition: none; }
+    .a2o-actions.is-hidden { opacity: 1; pointer-events: auto; }
+  }
+  .a2o-skip {
     border: 0; background: none; cursor: pointer;
     font: 500 0.85rem var(--font-body);
     color: var(--ink-faint); text-decoration: underline;
     padding: 0.4rem 0.2rem;
   }
-  .land-cta-classic:hover { color: var(--ink); }
+  .a2o-skip:hover { color: var(--ink); }
 
   /* ---- small screens: same cap, stacked windows ---- */
   @media (max-width: 680px) {
@@ -644,5 +701,165 @@ import { BOOT_BANNER, PROMPT_CHIPS } from '../scripts/storm-script';
       max-height: 78vh;
     }
     .storm-finale .term-body { min-height: 150px; font-size: 12px; }
+  }
+
+  /* ======================================================================
+     Act 2 — the guided walk on the REAL 2.5D map (ADR-0145). Global because
+     the stage / callout DOM is created at runtime by act2-walkthrough.ts.
+     The MAP itself is styled by TreeWorld.astro's tw-* vocabulary (always on
+     the page); only the walk chrome + the site's teaching furniture (ghost
+     pads, the violation flag) live here, namespaced act2-.
+     ====================================================================== */
+
+  /* ---- the stage: fades up over the R3F canvas at begin ---- */
+  .act2-stage {
+    position: absolute; inset: 0; z-index: 2;
+    opacity: 0;
+    transition: opacity 0.9s ease;
+    background: radial-gradient(120% 90% at 50% 38%, #fbf3ea 0%, #f3e3d2 55%, #edd9c9 100%);
+    font-family: var(--font-body);
+  }
+  .act2-stage.is-live { opacity: 1; }
+  .storm-land.act2-cut .act2-stage { transition: none; }
+  .act2-canvas { position: absolute; inset: 0; }
+  .act2-stage .tw-svg { width: 100%; height: 100%; display: block; }
+  .act2-stage .act2-bg { fill: url(#a2-board); }
+  #a2-arrow path { fill: #a98e5f; }
+  #a2-arrow-bad path { fill: var(--crimson); }
+  /* the walk is a diorama, not the studio: the delegation hit layer is inert */
+  .act2-stage .tw-hit { pointer-events: none; cursor: default; }
+  /* before beat 1 the land is empty — the synthetic territory's tree/plate/hit
+     stay out of the render */
+  .act2-svg.is-prestory .tw-flora-layer,
+  .act2-svg.is-prestory .tw-hits { display: none; }
+
+  /* ---- growth: what a beat ADDS scales/fades in (deterministic classes;
+          scale only ever rides transform-attribute-free groups) ---- */
+  .act2-enter {
+    transform-box: fill-box; transform-origin: center;
+    animation: act2-grow 0.8s cubic-bezier(0.34, 1.4, 0.44, 1) both;
+    animation-delay: calc(var(--ei, 0) * 0.22s);
+  }
+  .act2-enter-fade {
+    animation: act2-fade 0.9s ease-out both;
+    animation-delay: calc(var(--ei, 0) * 0.3s);
+  }
+  @keyframes act2-grow { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: scale(1); } }
+  @keyframes act2-fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ---- the site's teaching furniture (ghost pads + the violation flag) ---- */
+  .act2-pad .pad-shadow { fill: rgba(60, 42, 22, 0.12); }
+  .act2-pad .pad-top { fill: #e9dcc0; stroke: #cbb894; stroke-width: 1.2; }
+  .act2-pad .pad-label { font: 600 11px var(--font-body); fill: #6d6252; }
+  .act2-pad .pad-tag {
+    font: 700 8.5px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+    fill: var(--crimson);
+  }
+  .act2-pad.is-bypassed .pad-top { stroke: var(--crimson); stroke-dasharray: 5 4; fill: #efe3cd; }
+  .act2-pad.is-bypassed .pad-label { fill: #8a5a44; }
+  .act2-flag .flag-post { stroke: #7a3d2c; stroke-width: 2; fill: none; stroke-linecap: round; }
+  .act2-flag .flag-cloth { fill: var(--crimson); }
+  .act2-flag .flag-bg { fill: rgba(255, 251, 245, 0.96); stroke: var(--crimson); stroke-width: 1.2; }
+  .act2-flag .flag-text { font: 650 9.5px var(--font-body); fill: var(--crimson); }
+
+  /* the violating road: flagged FROM ITS DATA (the fold marks the group) —
+     instantly distinguishable from a good road */
+  .act2-stage .tw-road.act2-violation .line {
+    stroke: var(--crimson); stroke-dasharray: 7 5; stroke-width: 2.6; opacity: 0.95;
+    animation: act2-wrongway 1.1s linear infinite;
+  }
+  .act2-stage .tw-road.act2-violation .bed { stroke: #d8a08d; }
+  @keyframes act2-wrongway { to { stroke-dashoffset: -12; } }
+
+  /* ---- the anchored callout (the game-tutorial box, tail at its anchor) ---- */
+  .act2-callout {
+    position: absolute; z-index: 6;
+    width: min(340px, 84vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 16px 48px rgba(40, 26, 12, 0.28);
+    padding: 0.95rem 1.1rem 0.9rem;
+    opacity: 0; translate: 0 6px; pointer-events: none;
+    transition: opacity 0.28s ease, translate 0.28s ease;
+  }
+  .act2-callout.is-placed { opacity: 1; translate: 0 0; pointer-events: auto; }
+  .act2-callout[hidden] { display: none; }
+  .act2-tail {
+    position: absolute; width: 14px; height: 14px;
+    background: var(--surface); rotate: 45deg;
+  }
+  .act2-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.35rem; }
+  .act2-step {
+    margin: 0; font: 650 0.66rem var(--font-body); letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .act2-dots { display: flex; gap: 0.28rem; }
+  .act2-dot { width: 0.42rem; height: 0.42rem; border-radius: 999px; background: var(--line-strong); }
+  .act2-dot.is-lit { background: var(--amber); }
+  .act2-title { margin: 0 0 0.3rem; font-family: var(--font-display); font-size: 1.12rem; color: var(--evergreen); }
+  .act2-body { margin: 0; font-size: 0.88rem; line-height: 1.5; color: var(--ink-soft); }
+  .act2-legend {
+    list-style: none; display: grid; gap: 0.35rem;
+    margin: 0.65rem 0 0; padding: 0.65rem 0 0; border-top: 1px solid var(--line);
+    font-size: 0.8rem; color: var(--ink-soft);
+  }
+  /* display:grid would defeat the UA's [hidden] rule — the legend shows ONLY
+     on the pull-back beat */
+  .act2-legend[hidden] { display: none; }
+  .act2-legend li { display: flex; align-items: center; gap: 0.5rem; }
+  .act2-legend .k { width: 0.65rem; height: 0.65rem; border-radius: 999px; flex: none; }
+  .act2-legend .k-green { background: var(--evergreen); }
+  .act2-legend .k-pale { background: var(--amber); }
+  .act2-legend .k-with { background: var(--crimson); }
+  .act2-controls { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.85rem; }
+  .act2-back {
+    background: none; border: 0; cursor: pointer;
+    font: 500 0.82rem var(--font-body); color: var(--ink-faint); padding: 0.35rem 0.3rem;
+  }
+  .act2-back:hover { color: var(--ink); }
+  /* keep Next pinned right while Back is absent (intro) */
+  .act2-back[hidden] { display: block; visibility: hidden; }
+
+  /* ---- the quiet persistent skip (top corner, out of the way) ---- */
+  .act2-skipbar { position: absolute; top: 12px; right: 14px; z-index: 7; }
+  .act2-skipbar[hidden] { display: none; }
+  .act2-skip {
+    border: 1px solid var(--line-strong); border-radius: 999px; cursor: pointer;
+    background: rgba(255, 253, 250, 0.85);
+    font: 500 0.78rem var(--font-body); color: var(--ink-faint);
+    padding: 0.35rem 0.75rem;
+  }
+  .act2-skip:hover { color: var(--ink); background: var(--surface); }
+
+  /* ---- the honest diorama-closing CTA ---- */
+  .act2-done {
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 8;
+    width: min(470px, 90vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(40, 26, 12, 0.4);
+    padding: 1.5rem 1.7rem 1.3rem;
+    text-align: center;
+  }
+  .act2-done[hidden] { display: none; }
+  .act2-done .act2-title { font-size: 1.3rem; margin-bottom: 0.45rem; }
+  .act2-done .act2-body { margin-bottom: 1.05rem; }
+  .act2-done-links {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    justify-content: center; align-items: center;
+  }
+  .act2-back-forest {
+    margin-top: 0.65rem; border: 0; background: none; cursor: pointer;
+    font: 500 0.78rem var(--font-body); color: var(--ink-faint);
+    padding: 0.3rem 0.2rem;
+  }
+  .act2-back-forest:hover { color: var(--ink); }
+
+  /* ---- reduced motion: jump-cuts, no growth, no dash march ---- */
+  @media (prefers-reduced-motion: reduce) {
+    .act2-stage { transition: none; }
+    .act2-enter, .act2-enter-fade { animation: none; }
+    .act2-stage .tw-road.act2-violation .line { animation: none; }
+    .act2-callout { transition: none; translate: 0 0; }
   }
 </style>
