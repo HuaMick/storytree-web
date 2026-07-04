@@ -8,9 +8,10 @@
 // Pure data, no engine imports — importable from anywhere (the validation wall in
 // astro.config.mjs, the walkthrough overlay, a future test).
 //
-// The voice is the tonal inverse of Act 1's storm jargon: short, warm, zero
-// insider vocabulary without showing it first (say "a promise of what this piece
-// will do" while the label appears, THEN name it a story).
+// The voice is the tonal inverse of Act 1's overwhelming swarm: short, warm, zero
+// insider vocabulary without showing it first (say "a note of what done means"
+// while the label appears, THEN name it a story). Plain, newcomer-legible, no
+// "storm" metaphor and no strained analogies (ADR-0157 §2/§4).
 //
 // ── ADR-0153 re-direction ────────────────────────────────────────────────────
 //  • Step 1 is an OUTCOME BRIEF with an example, carried by the orchestrator CHAT
@@ -20,8 +21,10 @@
 //  • The dependency LAYERS render as the FOUNDATION BELOW the website (frontend
 //    HIGH; §5 spatial preference). The copy says the layers sit BENEATH the
 //    website (the ground it rests on), never "above" it — matching the render.
-//  • The dependency DIRECTION is corrected (the website depends on the backend
-//    depends on the database — §1); the copy names the right-way stack.
+//  • The BaaS DIAMOND (ADR-0157 §1): the website reads its catalog DIRECTLY from
+//    the database AND needs the backend for checkout; the backend needs the
+//    database. So beat 4 names the backend (privileged writes — checkout/payments)
+//    and beat 5 names the database as the SHARED foundation both lean on.
 //  • The drive-machinery OVERLAY copy lives in act2-overlays.ts (keyed by beat id
 //    too) — the narration here is the map's teach; the overlay is the background
 //    machinery floating above it (§5/§6).
@@ -49,57 +52,58 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
   'beat-1-plant-story': {
     title: 'Your brief becomes a story',
     body:
-      'You told the orchestrator what you want — “shoppers can check out” — and it read the ' +
-      'brief back with an example. That promise now takes root here, as a tree carrying the ' +
-      'outcome. This is a story: what done looks like, standing in the open, not lost in a thread.',
+      'You told the orchestrator what you want — “shoppers can check out” — and it read that ' +
+      'back as a clear outcome. It takes root here as a tree. Right now it’s a proposal, not a ' +
+      'finished thing: a note of what “done” means, out in the open. It turns green only once a ' +
+      'test proves it.',
   },
   'beat-2-attach-wisp': {
     title: 'See it working — without watching it',
     body:
       'That soft light drifting over the tree means an agent is working on this story right now. ' +
-      'You don’t have to supervise. Glance over any time, or don’t — the work carries on either ' +
-      'way. (Curious what runs in the background? The loop is sketched top-left.)',
+      'You don’t have to watch it. Look over any time, or don’t — the work carries on either ' +
+      'way. (Want to see how the agents actually prove it? The loop is sketched top-left.)',
   },
   'beat-3-branch-caps': {
     title: 'Green means proven',
     body:
-      'Checkout branches into the smaller pieces it needs — a cart, payments, receipts. The cart ' +
-      'just turned green: not because an agent said “done”, but because a signed, passing test run ' +
-      'proves it. The pale plants are still in progress. Here, green is earned. It can’t be claimed.',
+      'Checkout splits into the smaller pieces it needs — a cart, payments, receipts. The cart ' +
+      'just turned green: not because an agent said “done”, but because a test ran and passed. ' +
+      'The pale plants aren’t proven yet. Here, green is earned — it can’t just be claimed.',
   },
   // ── Upstream reveal — the dependency layers ARE the advantage (ADR-0150 §4),
-  //    rendered as the FOUNDATION BELOW the website (ADR-0153 §5) ──
+  //    the BaaS diamond (ADR-0157 §1), rendered as the FOUNDATION BELOW (ADR-0153 §5) ──
   'beat-4-add-upstream-backend': {
-    title: 'What it rests on, shown up front',
+    title: 'What it needs to really work',
     body:
-      'A mock has no backend — so the cart, payments and receipts can’t truly work yet. So a new ' +
-      'tree grows just BENEATH the website: a backend the website depends on. Nothing is hidden — ' +
-      'the thing you build next appears in plain sight, holding the shop up. (Tap it to see what ' +
-      'it is and why.)',
+      'A mock can’t actually take money or save an order — that needs code you run on a server. ' +
+      'So a new tree grows just beneath the website: a backend it depends on for checkout. ' +
+      'Nothing is hidden — the next thing to build is right there, in plain sight. (Tap it to ' +
+      'see what it is and why.)',
   },
   'beat-5-add-upstream-database': {
-    title: 'The layers stack in the right order',
+    title: 'Both of them lean on one thing',
     body:
-      'And beneath the backend, one more: a database, to keep every order and cart. Now you can ' +
-      'read the whole stack at a glance — the website rests on a backend, which rests on a ' +
-      'database. That honest foundation, laid out for you, is the whole advantage. The swarm ' +
-      'buried it; here you see it.',
+      'One more tree grows at the base: a database, where the products and orders live. Your ' +
+      'website reads the catalog straight from it — that’s how a real shop loads fast — and the ' +
+      'backend saves each order into it. So both point down to the same foundation. That honest, ' +
+      'shared shape is the whole advantage: the swarm buried it; here you see it.',
   },
   'beat-6-pull-back': {
     title: 'The whole picture, one calm screen',
     body:
-      'Step back and the forest reads at a glance: your website turned green — proven, on top — ' +
-      'and the two layers beneath it are saplings, proposed, waiting for you to grow them next, ' +
+      'Step back and it reads at a glance: your website turned green — proven, on top — resting ' +
+      'on a backend and a database that are still proposals, waiting for you to grow them next, ' +
       'one at a time. Green means proven, a sapling means in progress, a withered tree would mean ' +
       'something broke. One quiet view of everything that matters.',
   },
   [DONE_KEY]: {
     title: 'This is how the real thing grows',
     body:
-      'That was a diorama — staged, on made-up data, to show the idea. You planted a website, ' +
-      'watched it prove itself green, and saw the backend and database it rests on rise into view ' +
-      '— the honest foundation, in the right order, nothing hidden. The real storytree grows ' +
-      'exactly this way: watched live, proof by proof, one story at a time.',
+      'That was a staged demo, on made-up data, to show the idea. You proposed a website, watched ' +
+      'a test turn it green, and saw the backend and database it leans on come into view — the ' +
+      'honest shape, in the right order, nothing hidden. The real storytree grows exactly this ' +
+      'way: watched live, proof by proof, one story at a time.',
   },
 };
 
@@ -111,6 +115,6 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
 export const INTRO: BeatNarration = {
   title: 'Quiet ground',
   body:
-    'The storm settles into soil. This is a guided walk — nothing moves until you do. ' +
+    'The noise settles into quiet ground. This is a guided walk — nothing moves until you do. ' +
     'One tap per step, and you can leave any time.',
 };

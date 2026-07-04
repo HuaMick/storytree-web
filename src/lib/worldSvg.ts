@@ -275,12 +275,16 @@ export function sceneToSvg(node: SceneNode, storyId?: string): string {
       case 'tile':
         return `<g class="tw-ground st-${node.status ?? 'unknown'}" data-id="${esc(node.id)}">${childrenSvg(node, node.id)}</g>`;
 
-      // ---- a road: one scene `road-line` → both bed + dashed line ----
+      // ---- a road: one scene `road-line` → both bed + dashed line. The road's
+      //      `title` (surface vocabulary — e.g. "<a> needs <b>", or the BaaS
+      //      "<website> reads directly from <database>" edge) rides the GROUP as a
+      //      <title> tooltip, the same way flora/tree/territory groups carry theirs. ----
       case 'road': {
         const line = node.children.find((c) => c.kind === 'road-line');
         const d = line && line.el === 'path' ? line.d : '';
         return (
           `<g class="tw-road" data-from="${esc(node.from)}" data-to="${esc(node.to)}">` +
+          (node.title ? `<title>${esc(node.title)}</title>` : '') +
           `<path class="bed" d="${d}"/>` +
           `<path class="line" d="${d}" marker-end="url(#tw-arrow)"/></g>`
         );

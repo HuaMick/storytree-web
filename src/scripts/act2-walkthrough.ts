@@ -16,15 +16,20 @@
 // a DYNAMIC import, so it never enters index.astro's static closure — the WebGL
 // wall, check:web-experience, walks the static graph from the page.)
 //
-// ── ADR-0153 corrections/redirections in this module ─────────────────────────
-//  1. Direction (§1). The synced director's `add-upstream-story` delta carries
-//     `dependentId`; the dependent story's `dependsOn` gains the new story's id.
-//     So `website.dependsOn=[backend]`, `backend.dependsOn=[database]`,
-//     `database.dependsOn=[]`. The FOLD computes each story's dependency DEPTH from
-//     `dependsOn` (depth = 1 + max depth of prerequisites; a story that depends on
-//     nothing is depth 0). The ANCHOR is the deepest dependent (the website — the
-//     story nothing else depends on), rendered as the big disc; the shallower
-//     stories (backend, database) are the smaller upstream discs it rests on.
+// ── ADR-0153 corrections/redirections in this module (BaaS diamond by ADR-0157) ─
+//  1. Direction (§1) + the BaaS DIAMOND (ADR-0157 §1). The synced director's
+//     `add-upstream-story` delta carries `dependentId` (now string | string[]); each
+//     named dependent's `dependsOn` gains the new story's id. So the diamond:
+//     `website.dependsOn=[backend, database]`, `backend.dependsOn=[database]`,
+//     `database.dependsOn=[]` (the website READS the catalog directly from the
+//     database AND needs the backend for checkout). The FOLD computes each story's
+//     dependency DEPTH from `dependsOn` (depth = 1 + max depth of prerequisites; a
+//     story that depends on nothing is depth 0). The ANCHOR is the deepest dependent
+//     (the website — the story nothing else depends on), rendered as the big disc;
+//     the shallower stories (backend, database) are the smaller upstream discs it
+//     rests on. The direct `website → database` edge SPANS two layers, so the road
+//     generator bows it WIDE (span ≥ 2) to arc clear of the backend, and the render
+//     styles it as the distinct "reads directly" curve.
 //  2. Spatial (§5 — frontend HIGH / foundation BELOW). y = -depth * LAYER_RISE, so
 //     the website (max depth) renders HIGHEST and the database (depth 0) sits at
 //     the BASE — the foundation below. The dependency edges are drawn from the
@@ -175,6 +180,12 @@ export interface RoadMeta {
   to: string;
   /** The site-routed polyline (scene space, pre-offset). */
   points: Pt[];
+  /** How many dependency layers this edge spans (|depth(from) − depth(to)|). 1 = an
+   *  adjacent layer (a small bow). ≥2 = a LAYER-SKIPPING edge — the BaaS direct
+   *  `website → database` read edge, which must bow WIDE so it arcs clearly around
+   *  the intervening layer (the backend) rather than passing through its tree. The
+   *  render styles it as the distinct "reads directly" curve (ADR-0157 §1). */
+  span: number;
 }
 
 /** One folded story territory — everything the stage + the callout anchoring + the
@@ -460,10 +471,25 @@ export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorl
       const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
       const px = -(b.y - a.y) / len;
       const py = (b.x - a.x) / len;
-      const side = rand01(hash(`${s.id}->${depId}:side`)) < 0.5 ? 1 : -1;
-      const ctrl: Pt = { x: mid.x + px * ROAD_BOW * side, y: mid.y + py * ROAD_BOW * side };
+      // depth span: 1 = adjacent layer; ≥2 = a LAYER-SKIPPING edge (the BaaS direct
+      // website → database read, ADR-0157 §1). A skipping edge must arc WIDE so it
+      // passes clearly to one side of the intervening tree (the backend at x≈0), not
+      // through it. Bow it hard to a FIXED side (right of the column) and size the
+      // bow to clear the intervening disc's radius + a calm margin; adjacent edges
+      // keep the subtle hash-picked bow.
+      const span = Math.abs(upper.depth - lower.depth);
+      let side: number;
+      let bow: number;
+      if (span >= 2) {
+        side = 1; // always bow the direct read edge to the same side (legible, stable)
+        bow = UPSTREAM_R + LAYER_RISE * 0.42; // wide enough to clear the middle tree
+      } else {
+        side = rand01(hash(`${s.id}->${depId}:side`)) < 0.5 ? 1 : -1;
+        bow = ROAD_BOW;
+      }
+      const ctrl: Pt = { x: mid.x + px * bow * side, y: mid.y + py * bow * side };
       const points = sampleQuadratic(a, ctrl, b, ROAD_SAMPLES);
-      roads.push({ from: s.id, to: depId, points });
+      roads.push({ from: s.id, to: depId, points, span });
     }
   }
 
@@ -549,11 +575,17 @@ export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorl
     const toT = terrById.get(r.to);
     const fromLabel = fromT?.label ?? r.from;
     const toLabel = toT?.label ?? r.to;
+    // the layer-skipping edge is the BaaS direct read (ADR-0157 §1): the website
+    // reads its catalog straight from the database. Name it honestly in the tooltip.
+    const title =
+      r.span >= 2
+        ? `${fromLabel} reads directly from ${toLabel}`
+        : `${fromLabel} needs ${toLabel}`;
     return {
       from: r.from,
       to: r.to,
       d: polylineD(r.points),
-      title: `${fromLabel} needs ${toLabel}`,
+      title,
     };
   });
 
