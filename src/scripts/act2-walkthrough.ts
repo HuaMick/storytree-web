@@ -1,36 +1,50 @@
 // ---------------------------------------------------------------------------
-// act2-walkthrough — the visitor-paced five-beat walkthrough ON THE REAL 2.5D
-// MAP (ADR-0145, re-deciding ADR-0134 §3's substrate). STATE is the proven
-// engine's (the synced act2-director); the LOOK is the product's own: each beat
-// folds into the shared `buildScene` scene-graph and renders through the same
+// act2-walkthrough — the visitor-paced SIX-beat walkthrough ON THE REAL 2.5D MAP
+// (ADR-0145), the ONE continuous walk that grows the mock website green then keeps
+// going UPSTREAM into the backend + database it depends on (ADR-0150, direction
+// CORRECTED by ADR-0153). STATE is the proven engine's (the synced act2-director —
+// a MULTI-STORY world with dependsOn edges); the LOOK is the product's own: each
+// beat folds into the shared `buildScene` scene-graph and renders through the same
 // `sceneToSvg` rail the home map rides, so the walk inherits the site's `tw-*`
 // vocabulary (TreeWorld.astro's global CSS) — never a re-implementation.
 //
 // Reached EXCLUSIVELY through the inflection seam (act1-storm's dynamic
-// import('./inflection') at the transform click; inflection imports this
-// module). Plain TS + DOM — NO React, NO three.js, NO WebGL anywhere here.
+// import('./inflection') at the transform click; inflection imports this module).
+// Plain TS + DOM — NO React, NO three.js, NO WebGL anywhere here. (The director is
+// imported from src/lib/forest-world-r3f, but only its PURE zod state machine —
+// advance / initialState / types — never a WebGL surface; and this whole module is
+// a DYNAMIC import, so it never enters index.astro's static closure — the WebGL
+// wall, check:web-experience, walks the static graph from the page.)
 //
-// Three layers, in file order:
-//   1. THE FOLD — pure: DirectorState.world + the script → a fresh SceneInput
-//      per beat state (fixed 19-tile disc, mesh ground + smoothed coast — the
-//      exact home-map substrate) plus the site metadata the scene cannot carry
-//      (limb greenness, road violations, ghost teaching pads, the story label).
-//   2. THE STAGE — per tap: fold → buildScene → sceneToSvg → replace the stage
-//      SVG contents; site teaching furniture (ghost pads, the violation flag)
-//      appended as an own SVG group; camera = a tweened viewBox resolved from
-//      each beat's declared CameraTarget. prefers-reduced-motion ⇒ jump-cuts.
-//   3. THE PACING UI — game-tutorial CALLOUT BOXES anchored NEXT TO the exact
-//      map element each beat teaches (tail pointing at it, clamped on-stage,
-//      re-anchored on resize) carrying the narration + the ONE primary Next;
-//      Back (pure director replay), progress dots, a quiet persistent skip, and
-//      the honest CTA at the end. NOTHING auto-advances; Escape stays the
-//      page's global disarm (never intercepted).
+// ── ADR-0153 corrections/redirections in this module ─────────────────────────
+//  1. Direction (§1). The synced director's `add-upstream-story` delta carries
+//     `dependentId`; the dependent story's `dependsOn` gains the new story's id.
+//     So `website.dependsOn=[backend]`, `backend.dependsOn=[database]`,
+//     `database.dependsOn=[]`. The FOLD computes each story's dependency DEPTH from
+//     `dependsOn` (depth = 1 + max depth of prerequisites; a story that depends on
+//     nothing is depth 0). The ANCHOR is the deepest dependent (the website — the
+//     story nothing else depends on), rendered as the big disc; the shallower
+//     stories (backend, database) are the smaller upstream discs it rests on.
+//  2. Spatial (§5 — frontend HIGH / foundation BELOW). y = -depth * LAYER_RISE, so
+//     the website (max depth) renders HIGHEST and the database (depth 0) sits at
+//     the BASE — the foundation below. The dependency edges are drawn from the
+//     dependent DOWN to each prerequisite (the arrow points at what you rest on).
+//  3. Real app UI + progressive disclosure (§2). The orchestrator chat dock and the
+//     drive-machinery overlays are the real-app surfaces; the walk reveals them
+//     keyed by beat. The map itself is already the real render.
+//  4. Drive-machinery overlays (§5/§6). Temporary flow diagrams (agent loop top-
+//     left, CI/CD-gates-wiring top-right) mount ABOVE the map on their beats and
+//     clear — site-side content keyed by beat id (act2-overlays.ts).
+//  5. No escape hatches (§3). No in-walk "skip the walk" jump and no path to any
+//     deprecated page — the visitor-paced Next/Back is the only progression; Escape
+//     stays the page's global disarm to the a11y fallback (never intercepted here).
+//     (ADR-0150 §4: the wrong-way road + its ghost/flag furniture is RETIRED — the
+//     honest dependency layers ARE the teach.)
 //
-// Determinism: every piece of geometry and every scene string is a pure
-// function of the beat data (hash/rand01 seeding — no Math.random, no
-// wall-clock); elapsed time drives MOTION only (the viewBox tween). The same
-// beat state renders the identical stage SVG on every visit — Back replay is
-// byte-identical.
+// Determinism: every piece of geometry and every scene string is a pure function
+// of the beat data (hash/rand01 seeding — no Math.random, no wall-clock); elapsed
+// time drives MOTION only (the viewBox tween). The same beat state renders the
+// identical stage SVG on every visit — Back replay is byte-identical.
 // ---------------------------------------------------------------------------
 
 import {
@@ -48,6 +62,7 @@ import {
   type Axial,
   type BoundarySeg,
   type Pt,
+  type RelaxedCell,
   type SceneInput,
   type ScenePlantInput,
   type SceneRoadInput,
@@ -61,47 +76,64 @@ import {
   type Beat,
   type CameraTarget,
   type DirectorState,
+  type StoryNode,
   type WorldState,
 } from '../lib/forest-world-r3f/act2-director';
+
+// The synced director exposes the tri-state status as the inline union on
+// StoryNode.status (it exports no named StoryStatus type). Derive the alias from
+// it so this stays in lockstep with the @generated director.
+type StoryStatus = StoryNode['status'];
 // The FICTION is site-owned (ADR-0093 fictional-data precedent): the walk plays
 // the shopping-checkout script, not the director's default. The director's pure
 // state machine (advance / initialState / the zod contract) is still the engine.
-import { walkthroughScript } from './act2-script';
+import {
+  walkthroughScript,
+  STORY_INSPECT,
+  STORY_BACKEND,
+  STORY_DATABASE,
+  type StoryInspect,
+} from './act2-script';
 import { DONE_KEY, INTRO, NARRATION, type BeatNarration } from './act2-narration';
+import { mountDriveOverlay, type OverlayHandle } from './act2-overlays';
 
 // ── the parameters (few, meaningful, named — never a knob per pixel) ─────────
 
-/** Rings of hex tiles in the land disc (2 → 19 tiles, the inflection's island). */
+/** Rings of hex tiles in the ANCHOR (website) land disc (2 → 19 tiles). */
 const DISC_RINGS = 2;
+/** Rings in an UPSTREAM story's disc — a smaller, younger island (1 → 7 tiles), so
+ *  the proposed foundation layers read as growing, not as second full continents. */
+const UPSTREAM_RINGS = 1;
 /** Scene frame carried into SceneInput (the empty-land idiom). */
 const SCENE_W = 1400;
-const SCENE_H = 1000;
-/** Where the island sits inside the scene frame. */
-const OFFSET: Pt = { x: 700, y: 420 };
-/** The island territory's declared radius (wisp orbit + plate sizing ride it). */
+const SCENE_H = 1200;
+/** Where the WEBSITE island sits inside the scene frame (the anchor, TOP of the
+ *  stack — the foundation layers sit BELOW it toward larger y). The offset centres
+ *  the whole column comfortably given the website is highest at y = -maxDepth*RISE. */
+const OFFSET: Pt = { x: 700, y: 380 };
+/** The website island territory's declared radius (wisp orbit + plate sizing ride it). */
 const ISLAND_R = 64;
+/** An upstream island's declared radius (smaller — a younger disc). */
+const UPSTREAM_R = 40;
+/** Vertical rise between stacked layers (scene units, pre-offset): each layer sits
+ *  this far below the one that depends on it. Sized to clear both discs' coasts AND
+ *  the upper disc's nameplate row with a calm gap. */
+const LAYER_RISE = 250;
 /** How far capability limbs sit from the story tree, and their fan spread. */
 const LIMB_RING_R = 40;
 const LIMB_FAN_STEP = 0.78; // radians between limbs, fanned south of the tree
-/** The nameplate row — FIXED for every beat so the plate never hops when the
- *  garden grows (layout stability across beats). */
+/** The website nameplate sits this far below its tree spot — FIXED so the plate
+ *  never hops when the garden grows (layout stability across beats). */
 const PLATE_Y = 80;
-/** The fictional teaching pads (road endpoints with no island home) sit on a
- *  row on the open board, south of the island's coast. */
-const GHOST_ROW_Y = 190;
-const GHOST_SPACING = 190;
-const PAD_RX = 30; // pad platform half-width
-/** Road routing: gentle bow on a valid road; the swerve a violating road makes
- *  around the layer it skips (the visual "shortcut" read). */
-const ROAD_BOW = 9;
-const VIOLATION_DODGE = 44;
+/** An upstream story's nameplate sits closer under its (smaller) tree. */
+const UPSTREAM_PLATE_Y = 52;
+/** Road routing: gentle bow on a dependency edge. */
+const ROAD_BOW = 10;
 const ROAD_SAMPLES = 12; // polyline samples per road
-const ROAD_TRIM_TREE = 8; // back a road's end off the tree trunk
-const ROAD_TRIM_PLANT = 12; // … off a capability plant
-const ROAD_TRIM_PAD = 36; // … off a teaching pad platform
+const ROAD_TRIM_TREE = 10; // back a road's end off a tree trunk
 /** Camera: zoom 0 = widest, 1 = tightest (the director's CameraTarget contract).
  *  half-width of the viewBox in scene units at the two extremes. */
-const HALF_WIDE = 660;
+const HALF_WIDE = 720;
 const HALF_TIGHT = 120;
 const CAMERA_MS = 1100; // viewBox tween length (motion only)
 const FIT_PAD = 1.14; // a focus bbox always fits with this margin
@@ -109,8 +141,23 @@ const FIT_PAD = 1.14; // a focus bbox always fits with this margin
 const CALLOUT_GAP = 20; // px between the anchor and the callout box
 const CALLOUT_MARGIN = 12; // px the callout keeps from the stage edges
 
+/** Fold a director tri-state story status → the scene's visual status. proven →
+ *  green (healthy), building → sapling (proposed), broken → withered (unhealthy).
+ *  The mapping the pull-back legend reads (ADR-0150 honest legend). */
+function sceneStatusOf(status: StoryStatus): SceneStatus {
+  switch (status) {
+    case 'proven':
+      return 'healthy';
+    case 'broken':
+      return 'unhealthy';
+    case 'building':
+    default:
+      return 'proposed';
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. THE FOLD — pure functions of the director's world + the script
+// 1. THE FOLD — pure functions of the director's multi-story world + the script
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface LimbMeta {
@@ -122,43 +169,33 @@ export interface LimbMeta {
 }
 
 export interface RoadMeta {
+  /** The dependent story (the one that NEEDS — higher in the stack). */
   from: string;
+  /** The prerequisite story (what is depended ON — lower in the stack). */
   to: string;
-  violation: string | undefined;
   /** The site-routed polyline (scene space, pre-offset). */
   points: Pt[];
 }
 
-export interface GhostMeta {
+/** One folded story territory — everything the stage + the callout anchoring + the
+ *  inspect affordance need, keyed by the director's story id. */
+export interface TerritoryMeta {
   id: string;
   label: string;
-  pos: Pt;
-  /** True when this pad is the layer a violating road skips (derived from the
-   *  road's declared violation DATA, never invented). */
-  bypassed: boolean;
-}
-
-export interface FoldedWorld {
-  sceneInput: SceneInput;
-  /** True before beat 1: the land is empty. The synthetic ground territory
-   *  still exists in the scene graph (a territory always emits a tree), so the
-   *  pre-story render suppresses the flora/hits layers via the `is-prestory`
-   *  class on the stage svg. */
-  preStory: boolean;
-  /** The story label, read from the script's plant-story delta (the director's
-   *  WorldState stores only the storyId). Null before beat 1. */
-  storyLabel: string | null;
-  storyId: string;
+  status: StoryStatus;
+  /** Dependency DEPTH (0 = depends on nothing → the foundation/base; higher =
+   *  depends on deeper stories → renders higher up the map). The website is the
+   *  maximum depth (it depends on the backend which depends on the database). */
+  depth: number;
+  /** True for an inspectable PROPOSED upstream story (backend / database) — i.e.
+   *  everything that is NOT the anchor website. */
+  upstream: boolean;
+  centre: Pt; // this disc's centre (scene space, pre-offset)
   treeSpot: Pt;
+  radius: number;
+  plateY: number;
+  hasWisp: boolean;
   limbs: LimbMeta[];
-  roads: RoadMeta[];
-  ghosts: GhostMeta[];
-  /** The violation flag's anchor (the violating road's apex), when one exists. */
-  flagAt: (Pt & { layer: string; violation: string }) | null;
-  /** The island's ground bounds (scene space, pre-offset) — camera + intro anchor. */
-  islandRect: Rect;
-  /** Everything drawn (island + pads + labels) — the full-forest frame. */
-  contentRect: Rect;
 }
 
 interface Rect {
@@ -168,7 +205,23 @@ interface Rect {
   h: number;
 }
 
-/** All axial tiles within `radius` rings of the origin (the inflection's disc). */
+export interface FoldedWorld {
+  sceneInput: SceneInput;
+  /** True before beat 1: the land is empty. The synthetic ground territory still
+   *  exists in the scene graph (a territory always emits a tree), so the pre-story
+   *  render suppresses the flora/hits layers via the `is-prestory` class. */
+  preStory: boolean;
+  /** The folded story territories, in insertion order (website first). */
+  territories: TerritoryMeta[];
+  roads: RoadMeta[];
+  /** The website (anchor) disc's ground bounds (scene space, pre-offset) — the
+   *  camera + intro anchor. */
+  islandRect: Rect;
+  /** Everything drawn (all discs + labels) — the full-forest frame. */
+  contentRect: Rect;
+}
+
+/** All axial tiles within `radius` rings of the origin (a disc). */
 function discTiles(radius: number): Axial[] {
   const tiles: Axial[] = [];
   for (let q = -radius; q <= radius; q++) {
@@ -179,8 +232,8 @@ function discTiles(radius: number): Axial[] {
   return tiles;
 }
 
-/** Sample a quadratic bezier A→(ctrl)→B into n points (emitted as an M/L
- *  polyline `d`). */
+/** Sample a quadratic bezier A→(ctrl)→B into n points (emitted as an M/L polyline
+ *  `d`). */
 function sampleQuadratic(a: Pt, ctrl: Pt, b: Pt, n: number): Pt[] {
   const pts: Pt[] = [];
   for (let i = 0; i < n; i++) {
@@ -209,218 +262,61 @@ function toward(a: Pt, b: Pt, dist: number): Pt {
   return { x: a.x + dx * k, y: a.y + dy * k };
 }
 
-/** The layer a violating road bypasses, parsed from the violation's declared
- *  antipattern name (e.g. 'layer-violation:ui-bypasses-service' → 'service').
- *  Data-derived — no violation string, no pad. */
-export function bypassedLayerOf(violation: string): string | null {
-  const m = /bypasses-([a-z0-9-]+)$/.exec(violation);
-  return m ? m[1]! : null;
+/** One disc's geometry, built at the origin then TRANSLATED to `centre` — the
+ *  cells, the smoothed coast, the tree spot, and the fixed ground decor/wheat.
+ *  Pure + deterministic: seeded by a FIXED per-story id, so the ground never
+ *  changes when a beat renames or greens the territory. */
+interface DiscGeometry {
+  cells: RelaxedCell[];
+  coastPaths: string[];
+  treeSpot: Pt;
+  decor: { x: number; y: number; seed: number }[];
+  /** Ground bounds (scene space, pre-offset, already translated to centre). */
+  rect: Rect;
 }
 
-/** Plain display label for a fictional teaching pad — tuned to the shopping
- *  fiction so beat 4's furniture reads concrete (the ids stay ui/db/service so
- *  bypassedLayerOf still resolves the skipped layer from the violation data). */
-function ghostLabel(id: string): string {
-  const KNOWN: Record<string, string> = {
-    ui: 'the checkout screen',
-    db: 'the orders database',
-    service: 'the payment service',
-  };
-  return KNOWN[id] ?? id;
-}
-
-/**
- * THE FOLD: the director's accumulated WorldState + the script → a fresh
- * SceneInput (the beat-driven rebuild) over the exact home-map substrate
- * (mesh ground + smoothed coast from the shared core), plus the site metadata
- * the scene cannot carry. Pure and deterministic — a beat state always folds
- * identically, and the GROUND layer is identical across every beat (the fixed
- * disc; decor/wheat seeded by tile key only, never by the story id).
- */
-export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld {
-  const tiles = discTiles(DISC_RINGS);
+function buildDisc(centre: Pt, rings: number, seedId: string): DiscGeometry {
+  const tiles = discTiles(rings);
   const centres = tiles.map(hexCenter);
   const cx = centres.reduce((s, c) => s + c.x, 0) / centres.length;
   const cy = centres.reduce((s, c) => s + c.y, 0) / centres.length;
-  const treeSpot: Pt = { x: cx, y: cy - 6 };
+  // translate everything so the disc's own centroid lands on `centre`.
+  const dx = centre.x - cx;
+  const dy = centre.y - cy;
+  const tr = (p: Pt): Pt => ({ x: p.x + dx, y: p.y + dy });
 
-  const preStory = world.storyId === '';
+  const treeSpot: Pt = tr({ x: cx, y: cy - 6 });
 
-  // The story label lives on the script's plant-story delta (the director's
-  // WorldState stores only the id) — read it from the script when folding.
-  let storyLabel: string | null = null;
-  for (const beat of script) {
-    if (beat.delta.kind === 'plant-story' && beat.delta.storyId === world.storyId) {
-      storyLabel = beat.delta.label;
-    }
-  }
-
-  // Folded story status: the site's amber "proposed / building" hue for the
-  // whole walk — the young tree that has NOT earned green. It NEVER folds
-  // 'healthy' (the story's own proof is not in this fiction; only one cap's
-  // proof is — green is earned per-limb, never claimed).
-  const storyStatus: SceneStatus = 'proposed';
-
-  // Capability limbs fan south of the tree, deterministically jittered by id.
-  const limbs: LimbMeta[] = world.limbs.map((limb, i) => {
-    const n = world.limbs.length;
-    const a = Math.PI / 2 + (i - (n - 1) / 2) * LIMB_FAN_STEP;
-    const r = LIMB_RING_R + (rand01(hash(`${limb.id}:ring`)) - 0.5) * 8;
-    return {
-      id: limb.id,
-      label: limb.label,
-      green: limb.green,
-      signedProof: limb.signedProof,
-      pos: {
-        x: treeSpot.x + Math.cos(a) * r * 1.2,
-        y: treeSpot.y + Math.sin(a) * r * 0.85 + 8,
-      },
-    };
-  });
-  const limbById = new Map(limbs.map((l) => [l.id, l] as const));
-
-  // Fictional teaching pads: road endpoints with no island home get a spot on
-  // the row south of the coast, in encounter order.
-  const ghostIds: string[] = [];
-  for (const road of world.roads) {
-    for (const end of [road.from, road.to]) {
-      if (end !== world.storyId && !limbById.has(end) && !ghostIds.includes(end)) {
-        ghostIds.push(end);
-      }
-    }
-  }
-  const ghosts: GhostMeta[] = ghostIds.map((id, i) => ({
-    id,
-    label: ghostLabel(id),
-    pos: {
-      x: cx + (i - (ghostIds.length - 1) / 2) * GHOST_SPACING,
-      y: cy + GHOST_ROW_Y,
-    },
-    bypassed: false,
-  }));
-  const ghostById = new Map(ghosts.map((g) => [g.id, g] as const));
-
-  const anchorOf = (id: string): Pt =>
-    id === world.storyId
-      ? { x: treeSpot.x, y: treeSpot.y + 4 }
-      : (limbById.get(id)?.pos ?? ghostById.get(id)?.pos ?? { x: cx, y: cy });
-
-  // Stage the bypassed layer's pad for each violating road (data-derived: the
-  // declared antipattern name says which layer was skipped).
-  for (const road of world.roads) {
-    if (road.violation === undefined) continue;
-    const layer = bypassedLayerOf(road.violation);
-    if (layer === null || ghostById.has(layer)) continue;
-    const a = anchorOf(road.from);
-    const b = anchorOf(road.to);
-    const pad: GhostMeta = {
-      id: layer,
-      label: ghostLabel(layer),
-      pos: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      bypassed: true,
-    };
-    ghosts.push(pad);
-    ghostById.set(layer, pad);
-  }
-
-  // Route the roads: a valid road bows gently; a violating road swerves AROUND
-  // the layer it skips (the shortcut read) — geometry from data + parameters.
-  let flagAt: FoldedWorld['flagAt'] = null;
-  const roads: RoadMeta[] = world.roads.map((road) => {
-    const rawA = anchorOf(road.from);
-    const rawB = anchorOf(road.to);
-    const trimOf = (id: string): number =>
-      id === world.storyId ? ROAD_TRIM_TREE : limbById.has(id) ? ROAD_TRIM_PLANT : ROAD_TRIM_PAD;
-    const a = toward(rawA, rawB, trimOf(road.from));
-    const b = toward(rawB, rawA, trimOf(road.to));
-    const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    // unit perpendicular of A→B
-    const px = -(b.y - a.y) / len;
-    const py = (b.x - a.x) / len;
-    const bow = road.violation === undefined ? ROAD_BOW : VIOLATION_DODGE;
-    // dodge consistently to one side; the side is seeded by the pair id
-    const side = rand01(hash(`${road.from}->${road.to}:side`)) < 0.5 ? 1 : -1;
-    const ctrl: Pt = { x: mid.x + px * bow * side, y: mid.y + py * bow * side };
-    const points = sampleQuadratic(a, ctrl, b, ROAD_SAMPLES);
-    if (road.violation !== undefined && flagAt === null) {
-      const apex = points[Math.floor(points.length / 2)]!;
-      const skipped = bypassedLayerOf(road.violation);
-      flagAt = {
-        x: apex.x,
-        y: apex.y,
-        // the friendly label (e.g. 'the payment service'), so the flag caption
-        // matches the bypassed pad exactly — no 'the service layer' vs
-        // 'the payment service' mismatch between the two teaching marks.
-        layer: skipped === null ? 'a required layer' : ghostLabel(skipped),
-        violation: road.violation,
-      };
-    }
-    return { from: road.from, to: road.to, violation: road.violation, points };
-  });
-
-  // The fixed ground: decor conifers + wheat patches seeded by TILE KEY only
-  // (never the story id), so the ground never changes between beats — the one
-  // deterministic roll per tile follows the home map's world.ts pattern.
+  // fixed ground: decor conifers + wheat patches seeded by TILE KEY only (never
+  // the story status), so the ground never changes between beats.
   const decor: { x: number; y: number; seed: number }[] = [];
   const wheat = new Set<string>();
   for (const tile of tiles) {
     const key = axialKey(tile);
     const c = hexCenter(tile);
-    const roll = rand01(hash(`act2:dec:${key}`));
-    const nearTree = Math.hypot(c.x - treeSpot.x, c.y - treeSpot.y) < 55;
+    const roll = rand01(hash(`${seedId}:dec:${key}`));
+    const nearTree = Math.hypot(c.x - cx, c.y - (cy - 6)) < 42;
     const inGarden = c.y > cy + 8; // the southern band the limbs + plate own
     if (roll < 0.42 && !nearTree && !inGarden) {
-      decor.push({ x: c.x, y: c.y, seed: hash(`act2:${key}:f`) });
+      const t = tr(c);
+      decor.push({ x: t.x, y: t.y, seed: hash(`${seedId}:${key}:f`) });
     } else if (roll >= 0.42 && roll < 0.62 && !nearTree) {
       wheat.add(key);
     }
   }
 
-  // The territory: the synthetic dormant ground holder before beat 1 (its
-  // tree/plate/hit are suppressed by the is-prestory render), the story after.
-  const plants: ScenePlantInput[] = limbs.map((l) => ({
-    id: l.id,
-    status: (l.green ? 'healthy' : 'proposed') as SceneStatus,
-    x: l.pos.x,
-    y: l.pos.y,
-    title: l.green
-      ? `${l.label} — proven (signed proof ${l.signedProof ?? ''})`
-      : `${l.label} — in progress, no signed proof yet`,
+  // the mesh ground over the disc — the same shared-core call the home map makes
+  // (`buildRelaxedCells(..., 'mesh')`), owner 0, then translated to centre.
+  const drawTiles = tiles.map((h) => ({ h, owner: 0 }));
+  const cells = buildRelaxedCells(drawTiles, [wheat], 'mesh').map((c) => ({
+    ...c,
+    poly: c.poly.map(tr),
   }));
 
-  const plateW = Math.max(120, (storyLabel ?? '').length * 7.6 + 26);
-  const territory: SceneTerritoryInput = {
-    id: preStory ? 'first-light' : world.storyId,
-    status: storyStatus,
-    caps: limbs.length,
-    centroid: { x: cx, y: cy },
-    radius: ISLAND_R,
-    treeSpot,
-    labelY: cy + PLATE_Y,
-    coastPaths: [], // filled below (the smoothed coast)
-    decor,
-    plants,
-    treeTitle: preStory ? '' : `${storyLabel ?? world.storyId} — a story, not yet proven`,
-    wisps:
-      !preStory && world.hasWisp
-        ? [{ runId: `walk:${world.storyId}`, title: 'an agent at work — you can look away' }]
-        : [],
-    plate: {
-      w: plateW,
-      h: 34,
-      rx: 7,
-      idY: 15,
-      subY: 28,
-      idText: preStory ? '' : (storyLabel ?? world.storyId),
-      subText: preStory ? '' : 'a story',
-      title: preStory ? '' : (storyLabel ?? world.storyId),
-    },
-  };
-
-  // The smoothed organic coastline of the disc (the exact home-map recipe),
-  // seeded by a FIXED island id — the coast belongs to the land, not the
-  // story, so it cannot pop when beat 1 renames the territory.
+  // the smoothed organic coastline of the disc (the exact home-map recipe), seeded
+  // by the FIXED disc id — the coast belongs to the land, not the story, so it
+  // cannot pop when a beat renames the territory. Built at origin then translated
+  // (smoothCoast works on raw segments).
   const mine = new Set(tiles.map(axialKey));
   const segs: BoundarySeg[] = [];
   for (const tile of tiles) {
@@ -433,67 +329,286 @@ export function foldWorldToScene(world: WorldState, script: Beat[]): FoldedWorld
       if (a && b) segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
     });
   }
-  territory.coastPaths = smoothCoast(segs, 'act2-island').paths;
+  const rawCoast = smoothCoast(segs, seedId).loops;
+  const coastPaths = rawCoast.map(
+    (loop) =>
+      loop.map((p, i) => `${i === 0 ? 'M' : 'L'} ${f(p.x + dx)} ${f(p.y + dy)}`).join(' ') + ' Z',
+  );
 
-  const sceneRoads: SceneRoadInput[] = roads.map((r) => ({
-    from: r.from,
-    to: r.to,
-    d: polylineD(r.points),
-    title:
-      r.violation === undefined
-        ? `${r.to} depends on ${r.from}`
-        : `${r.from} → ${r.to} — flagged: ${r.violation}`,
-  }));
+  // ground bounds (translated): a disc of `rings` spans ± (rings*HEX_W + HEX_R)
+  // horizontally and ± (rings*1.5*HEX_R + HEX_R) vertically, with coast margin.
+  const halfW = rings * Math.sqrt(3) * HEX_R + HEX_R + 8;
+  const halfH = rings * 1.5 * HEX_R + HEX_R + 8;
+  const rect: Rect = {
+    x: centre.x - halfW,
+    y: centre.y - halfH,
+    w: halfW * 2,
+    h: halfH * 2,
+  };
 
-  // The mesh ground over the fixed disc — the same shared-core call the home
-  // map makes (`buildRelaxedCells(..., 'mesh')`), owner 0 throughout.
-  const drawTiles = tiles.map((h) => ({ h, owner: 0 }));
-  const relaxedCells = buildRelaxedCells(drawTiles, [wheat], 'mesh');
+  return { cells, coastPaths, treeSpot, decor, rect };
+}
+
+/**
+ * THE FOLD: the director's accumulated multi-story WorldState + the script → a
+ * fresh SceneInput (the beat-driven rebuild). Each story becomes its own
+ * territory, placed by dependency DEPTH — the website (deepest dependent) at the
+ * TOP, the layers it depends on stacked BELOW it (foundation below; ADR-0153 §5) —
+ * plus the dependency edges and the site metadata the scene cannot carry. Pure and
+ * deterministic.
+ */
+export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorld {
+  const stories = world.stories;
+  const preStory = stories.length === 0;
+
+  // ── assign each story a dependency DEPTH from its dependsOn chain ──
+  // depth(s) = 1 + max depth of the stories s dependsOn; a story that depends on
+  // nothing is depth 0 (the foundation). Because dependsOn now points FROM the
+  // dependent TO its prerequisite (ADR-0058 / ADR-0153), the website (which depends
+  // on the backend which depends on the database) is the MAX depth — the anchor.
+  const byId = new Map(stories.map((s) => [s.id, s] as const));
+  const depthCache = new Map<string, number>();
+  const depthOf = (s: StoryNode, seen: Set<string> = new Set()): number => {
+    const cached = depthCache.get(s.id);
+    if (cached !== undefined) return cached;
+    if (seen.has(s.id)) return 0; // cycle guard (never expected in the fiction)
+    seen.add(s.id);
+    let base = -1;
+    for (const dep of s.dependsOn) {
+      const d = byId.get(dep);
+      if (d) base = Math.max(base, depthOf(d, seen));
+    }
+    const depth = base + 1;
+    depthCache.set(s.id, depth);
+    return depth;
+  };
+
+  // the ANCHOR is the website: the deepest dependent (the story nothing else in the
+  // stack depends on). Fall back to the first-planted story if depths tie (they
+  // don't in the linear fiction). Rendered as the big disc, at the top.
+  const maxDepth = stories.reduce((m, s) => Math.max(m, depthOf(s)), 0);
+  const anchorStory = stories.find((s) => depthOf(s) === maxDepth) ?? stories[0];
+  const anchorId = anchorStory?.id;
+
+  // ── fold each story into a territory (disc geometry + limbs) ──
+  const territories: TerritoryMeta[] = stories.map((s) => {
+    const depth = depthOf(s);
+    const upstream = s.id !== anchorId;
+    const rings = upstream ? UPSTREAM_RINGS : DISC_RINGS;
+    const radius = upstream ? UPSTREAM_R : ISLAND_R;
+    const plateY = upstream ? UPSTREAM_PLATE_Y : PLATE_Y;
+    // stacked straight up by DEPTH: the website (max depth) is highest (smallest
+    // y); each less-deep layer sits LAYER_RISE lower (larger y) — the foundation
+    // below (ADR-0153 §5). x stays 0 so the stack reads as a vertical column.
+    const centre: Pt = { x: 0, y: -depth * LAYER_RISE };
+    const disc = buildDisc(centre, rings, `act2-disc-${s.id}`);
+
+    const limbs: LimbMeta[] = s.limbs.map((limb, i) => {
+      const n = s.limbs.length;
+      const a = Math.PI / 2 + (i - (n - 1) / 2) * LIMB_FAN_STEP;
+      const r = LIMB_RING_R + (rand01(hash(`${limb.id}:ring`)) - 0.5) * 8;
+      return {
+        id: limb.id,
+        label: limb.label,
+        green: limb.green,
+        signedProof: limb.signedProof,
+        pos: {
+          x: disc.treeSpot.x + Math.cos(a) * r * 1.2,
+          y: disc.treeSpot.y + Math.sin(a) * r * 0.85 + 8,
+        },
+      };
+    });
+
+    return {
+      id: s.id,
+      label: s.label,
+      status: s.status,
+      depth,
+      upstream,
+      centre,
+      treeSpot: disc.treeSpot,
+      radius,
+      plateY,
+      hasWisp: s.hasWisp,
+      limbs,
+    };
+  });
+  const terrById = new Map(territories.map((t) => [t.id, t] as const));
+
+  // ── the dependency edges: draw each edge from the DEPENDENT story (higher up)
+  //    DOWN to its PREREQUISITE (lower/foundation). dependsOn now points FROM the
+  //    dependent TO its prerequisite (ADR-0153), so for each story s and each dep
+  //    in s.dependsOn we draw s → dep with the arrowhead (marker-end) landing ON
+  //    dep — the arrow points DOWN at what the story rests on. This reads "the
+  //    website NEEDS the backend NEEDS the database" (UAT 2/3), the arrow pointing
+  //    at the prerequisite beneath. data-from = the dependent (upper), data-to =
+  //    the prerequisite (lower); the tooltip reads "<dependent> needs <prereq>". ──
+  const roads: RoadMeta[] = [];
+  for (const s of stories) {
+    const upper = terrById.get(s.id); // the dependent (higher up)
+    if (!upper) continue;
+    for (const depId of s.dependsOn) {
+      const lower = terrById.get(depId); // the prerequisite (lower/foundation)
+      if (!lower) continue;
+      // path a → b: a = the dependent (upper), b = the prerequisite (lower), so the
+      // marker-end arrow lands on the prerequisite (points DOWN, at what it rests on).
+      const rawA = { x: upper.treeSpot.x, y: upper.treeSpot.y };
+      const rawB = { x: lower.treeSpot.x, y: lower.treeSpot.y };
+      const a = toward(rawA, rawB, ROAD_TRIM_TREE);
+      const b = toward(rawB, rawA, ROAD_TRIM_TREE);
+      const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      const px = -(b.y - a.y) / len;
+      const py = (b.x - a.x) / len;
+      const side = rand01(hash(`${s.id}->${depId}:side`)) < 0.5 ? 1 : -1;
+      const ctrl: Pt = { x: mid.x + px * ROAD_BOW * side, y: mid.y + py * ROAD_BOW * side };
+      const points = sampleQuadratic(a, ctrl, b, ROAD_SAMPLES);
+      roads.push({ from: s.id, to: depId, points });
+    }
+  }
+
+  // ── assemble the SceneInput: one territory per story (owner index = insertion
+  //    order), each disc's cells tagged with that owner. ──
+  const allCells: RelaxedCell[] = [];
+  const sceneTerritories: SceneTerritoryInput[] = [];
+
+  territories.forEach((t, owner) => {
+    const disc = buildDisc(t.centre, t.upstream ? UPSTREAM_RINGS : DISC_RINGS, `act2-disc-${t.id}`);
+    for (const c of disc.cells) allCells.push({ ...c, owner });
+
+    const storyStatus = sceneStatusOf(t.status);
+
+    const plants: ScenePlantInput[] = t.limbs.map((l) => ({
+      id: l.id,
+      status: (l.green ? 'healthy' : 'proposed') as SceneStatus,
+      x: l.pos.x,
+      y: l.pos.y,
+      title: l.green
+        ? `${l.label} — proven (signed proof ${l.signedProof ?? ''})`
+        : `${l.label} — in progress, no signed proof yet`,
+    }));
+
+    const plateW = Math.max(t.upstream ? 150 : 120, t.label.length * 7.6 + 26);
+    const subText = t.upstream ? 'a story you depend on' : 'a story';
+    const treeTitle =
+      t.status === 'proven'
+        ? `${t.label} — a story, proven`
+        : `${t.label} — a story, proposed (not yet built)`;
+
+    sceneTerritories.push({
+      id: t.id,
+      status: storyStatus,
+      caps: t.limbs.length,
+      centroid: t.centre,
+      radius: t.radius,
+      treeSpot: t.treeSpot,
+      labelY: t.centre.y + t.plateY,
+      coastPaths: disc.coastPaths,
+      decor: disc.decor,
+      plants,
+      treeTitle,
+      wisps: t.hasWisp
+        ? [{ runId: `walk:${t.id}`, title: 'an agent at work — you can look away' }]
+        : [],
+      plate: {
+        w: plateW,
+        h: 34,
+        rx: 7,
+        idY: 15,
+        subY: 28,
+        idText: t.label,
+        subText,
+        title: t.label,
+      },
+    });
+  });
+
+  // pre-story: a single dormant ground disc so the empty land still has soil.
+  if (preStory) {
+    const disc = buildDisc({ x: 0, y: 0 }, DISC_RINGS, 'act2-disc-first-light');
+    for (const c of disc.cells) allCells.push({ ...c, owner: 0 });
+    sceneTerritories.push({
+      id: 'first-light',
+      status: 'proposed',
+      caps: 0,
+      centroid: { x: 0, y: 0 },
+      radius: ISLAND_R,
+      treeSpot: disc.treeSpot,
+      labelY: PLATE_Y,
+      coastPaths: disc.coastPaths,
+      decor: disc.decor,
+      plants: [],
+      treeTitle: '',
+      wisps: [],
+      plate: { w: 120, h: 34, rx: 7, idY: 15, subY: 28, idText: '', subText: '', title: '' },
+    });
+  }
+
+  const sceneRoads: SceneRoadInput[] = roads.map((r) => {
+    const fromT = terrById.get(r.from);
+    const toT = terrById.get(r.to);
+    const fromLabel = fromT?.label ?? r.from;
+    const toLabel = toT?.label ?? r.to;
+    return {
+      from: r.from,
+      to: r.to,
+      d: polylineD(r.points),
+      title: `${fromLabel} needs ${toLabel}`,
+    };
+  });
 
   const sceneInput: SceneInput = {
     offset: { x: OFFSET.x, y: OFFSET.y },
     width: SCENE_W,
     height: SCENE_H,
     empties: [],
-    relaxedCells,
+    relaxedCells: allCells,
     drawTiles: [],
     wheatSets: [],
     roads: sceneRoads,
-    territories: [territory],
+    territories: sceneTerritories,
   };
 
-  // Bounds (scene space, pre-offset).
-  const islandRect: Rect = { x: -124, y: -116, w: 248, h: 232 };
-  const xs: number[] = [islandRect.x, islandRect.x + islandRect.w];
-  const ys: number[] = [islandRect.y, islandRect.y + islandRect.h];
-  for (const g of ghosts) {
-    xs.push(g.pos.x - PAD_RX - 26, g.pos.x + PAD_RX + 26);
-    ys.push(g.pos.y - 20, g.pos.y + 34);
+  // ── bounds ──
+  const anchor = territories.find((t) => !t.upstream) ?? territories[0];
+  const islandRect: Rect = anchor
+    ? buildDisc(anchor.centre, DISC_RINGS, `act2-disc-${anchor.id}`).rect
+    : { x: -124, y: -116, w: 248, h: 232 };
+
+  // content bounds = union of every disc's rect + its plate row.
+  let minX = islandRect.x;
+  let maxX = islandRect.x + islandRect.w;
+  let minY = islandRect.y;
+  let maxY = islandRect.y + islandRect.h;
+  const src = preStory
+    ? [{ centre: { x: 0, y: 0 }, upstream: false, plateY: PLATE_Y }]
+    : territories;
+  for (const t of src) {
+    const rings = t.upstream ? UPSTREAM_RINGS : DISC_RINGS;
+    const halfW = rings * Math.sqrt(3) * HEX_R + HEX_R + 24;
+    const halfH = rings * 1.5 * HEX_R + HEX_R + 8;
+    minX = Math.min(minX, t.centre.x - halfW);
+    maxX = Math.max(maxX, t.centre.x + halfW);
+    minY = Math.min(minY, t.centre.y - halfH);
+    maxY = Math.max(maxY, t.centre.y + t.plateY + 40);
   }
-  ys.push(cy + PLATE_Y + 36);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
   const contentRect: Rect = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 
-  return {
-    sceneInput,
-    preStory,
-    storyLabel,
-    storyId: world.storyId,
-    treeSpot,
-    limbs,
-    roads,
-    ghosts,
-    flagAt,
-    islandRect,
-    contentRect,
-  };
+  return { sceneInput, preStory, territories, roads, islandRect, contentRect };
+}
+
+/** The anchor (website) territory, if present. */
+function anchorTerr(fold: FoldedWorld): TerritoryMeta | undefined {
+  return fold.territories.find((t) => !t.upstream) ?? fold.territories[0];
+}
+
+/** The territory for a specific story id, if present. */
+function terrOf(fold: FoldedWorld, id: string): TerritoryMeta | undefined {
+  return fold.territories.find((t) => t.id === id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. THE STAGE — scene string + site furniture + the viewBox camera
+// 2. THE STAGE — scene string + the viewBox camera
 // ─────────────────────────────────────────────────────────────────────────────
 
 const escXml = (s: unknown): string =>
@@ -504,44 +619,9 @@ const escXml = (s: unknown): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-/** The teaching pads + violation flag — SITE furniture derived from the fold
- *  metadata (RoadMeta.violation is DATA, never a presentation guess), appended
- *  into the stage svg AFTER the scene group so it draws on top. Every wrapper
- *  group is transform-free (the translate rides an inner group) so the enter
- *  animation's CSS transform cannot clobber an SVG transform attribute. */
-function furnitureSvg(fold: FoldedWorld, entering: boolean): string {
-  let out = '';
-  for (const g of fold.ghosts) {
-    const enter = entering ? ' act2-enter' : '';
-    out +=
-      `<g class="act2-pad${g.bypassed ? ' is-bypassed' : ''}${enter}" data-act2-pad="${escXml(g.id)}">` +
-      `<g transform="translate(${f(g.pos.x + OFFSET.x)} ${f(g.pos.y + OFFSET.y)})">` +
-      `<title>${escXml(g.bypassed ? `${g.label} — skipped by the flagged road` : `${g.label} (not part of this story — shown to teach roads)`)}</title>` +
-      `<ellipse class="pad-shadow" cx="2" cy="3" rx="${f(PAD_RX)}" ry="10.5"/>` +
-      `<ellipse class="pad-top" cx="0" cy="0" rx="${f(PAD_RX)}" ry="10"/>` +
-      (g.bypassed ? `<text class="pad-tag" x="0" y="-17" text-anchor="middle">skipped</text>` : '') +
-      `<text class="pad-label" x="0" y="27" text-anchor="middle">${escXml(g.label)}</text>` +
-      `</g></g>`;
-  }
-  if (fold.flagAt) {
-    const v = fold.flagAt;
-    const enter = entering ? ' act2-enter' : '';
-    const line = `wrong way — skips ${v.layer}`;
-    out +=
-      `<g class="act2-flag${enter}" data-act2-violation="${escXml(v.violation)}" role="img" aria-label="${escXml(`Flagged: this road skips ${v.layer}`)}">` +
-      `<g transform="translate(${f(v.x + OFFSET.x)} ${f(v.y + OFFSET.y)})">` +
-      `<path class="flag-post" d="M 0 2 L 0 -20"/>` +
-      `<path class="flag-cloth" d="M 0 -20 L 15 -15.5 L 0 -11 Z"/>` +
-      `<rect class="flag-bg" x="-92" y="-46" width="184" height="18" rx="9"/>` +
-      `<text class="flag-text" x="0" y="-33.5" text-anchor="middle">${escXml(line)}</text>` +
-      `</g></g>`;
-  }
-  return out;
-}
-
 /** The stage svg for one beat state: the worldSvg shell pattern with act2's own
- *  defs ids (`a2-*`, so nothing depends on the hidden home-map svg), the walked
- *  scene-graph, then the site furniture. Pure string of the fold. */
+ *  defs ids (`a2-*`, so nothing depends on the hidden home-map svg), then the
+ *  walked scene-graph. Pure string of the fold. */
 function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string {
   let scene = sceneToSvg(buildScene(fold.sceneInput));
   // the scene's road marker references the home map's defs id — retarget it at
@@ -549,27 +629,25 @@ function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string
   scene = scene.split('url(#tw-arrow)').join('url(#a2-arrow)');
 
   const label =
-    'A staged map of one fictional story growing on quiet ground — the same look as the real ' +
+    'A staged map of fictional stories growing on quiet ground — the same look as the real ' +
     'storytree map. Nothing here is live; each Next step adds one idea.';
   return (
     `<svg class="tw-svg act2-svg${fold.preStory ? ' is-prestory' : ''}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" role="group" aria-roledescription="illustrated map" aria-label="${escXml(label)}" data-act2-beat="${beatIndex}">` +
     `<defs>` +
     `<radialGradient id="a2-board" cx="50%" cy="40%" r="80%"><stop offset="0" stop-color="#fbf3ea"/><stop offset="1" stop-color="#edd9c9"/></radialGradient>` +
-    `<marker id="a2-arrow" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1.4 L 8 5 L 0 8.6 z"/></marker>` +
-    `<marker id="a2-arrow-bad" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1.4 L 8 5 L 0 8.6 z"/></marker>` +
+    `<marker id="a2-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1.4 L 8 5 L 0 8.6 z"/></marker>` +
     `</defs>` +
     `<rect class="tw-bg act2-bg" x="0" y="0" width="${SCENE_W}" height="${SCENE_H}"/>` +
     scene +
-    furnitureSvg(fold, beatIndex === 4) +
     `</svg>`
   );
 }
 
 /** What each beat ADDS over the previous one — the groups that wear the enter
  *  animation on arrival (a pure function of the beat index, so a Back-replay
- *  re-renders the identical DOM and replays the same growth). `scale` is only
- *  ever put on transform-attribute-free groups (a CSS transform would clobber
- *  an SVG transform attribute); everything else fades. */
+ *  re-renders the identical DOM and replays the same growth). `scale` is only ever
+ *  put on transform-attribute-free groups (a CSS transform would clobber an SVG
+ *  transform attribute); everything else fades. */
 function enterSelectorsFor(beatIndex: number): { scale: string[]; fade: string[] } {
   switch (beatIndex) {
     case 1:
@@ -579,7 +657,9 @@ function enterSelectorsFor(beatIndex: number): { scale: string[]; fade: string[]
     case 3:
       return { scale: [], fade: ['.tw-flora-layer .tw-flora'] };
     case 4:
-      // pads + flag carry their enter class from the furniture string builder.
+    case 5:
+      // the newest upstream disc (its ground + coast + tree) fades/scales in; its
+      // dependency road fades in with it.
       return { scale: [], fade: ['.tw-roads .tw-road'] };
     default:
       return { scale: [], fade: [] };
@@ -595,18 +675,38 @@ interface CamRect {
   h: number;
 }
 
-/** Resolve a semantic focus anchor to a scene rect (pre-offset). */
+/** Resolve a semantic focus anchor to a scene rect (pre-offset). The synced
+ *  director emits: story-tree, upstream-backend, upstream-database, full-forest,
+ *  origin (ADR-0153). */
 function focusRect(fold: FoldedWorld, focus: string): Rect {
-  const treeTop = fold.treeSpot.y - (2.72 * crownRadius(fold.limbs.length) + 18);
-  const plateBottom = PLATE_Y + 36;
   switch (focus) {
     case 'story-tree': {
-      const w = Math.max(200, fold.sceneInput.territories[0]?.plate.w ?? 160) + 40;
+      // the anchor (website) tree + its plate row.
+      const anchor = anchorTerr(fold);
+      if (!anchor) return fold.islandRect;
+      const caps = anchor.limbs.length;
+      const treeTop = anchor.treeSpot.y - (2.72 * crownRadius(caps) + 18);
+      const plateBottom = anchor.centre.y + anchor.plateY + 36;
+      const w = 240;
       return { x: -w / 2, y: treeTop - 8, w, h: plateBottom - treeTop + 16 };
     }
-    case 'dag-view': {
-      const r = fold.contentRect;
-      return { x: r.x, y: treeTop - 8, w: r.w, h: r.y + r.h - treeTop + 16 };
+    case 'upstream-backend':
+    case 'upstream-database': {
+      // frame the newest upstream layer together with the website above it, so a
+      // new foundation layer coming into view reads as "this sits below what I
+      // already have" (the growing stack). Falls back to the content bounds.
+      const id = focus === 'upstream-backend' ? STORY_BACKEND : STORY_DATABASE;
+      const t = terrOf(fold, id);
+      const anchor = anchorTerr(fold);
+      if (t && anchor) {
+        const halfW = UPSTREAM_RINGS * Math.sqrt(3) * HEX_R + HEX_R + 24;
+        const top = anchor.treeSpot.y - (2.72 * crownRadius(anchor.limbs.length) + 18);
+        const bottom = t.centre.y + t.plateY + 40;
+        const left = Math.min(-halfW, t.centre.x - halfW);
+        const right = Math.max(halfW, t.centre.x + halfW);
+        return { x: left, y: top - 8, w: right - left, h: bottom - top + 16 };
+      }
+      return fold.contentRect;
     }
     case 'full-forest':
       return fold.contentRect;
@@ -641,8 +741,8 @@ const easeInOutCubic = (t: number): number =>
 export interface WalkthroughHandle {
   unmount(): void;
   /** Advance one beat programmatically — the orchestrator proposal's accept
-   *  (ADR-0148 §2) plants the first story so the visitor flows straight from
-   *  the proposal into beat 1 (a single felt gesture, not accept-then-tap). */
+   *  (ADR-0148 §2) plants the first story so the visitor flows straight from the
+   *  proposal into beat 1 (a single felt gesture, not accept-then-tap). */
   next(): void;
   /** Reveal the beat callout that {@link WalkthroughOptions.deferCallout}
    *  suppressed — called once the orchestrator overlay hands off. */
@@ -653,10 +753,9 @@ export interface WalkthroughOptions {
   /** Jump-cut everything (camera, growth, the stage fade) — the visitor prefers
    *  reduced motion. Read once by the caller at begin. */
   reducedMotion: boolean;
-  /** Keep the beat callout hidden until {@link WalkthroughHandle.revealCallout}
-   *  is called — the walk mounts UNDER the orchestrator proposal overlay
-   *  (ADR-0148 §2) and its narration must not compete while the proposal reads.
-   *  Defaults to false (the callout places itself on settle as before). */
+  /** Keep the beat callout hidden until {@link WalkthroughHandle.revealCallout} is
+   *  called — the walk mounts UNDER the orchestrator chat dock (ADR-0148 §2) and
+   *  its narration must not compete while the brief reads. Defaults to false. */
   deferCallout?: boolean;
 }
 
@@ -678,44 +777,61 @@ function stateAt(n: number, script: Beat[]): DirectorState {
   return s;
 }
 
-/** The per-beat callout anchor, in scene space (pre-offset): the exact map
- *  element the beat teaches. Also names the DOM selector the witness can hold
- *  the anchoring against. */
+/** The per-beat callout anchor, in scene space (pre-offset): the exact map element
+ *  the beat teaches. Also names the DOM selector the witness can hold the anchoring
+ *  against. */
 function anchorFor(fold: FoldedWorld, beatIndex: number): { rect: Rect; selector: string } {
+  const anchor = anchorTerr(fold);
   const orbitR = ISLAND_R * 0.72 + 10;
   switch (beatIndex) {
     case 1: {
-      const w = (fold.sceneInput.territories[0]?.plate.w ?? 160) + 24;
-      const top = fold.treeSpot.y - (2.72 * crownRadius(fold.limbs.length) + 18);
+      if (!anchor) return { rect: fold.islandRect, selector: '.tw-land' };
+      const top = anchor.treeSpot.y - (2.72 * crownRadius(anchor.limbs.length) + 18);
       return {
-        rect: { x: -w / 2, y: top, w, h: PLATE_Y + 34 - top },
+        rect: { x: -120, y: top, w: 240, h: anchor.centre.y + PLATE_Y + 34 - top },
         selector: '.tw-flora-layer .tw-terr',
       };
     }
-    case 2:
+    case 2: {
+      const cy = anchor?.treeSpot.y ?? 0;
       return {
-        rect: { x: -orbitR - 14, y: -orbitR - 14, w: orbitR * 2 + 28, h: orbitR * 2 + 28 },
+        rect: { x: -orbitR - 14, y: cy - orbitR - 14, w: orbitR * 2 + 28, h: orbitR * 2 + 28 },
         selector: '.tw-wisps',
       };
+    }
     case 3: {
-      const green = fold.limbs.find((l) => l.green);
-      const p = green?.pos ?? fold.treeSpot;
+      const green = anchor?.limbs.find((l) => l.green);
+      const p = green?.pos ?? anchor?.treeSpot ?? { x: 0, y: 0 };
       return {
         rect: { x: p.x - 16, y: p.y - 22, w: 32, h: 34 },
         selector: green ? `.tw-flora[data-id="${green.id}"]` : '.tw-terr',
       };
     }
     case 4: {
-      const v = fold.flagAt;
-      if (v) {
+      // the newest upstream story (the backend) — anchor on its tree/disc.
+      const t = terrOf(fold, STORY_BACKEND);
+      if (t) {
+        const halfW = UPSTREAM_RINGS * Math.sqrt(3) * HEX_R + HEX_R + 20;
         return {
-          rect: { x: v.x - 95, y: v.y - 50, w: 190, h: 62 },
-          selector: '.act2-flag',
+          rect: { x: t.centre.x - halfW, y: t.centre.y - halfW, w: halfW * 2, h: halfW * 2 + 30 },
+          selector: `.tw-terr[data-id="${t.id}"]`,
         };
       }
       return { rect: fold.contentRect, selector: '.tw-roads' };
     }
-    case 5:
+    case 5: {
+      // the database (the base) — anchor on it.
+      const t = terrOf(fold, STORY_DATABASE);
+      if (t) {
+        const halfW = UPSTREAM_RINGS * Math.sqrt(3) * HEX_R + HEX_R + 20;
+        return {
+          rect: { x: t.centre.x - halfW, y: t.centre.y - halfW, w: halfW * 2, h: halfW * 2 + 30 },
+          selector: `.tw-terr[data-id="${t.id}"]`,
+        };
+      }
+      return { rect: fold.contentRect, selector: '.act2-svg' };
+    }
+    case 6:
       return { rect: fold.contentRect, selector: '.act2-svg' };
     case 0:
     default:
@@ -724,9 +840,9 @@ function anchorFor(fold: FoldedWorld, beatIndex: number): { rect: Rect; selector
 }
 
 /**
- * Mount the walkthrough into the land layer. One container in, one unmount()
- * out — the inflection seam chains it into the page's existing disarm path
- * (Escape / skip / the classic-page affordance), so teardown is total.
+ * Mount the walkthrough into the land layer. One container in, one unmount() out —
+ * the inflection seam chains it into the page's existing disarm path (Escape / the
+ * global disarm), so teardown is total.
  */
 export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): WalkthroughHandle {
   const script = walkthroughScript;
@@ -736,9 +852,15 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   let director = initialState;
   let cta = false;
   let disposed = false;
-  // While the orchestrator proposal overlay is up (ADR-0148 §2), the beat
-  // callout is suppressed so the two do not compete; revealCallout() lifts it.
+  // While the orchestrator chat dock is up (ADR-0148 §2), the beat callout is
+  // suppressed so the two do not compete; revealCallout() lifts it.
   let calloutDeferred = opts.deferCallout === true;
+  // The inspect panel's open story id (null = closed). Only proposed upstream
+  // stories are inspectable (STORY_INSPECT keys).
+  let inspectId: string | null = null;
+  // The current drive-machinery overlay (ADR-0153 §5/§6), keyed by beat id; null
+  // when the current beat has no overlay.
+  let overlay: OverlayHandle | null = null;
 
   // ── the stage scaffold (plain DOM; styled by index.astro's global CSS) ──
   const stage = el('div', 'act2-stage');
@@ -748,13 +870,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
 
   const canvas = el('div', 'act2-canvas');
   canvas.setAttribute('data-act2-canvas', '');
-
-  // the quiet persistent skip (game-tutorial corner affordance)
-  const skipBar = el('div', 'act2-skipbar');
-  const skipBtn = el('button', 'act2-skip', 'skip the walk →');
-  skipBtn.type = 'button';
-  skipBtn.setAttribute('data-act2-skip', '');
-  skipBar.appendChild(skipBtn);
 
   // the anchored callout box (narration + the one primary Next)
   const callout = el('div', 'act2-callout');
@@ -780,7 +895,14 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const title = el('h2', 'act2-title');
   const body = el('p', 'act2-body');
   voice.append(title, body);
-  // the beat-5 legend (site furniture, shown only on the pull-back)
+  // an inline "inspect" prompt shown on the upstream-reveal beats (UAT 5) — the
+  // primary way in; the tree itself is also clickable (bound in renderScene).
+  const inspectPrompt = el('button', 'act2-inspect-open');
+  inspectPrompt.type = 'button';
+  inspectPrompt.setAttribute('data-act2-inspect-open', '');
+  inspectPrompt.hidden = true;
+  voice.append(inspectPrompt);
+  // the beat-6 legend (site furniture, shown only on the pull-back)
   const legend = el('ul', 'act2-legend');
   legend.setAttribute('aria-label', 'How to read the map');
   legend.innerHTML =
@@ -799,6 +921,35 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   controls.append(backBtn, nextBtn);
   callout.append(tail, head, voice, controls);
 
+  // ── the inspect panel (UAT 5): open a proposed upstream story → what + why ──
+  const inspect = el('div', 'act2-inspect');
+  inspect.setAttribute('data-act2-inspect', '');
+  inspect.setAttribute('role', 'dialog');
+  inspect.setAttribute('aria-modal', 'false');
+  inspect.setAttribute('aria-label', 'What this proposed story is, and why');
+  const inspectCard = el('div', 'act2-inspect-card');
+  const inspectBadge = el('span', 'act2-inspect-badge', 'proposed — not built yet');
+  inspectBadge.setAttribute('aria-hidden', 'true');
+  const inspectTitle = el('h3', 'act2-inspect-title');
+  const inspectWhatH = el('p', 'act2-inspect-h', 'What it is');
+  const inspectWhat = el('p', 'act2-inspect-p');
+  const inspectWhyH = el('p', 'act2-inspect-h', 'Why it’s proposed');
+  const inspectWhy = el('p', 'act2-inspect-p');
+  const inspectClose = el('button', 'act2-inspect-close', 'close');
+  inspectClose.type = 'button';
+  inspectClose.setAttribute('data-act2-inspect-close', '');
+  inspectCard.append(
+    inspectBadge,
+    inspectTitle,
+    inspectWhatH,
+    inspectWhat,
+    inspectWhyH,
+    inspectWhy,
+    inspectClose,
+  );
+  inspect.appendChild(inspectCard);
+  inspect.hidden = true;
+
   // the honest diorama-closing CTA (revealed at the end; every exit is real)
   const done = el('div', 'act2-done');
   done.setAttribute('data-act2-cta', '');
@@ -806,13 +957,11 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   done.setAttribute('aria-label', 'The end of the walk — where to next');
   const doneTitle = el('h2', 'act2-title', NARRATION[DONE_KEY]!.title);
   const doneBody = el('p', 'act2-body', NARRATION[DONE_KEY]!.body);
-  // The CTA hands off to "what's next" (ADR-0148 §5 / increment H): the mock's
-  // cart / payments / receipts cannot truly work without a backend, so the
-  // primary poses the upstream database + backend. Until increment H lands, that
-  // hand-off resolves to the real product (get-involved) — coherent, honest, and
-  // never a dead-end. The classic-front-page escape is REMOVED (a capable
-  // visitor is never offered it; the no-JS / reduced-motion fallback is the only
-  // graceful-degradation door, and it lives on index.astro).
+  // ADR-0150/0153: the walk ALREADY grew upstream — there is no "grow the backend
+  // next" destination. The CTA is the true END: it points at the real product
+  // (watched-live) and how it works — NOT any deprecated page. The no-JS /
+  // reduced-motion fallback (the ONLY non-experience path, ADR-0153 §3) lives on
+  // index.astro; these are real onward product pages, not an escape hatch.
   const doneNav = document.createElement('nav');
   doneNav.className = 'act2-done-links';
   doneNav.setAttribute('aria-label', 'Where to next');
@@ -820,11 +969,11 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   ctaNext.className = 'btn btn--primary';
   ctaNext.href = '/get-involved/';
   ctaNext.setAttribute('data-act2-whats-next', '');
-  ctaNext.textContent = 'grow the backend next →';
+  ctaNext.textContent = 'watch the real thing grow →';
   const ctaHow = document.createElement('a');
   ctaHow.className = 'btn btn--ghost';
   ctaHow.href = '/how-it-works/';
-  ctaHow.textContent = 'how the real thing works';
+  ctaHow.textContent = 'how it works';
   doneNav.append(ctaNext, ctaHow);
   const doneBack = el('button', 'act2-back-forest', '← back to the forest');
   doneBack.type = 'button';
@@ -832,7 +981,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   done.append(doneTitle, doneBody, doneNav, doneBack);
   done.hidden = true;
 
-  stage.append(canvas, skipBar, callout, done);
+  stage.append(canvas, callout, inspect, done);
   land.appendChild(stage);
 
   // ── the camera (a tweened viewBox; MOTION only — geometry is the fold's) ──
@@ -890,7 +1039,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       camFrom = null;
       camTo = target;
       applyViewBox(target);
-      // settle on the next frame so layout reflects the final viewBox first
       camRaf = requestAnimationFrame(() => settle());
       return;
     }
@@ -961,15 +1109,19 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       const fits = x >= M && y >= M && x + cw <= sr.width - M && y + ch <= sr.height - M;
       return { side, x, y, fits };
     };
-    // beat 5 speaks about the whole board — a calm fixed corner spot; otherwise
-    // hug the anchor on the first side that fits.
-    const wide = director.beatIndex === 5 || director.beatIndex === 0;
+    // the pull-back speaks about the whole board — a calm fixed corner spot;
+    // otherwise hug the anchor on the first side that fits. On the upstream beats
+    // (4/5) the drive-machinery overlay owns the TOP-RIGHT corner, so prefer LEFT
+    // there to avoid a collision.
+    const wide = director.beatIndex === 6 || director.beatIndex === 0;
+    const upstreamReveal = director.beatIndex === 4 || director.beatIndex === 5;
     const order: Cand['side'][] = wide
       ? ['bottom', 'right', 'left', 'top']
-      : ['right', 'left', 'bottom', 'top'];
+      : upstreamReveal
+        ? ['left', 'bottom', 'right', 'top']
+        : ['right', 'left', 'bottom', 'top'];
     let pick = order.map(mk).find((c) => c.fits);
     if (!pick) {
-      // nothing fully fits (a small stage) — bottom-centre, clamped on-stage.
       const x = clamp(acx - cw / 2, M, Math.max(M, sr.width - cw - M));
       const y = clamp(anchor.bottom + G, M, Math.max(M, sr.height - ch - M));
       pick = { side: 'bottom', x, y, fits: false };
@@ -979,7 +1131,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     callout.style.top = `${pick.y.toFixed(1)}px`;
     callout.dataset['side'] = pick.side;
 
-    // the tail points back at the anchor's centre, clamped along the edge
     if (pick.side === 'right' || pick.side === 'left') {
       const ty = clamp(acy - pick.y, 18, ch - 18);
       tail.style.top = `${ty.toFixed(1)}px`;
@@ -998,9 +1149,81 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const exposeWitness = (): void => {
     (
       window as unknown as {
-        __act2?: { beatIndex: number; done: boolean; cta: boolean; settled: boolean };
+        __act2?: {
+          beatIndex: number;
+          done: boolean;
+          cta: boolean;
+          settled: boolean;
+          inspect: string | null;
+        };
       }
-    ).__act2 = { beatIndex: director.beatIndex, done: director.done, cta, settled };
+    ).__act2 = {
+      beatIndex: director.beatIndex,
+      done: director.done,
+      cta,
+      settled,
+      inspect: inspectId,
+    };
+  };
+
+  // ── the drive-machinery overlay (ADR-0153 §5/§6): mount for this beat, clear the
+  //    previous. Keyed by beat id — the id of the beat just applied. ──
+  const clearOverlay = (): void => {
+    if (overlay) {
+      overlay.clear();
+      overlay = null;
+    }
+  };
+  const syncOverlay = (): void => {
+    clearOverlay();
+    if (cta || director.beatIndex === 0) return;
+    const beat = script[director.beatIndex - 1];
+    if (!beat) return;
+    overlay = mountDriveOverlay(stage, beat.id, { reducedMotion });
+  };
+
+  // ── the inspect affordance (UAT 5) ──
+  const inspectableAt = (beatIndex: number): TerritoryMeta | null => {
+    // On the upstream-reveal beats, the newest revealed upstream story is the one
+    // the prompt opens (beat 4 → backend, beat 5+ → database).
+    const fold = currentFold();
+    if (beatIndex === 4) return terrOf(fold, STORY_BACKEND) ?? null;
+    if (beatIndex >= 5) return terrOf(fold, STORY_DATABASE) ?? terrOf(fold, STORY_BACKEND) ?? null;
+    return null;
+  };
+
+  const openInspect = (id: string): void => {
+    const data: StoryInspect | undefined = STORY_INSPECT[id];
+    if (!data) return;
+    inspectId = id;
+    inspectTitle.textContent = data.label;
+    inspectWhat.textContent = data.what;
+    inspectWhy.textContent = data.why;
+    inspect.hidden = false;
+    requestAnimationFrame(() => {
+      if (!disposed) inspect.classList.add('is-open');
+    });
+    try {
+      inspectClose.focus({ preventScroll: true });
+    } catch {
+      /* focus is a courtesy */
+    }
+    exposeWitness();
+  };
+
+  const closeInspect = (): void => {
+    if (inspectId === null) return;
+    inspectId = null;
+    inspect.classList.remove('is-open');
+    inspect.hidden = true;
+    exposeWitness();
+    if (!cta) {
+      try {
+        nextBtn.focus({ preventScroll: true });
+      } catch {
+        /* focus is a courtesy */
+      }
+    }
   };
 
   // ── render: fold → buildScene → sceneToSvg → swap the stage svg ──
@@ -1017,26 +1240,31 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     canvas.innerHTML = stageSvg(fold, director.beatIndex, vbString(startVb));
     svgEl = canvas.querySelector('svg');
 
-    // the walk is a diorama, not the studio: the delegation hit layer goes
-    // inert — the walk's own affordances are the only interactive surface.
+    // the walk is a diorama, not the studio: the delegation hit layer goes inert —
+    // the walk's own affordances are the only interactive surface.
     canvas.querySelectorAll('.tw-hit').forEach((h) => {
       h.removeAttribute('tabindex');
       h.removeAttribute('role');
       h.setAttribute('aria-hidden', 'true');
     });
 
-    // the violating road is distinguishable FROM ITS DATA: the fold knows which
-    // road carries a declared violation — mark it for the site CSS (dash +
-    // crimson + a matching crimson arrowhead).
-    for (const r of fold.roads) {
-      if (r.violation === undefined) continue;
-      const bad = canvas.querySelector(`.tw-road[data-from="${r.from}"][data-to="${r.to}"]`);
-      bad?.classList.add('act2-violation');
-      bad?.querySelector('.line')?.setAttribute('marker-end', 'url(#a2-arrow-bad)');
+    // an upstream story's tree/disc is clickable to INSPECT it (UAT 5) — a
+    // first-class affordance, keyed by story id. Mark the proposed upstream
+    // territories interactive.
+    for (const t of fold.territories) {
+      if (!t.upstream || !(t.id in STORY_INSPECT)) continue;
+      const terr = canvas.querySelector(`.tw-terr[data-id="${t.id}"]`);
+      if (terr) {
+        terr.classList.add('act2-inspectable');
+        terr.setAttribute('role', 'button');
+        terr.setAttribute('tabindex', '0');
+        terr.setAttribute('aria-label', `Inspect ${t.label} — what it is and why it’s proposed`);
+        (terr as SVGElement & { dataset: DOMStringMap }).dataset['act2Inspect'] = t.id;
+      }
     }
 
-    // growth: what THIS beat added scales/fades in (deterministic per beat —
-    // a Back-replay re-renders the identical DOM and replays the same growth).
+    // growth: what THIS beat added scales/fades in (deterministic per beat — a
+    // Back-replay re-renders the identical DOM and replays the same growth).
     const enter = enterSelectorsFor(director.beatIndex);
     for (const sel of enter.scale) {
       canvas.querySelectorAll(sel).forEach((n) => n.classList.add('act2-enter'));
@@ -1047,11 +1275,26 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
         // the proven limb greens LAST, landing with the narration (never before)
         if (director.beatIndex === 3) {
           const id = n.getAttribute('data-id');
-          const greenLast = fold.limbs.filter((l) => !l.green).map((l) => l.id);
-          const ei = id === null ? i : greenLast.indexOf(id) === -1 ? greenLast.length : greenLast.indexOf(id);
+          const anchor = anchorTerr(fold);
+          const greenLast = (anchor?.limbs ?? []).filter((l) => !l.green).map((l) => l.id);
+          const ei =
+            id === null ? i : greenLast.indexOf(id) === -1 ? greenLast.length : greenLast.indexOf(id);
           (n as SVGElement).style.setProperty('--ei', String(ei));
         }
       });
+    }
+    // on the upstream beats, the newest disc's flora/coast/ground fade in with its
+    // road (scoped to the newest territory by data-id).
+    if (director.beatIndex === 4 || director.beatIndex === 5) {
+      const id = director.beatIndex === 4 ? STORY_BACKEND : STORY_DATABASE;
+      const t = terrOf(fold, id);
+      if (t) {
+        canvas
+          .querySelectorAll(
+            `.tw-terr[data-id="${t.id}"], .tw-isle[data-id="${t.id}"], .tw-ground[data-id="${t.id}"]`,
+          )
+          .forEach((n) => n.classList.add('act2-enter-fade'));
+      }
     }
 
     moveCamera(target, false);
@@ -1074,6 +1317,18 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       d.classList.toggle('is-lit', director.beatIndex >= i + 1);
     });
 
+    // the inspect prompt: shown on the upstream-reveal beats, labelled for the
+    // story it opens (UAT 5 — comprehension on demand, first-class not a tooltip).
+    const insp = inspectableAt(director.beatIndex);
+    if (insp && !cta) {
+      inspectPrompt.hidden = false;
+      inspectPrompt.textContent = `what is “${insp.label}”, and why? →`;
+      inspectPrompt.dataset['act2InspectId'] = insp.id;
+    } else {
+      inspectPrompt.hidden = true;
+      delete inspectPrompt.dataset['act2InspectId'];
+    }
+
     if (director.beatIndex === 0) nextBtn.textContent = 'plant a story →';
     else if (director.done) nextBtn.textContent = 'finish the walk →';
     else nextBtn.textContent = 'next →';
@@ -1083,7 +1338,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
 
     done.hidden = !cta;
     callout.classList.toggle('is-cta', cta);
-    skipBar.hidden = cta;
     exposeWitness();
   };
 
@@ -1092,14 +1346,17 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   };
 
   const applyDirector = (next: DirectorState): void => {
+    // any open inspect closes when the walk moves.
+    if (inspectId !== null) closeInspect();
     director = next;
     hideCallout();
     renderScene();
     syncPanel();
+    syncOverlay();
     onSettle = (): void => {
       if (cta || disposed) return;
       placeCallout();
-      // while the orchestrator proposal owns focus (calloutDeferred), the walk
+      // while the orchestrator chat dock owns focus (calloutDeferred), the walk
       // must not steal it back to Next behind the overlay.
       if (calloutDeferred) return;
       try {
@@ -1109,7 +1366,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       }
     };
     if (settled) {
-      // snap path may have already settled before onSettle was set
       const cb = onSettle;
       onSettle = null;
       cb();
@@ -1118,6 +1374,8 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
 
   const enterCta = (): void => {
     cta = true;
+    if (inspectId !== null) closeInspect();
+    clearOverlay();
     hideCallout();
     callout.hidden = true;
     syncPanel();
@@ -1132,6 +1390,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     cta = false;
     callout.hidden = false;
     syncPanel();
+    syncOverlay();
     onSettle = null;
     placeCallout();
     try {
@@ -1141,7 +1400,8 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     }
   };
 
-  // ── the affordances (the visitor disposes; nothing auto-advances) ──
+  // ── the affordances (the visitor disposes; nothing auto-advances). No in-walk
+  //    skip (ADR-0153 §3 — Escape is the only exit, to the a11y fallback). ──
   const onNext = (): void => {
     if (cta) return;
     if (!director.done) applyDirector(advance(director, script));
@@ -1154,16 +1414,34 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     }
     if (director.beatIndex > 0) applyDirector(stateAt(director.beatIndex - 1, script));
   };
-  const onSkip = (): void => {
-    if (cta) return;
-    director = stateAt(script.length, script);
-    renderScene();
-    enterCta();
+  const onInspectPromptClick = (): void => {
+    const id = inspectPrompt.dataset['act2InspectId'];
+    if (id) openInspect(id);
+  };
+  // click/keyboard on an upstream tree opens its inspect panel too.
+  const onCanvasClick = (ev: MouseEvent): void => {
+    const target = ev.target as Element | null;
+    const host = target?.closest<SVGElement>('[data-act2-inspect]');
+    const id = host?.dataset?.['act2Inspect'];
+    if (id) openInspect(id);
+  };
+  const onCanvasKey = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const target = ev.target as Element | null;
+    const host = target?.closest<SVGElement>('[data-act2-inspect]');
+    const id = host?.dataset?.['act2Inspect'];
+    if (id) {
+      ev.preventDefault();
+      openInspect(id);
+    }
   };
   nextBtn.addEventListener('click', onNext);
   backBtn.addEventListener('click', onBack);
   doneBack.addEventListener('click', onBack);
-  skipBtn.addEventListener('click', onSkip);
+  inspectPrompt.addEventListener('click', onInspectPromptClick);
+  inspectClose.addEventListener('click', closeInspect);
+  canvas.addEventListener('click', onCanvasClick);
+  canvas.addEventListener('keydown', onCanvasKey);
 
   // re-anchor on resize (the viewBox rect is aspect-matched to the stage)
   const onResize = (): void => {
@@ -1194,8 +1472,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     revealCallout(): void {
       if (disposed || !calloutDeferred) return;
       calloutDeferred = false;
-      // place the callout for the current beat (the walk has been sitting on
-      // beat 0/1 under the proposal); settle may already have passed.
       if (!cta) placeCallout();
     },
     unmount(): void {
@@ -1203,10 +1479,14 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       disposed = true;
       cancelAnimationFrame(camRaf);
       onSettle = null;
+      clearOverlay();
       nextBtn.removeEventListener('click', onNext);
       backBtn.removeEventListener('click', onBack);
       doneBack.removeEventListener('click', onBack);
-      skipBtn.removeEventListener('click', onSkip);
+      inspectPrompt.removeEventListener('click', onInspectPromptClick);
+      inspectClose.removeEventListener('click', closeInspect);
+      canvas.removeEventListener('click', onCanvasClick);
+      canvas.removeEventListener('keydown', onCanvasKey);
       window.removeEventListener('resize', onResize);
       stage.remove();
       delete (window as unknown as { __act2?: unknown }).__act2;

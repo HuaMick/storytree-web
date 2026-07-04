@@ -1,92 +1,102 @@
 // ---------------------------------------------------------------------------
-// act2-orchestrator — the scripted SESSION-ORCHESTRATOR proposal (ADR-0148 §2),
-// the meatiest new piece of increment G. Right after the storm→2.5D transform,
-// before the guided walk beats, the session orchestrator (storytree's
+// act2-orchestrator — the SESSION-ORCHESTRATOR chat that carries step 1's OUTCOME
+// BRIEF (ADR-0148 §2, re-directed by ADR-0153 §4). Right after the storm→2.5D
+// transform, before the guided walk beats, the session orchestrator (storytree's
 // human-facing planning agent, ADR-0030 — the "manager who scopes the work" in
 // the owner's org analogy) answers the reused prompt ("build me a shopping
-// website") by proposing the honest minimum a vibe coder wants: a MOCK LOCAL
-// WEBSITE — no backend — to validate the idea.
+// website") by reading the OUTCOME back with an EXAMPLE, then proposing the honest
+// minimum a vibe coder wants: a MOCK LOCAL WEBSITE — no backend — to see the idea.
 //
-// The exchange is HONEST (explicitly a mock; it never pretends to be a working
-// product) and MEETS THE USER WHERE THEY ARE (it does not lead with "you need a
-// backend first"; it does not overwhelm). It is site-side FICTION (the Cohoot
-// precedent, ADR-0093) and is the SEAM increment H extends — the same
-// orchestrator returns to guide "what's next" once the walk ends.
+// ── ADR-0153 re-direction ────────────────────────────────────────────────────
+//  • Step 1 is an OUTCOME BRIEF with an example, carried by the orchestrator CHAT
+//    at the BOTTOM (§4) — the REAL app's chat surface, not a centered card.
+//  • REAL app UI (§2): this faithfully RE-CREATES the studio's chat dock (the site
+//    can't import studio React across the repo boundary) — a warm-dark, terminal-
+//    style MONOSPACE dock anchored at the bottom of the map frame, with a `›` glyph
+//    for the orchestrator, streamed warm-beige replies + an amber caret, and a
+//    pinned prompt row. Tokens are the studio's (apps/studio/src/index.css chat
+//    palette): --chat-bg #1e1a15, --chat-sage #8fb87a, --chat-reply #d8cfb8, etc.
+//  • NO escape hatches (§3): the old "skip the intro" secondary is REMOVED — the
+//    only affordance is the primary that plants the first story and begins the walk.
+//  • Progressive disclosure (§2): the chat dock is the FIRST piece of the real UI
+//    the visitor is walked through; the rest of the interface reveals as the walk
+//    earns it.
 //
-// This module is PURE data + a small DOM streamer, mirroring act1-storm's
-// finale idiom (a deterministic plan → a rAF-free timed reveal). No React, no
-// three.js, no WebGL, no live data, no Math.random, no wall-clock in the PLAN
-// (elapsed time drives the reveal cadence only). Keep it SHORT — a few felt
-// lines, not a wall of chat.
+// This module is PURE data + a small DOM streamer, mirroring act1-storm's finale
+// idiom (a deterministic plan → a rAF-free timed reveal). No React, no three.js,
+// no WebGL, no live data, no Math.random, no wall-clock in the PLAN (elapsed time
+// drives the reveal cadence only). It is site-side FICTION (the Cohoot precedent,
+// ADR-0093) and the SEAM the walk continues from (the same voice returns to guide
+// the upstream reveal). Keep it SHORT — a felt exchange, not a wall of chat.
 // ---------------------------------------------------------------------------
 
-/** One line of the orchestrator's proposal, tagged by who speaks / how it reads. */
-export interface ProposalLine {
-  /** 'orchestrator' = the planning agent's voice; 'note' = a quiet honest aside
-   *  (the explicit "this is a mock" framing, styled muted). */
-  readonly who: 'orchestrator' | 'note';
+/** The visitor's reused request, echoed at the top of the chat (the prompt the
+ *  storm carried in). */
+export const USER_PROMPT = 'build me a shopping website';
+
+/** One streamed line of the orchestrator's reply, tagged by how it reads. */
+export interface ReplyLine {
+  /** 'reply' = the orchestrator's plain voice; 'brief' = the outcome-brief line
+   *  (the example, set apart); 'note' = a quiet honest aside (the "this is a mock"
+   *  framing, styled muted). */
+  readonly kind: 'reply' | 'brief' | 'note';
   readonly text: string;
 }
 
 /**
- * The scripted exchange. FIVE felt lines: the orchestrator greets the request,
- * proposes the mock-first plan, is explicit that it is a mock (honesty), names
- * why (meet the user where they are — see it first), and hands to the walk.
- * Deliberately short — the walk itself carries the teaching.
+ * The scripted reply. The orchestrator reads the OUTCOME back with an EXAMPLE (the
+ * brief), then proposes the honest mock-first plan and names why. Deliberately
+ * short — the walk itself carries the teaching.
  *
  * FICTION discipline (as the storm corpus): no real vendors, no statistics.
  */
-export const PROPOSAL_LINES: readonly ProposalLine[] = [
+export const REPLY_LINES: readonly ReplyLine[] = [
   {
-    who: 'orchestrator',
-    text: 'Okay — “build me a shopping website”. I heard you the first time; let’s do it properly.',
+    kind: 'reply',
+    text: 'Got it. Let me read that back as an outcome, so we both know what “done” means.',
   },
   {
-    who: 'orchestrator',
+    kind: 'brief',
+    text: 'Outcome: shoppers can add items to a cart, pay, and get a receipt. Example: a visitor fills a cart, checks out, and sees “order confirmed”.',
+  },
+  {
+    kind: 'reply',
     text:
-      'Before we wire up anything real, let’s stand up a mock shopping site — cart, payments, ' +
-      'receipts — running locally, no backend yet. Just enough to see your idea and feel whether ' +
-      'it’s right.',
+      'First pass, let’s stand up a mock of exactly that — cart, payments, receipts — running ' +
+      'locally, no backend yet. Just enough to see your idea and feel whether it’s right.',
   },
   {
-    who: 'note',
-    text: 'To be clear: this is a mock. Nothing charges a card or saves an order yet — it’s a sketch you can look at.',
+    kind: 'note',
+    text: 'To be clear: this is a mock. Nothing charges a card or stores an order yet — it’s a sketch you can look at.',
   },
   {
-    who: 'orchestrator',
-    text:
-      'That’s on purpose. You wanted to see a website, not a database diagram. We start with what ' +
-      'you can look at, then grow the real parts underneath — only when you ask for them.',
-  },
-  {
-    who: 'orchestrator',
-    text: 'Watch how it grows. One step at a time — you set the pace.',
+    kind: 'reply',
+    text: 'That’s on purpose — you asked for a website, not a database diagram. We start with what you can see, then grow the real parts it rests on, only when you ask.',
   },
 ];
 
-/** The primary button label that dismisses the proposal and starts the walk. */
+/** The primary button label that begins the walk (plants the first story). There
+ *  is NO skip affordance (ADR-0153 §3 — no escape hatches). */
 export const PROPOSAL_CTA = 'plant the first story →';
-/** The quiet secondary that skips straight past the proposal (never stranded). */
-export const PROPOSAL_SKIP = 'skip the intro →';
 
 // ── the reveal cadence (motion only; the PLAN above is pure) ──────────────────
 
 /** ms before the first line appears (a beat of calm after the land resolves). */
-const LEAD_MS = 650;
+const LEAD_MS = 620;
 /** ms between successive lines revealing. */
-const STEP_MS = 1400;
+const STEP_MS = 1250;
 /** ms after the last line before the primary CTA fades in. */
-const CTA_BEAT_MS = 700;
+const CTA_BEAT_MS = 640;
 
 export interface OrchestratorOptions {
   /** Reduced motion (or a fast path): reveal every line at once, no stagger. */
   readonly reducedMotion: boolean;
-  /** Called when the visitor accepts the proposal (or skips it) — starts the walk. */
+  /** Called when the visitor accepts the proposal — starts the walk. */
   readonly onAccept: () => void;
 }
 
 export interface OrchestratorHandle {
-  /** Tear the proposal overlay down (chained by the page's disarm path). */
+  /** Tear the chat dock down (chained by the page's disarm path). */
   unmount(): void;
 }
 
@@ -102,55 +112,77 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 /**
- * Mount the orchestrator proposal overlay into `host` (the 2.5D land layer).
- * It sits above the calm empty ground; its accept/skip both call `onAccept`,
- * which the caller wires to start the guided walk. One handle out — the page's
+ * Mount the orchestrator chat DOCK into `host` (the 2.5D land layer). It anchors
+ * at the BOTTOM of the frame (the real app's chat position) over the calm empty
+ * ground; its primary begins the walk via `onAccept`. One handle out — the page's
  * existing disarm path chains unmount() so a mid-exchange exit tears it down.
  *
- * The DOM is a small chat card (namespaced `a2o-`, styled by index.astro's
- * global CSS). A witness hook (window.__act2orch) exposes { revealed, done } so
- * the headless witness can assert the exchange reads before the walk begins.
+ * The DOM is a faithful re-creation of the studio chat dock (namespaced
+ * `a2chat-`/`chat-dock`, styled by index.astro's global CSS with the studio's
+ * chat tokens). A witness hook (window.__act2orch) exposes { revealed, total,
+ * done } so the headless witness can assert the brief reads before the walk.
  */
 export function mountOrchestrator(host: HTMLElement, opts: OrchestratorOptions): OrchestratorHandle {
   const { reducedMotion, onAccept } = opts;
   let disposed = false;
   const timers: number[] = [];
 
-  const overlay = el('div', 'a2o-overlay');
+  const overlay = el('div', 'a2chat-dock chat-dock');
   overlay.setAttribute('data-act2-orchestrator', '');
   overlay.setAttribute('role', 'group');
-  overlay.setAttribute('aria-label', 'The session orchestrator proposes a first step');
+  overlay.setAttribute('aria-label', 'The session orchestrator — your chat');
 
-  const card = el('div', 'a2o-card');
+  // scrollback (the real app's .chat-outcome): the prompt echo, then the reply.
+  const scroll = el('div', 'a2chat-scroll');
+  scroll.setAttribute('aria-live', 'polite');
 
-  const head = el('div', 'a2o-head');
-  const badge = el('span', 'a2o-badge', 'orchestrator');
-  badge.setAttribute('aria-hidden', 'true');
-  const who = el('p', 'a2o-who', 'The session orchestrator');
-  head.append(badge, who);
+  // the user's echoed prompt: `› ` sage glyph + the request text.
+  const promptRow = el('div', 'a2chat-prompt-echo');
+  const promptGlyph = el('span', 'a2chat-glyph', '›');
+  promptGlyph.setAttribute('aria-hidden', 'true');
+  const promptText = el('span', 'a2chat-user', USER_PROMPT);
+  promptRow.append(promptGlyph, promptText);
+  scroll.appendChild(promptRow);
 
-  const thread = el('div', 'a2o-thread');
-  thread.setAttribute('aria-live', 'polite');
+  // the orchestrator's streamed reply block.
+  const replyBlock = el('div', 'a2chat-reply-block');
+  const replyGlyph = el('span', 'a2chat-glyph a2chat-glyph--agent', '›');
+  replyGlyph.setAttribute('aria-hidden', 'true');
+  const replyBody = el('div', 'a2chat-reply-body');
+  replyBlock.append(replyGlyph, replyBody);
+  scroll.appendChild(replyBlock);
 
-  const lineEls: HTMLElement[] = PROPOSAL_LINES.map((line) => {
-    const row = el('p', `a2o-line a2o-${line.who}`, line.text);
+  const lineEls: HTMLElement[] = REPLY_LINES.map((line) => {
+    const row = el('p', `a2chat-line a2chat-${line.kind}`, line.text);
     if (!reducedMotion) row.classList.add('is-hidden');
-    thread.appendChild(row);
+    replyBody.appendChild(row);
     return row;
   });
+  // the streaming caret (amber ▋) — sits at the end of the reply while it streams.
+  const caret = el('span', 'a2chat-caret', '▋');
+  caret.setAttribute('aria-hidden', 'true');
+  replyBody.appendChild(caret);
 
-  const actions = el('div', 'a2o-actions');
+  // the pinned prompt row (the real app's .chat-form): `›` glyph + a disabled
+  // textarea showing the sent prompt (a diorama — the input is inert), then the
+  // primary that begins the walk. Hint below, as the studio.
+  const form = el('div', 'a2chat-form');
+  const formGlyph = el('span', 'a2chat-glyph', '›');
+  formGlyph.setAttribute('aria-hidden', 'true');
+  const input = el('div', 'a2chat-input');
+  input.setAttribute('aria-hidden', 'true');
+  input.textContent = USER_PROMPT;
+  const actions = el('div', 'a2chat-actions');
   if (!reducedMotion) actions.classList.add('is-hidden');
-  const acceptBtn = el('button', 'a2o-accept btn btn--primary', PROPOSAL_CTA);
+  const acceptBtn = el('button', 'a2chat-accept', PROPOSAL_CTA);
   acceptBtn.type = 'button';
   acceptBtn.setAttribute('data-act2-orchestrator-accept', '');
-  const skipBtn = el('button', 'a2o-skip', PROPOSAL_SKIP);
-  skipBtn.type = 'button';
-  skipBtn.setAttribute('data-act2-orchestrator-skip', '');
-  actions.append(acceptBtn, skipBtn);
+  actions.append(acceptBtn);
+  form.append(formGlyph, input, actions);
 
-  card.append(head, thread, actions);
-  overlay.appendChild(card);
+  const hint = el('p', 'a2chat-hint', 'a staged chat — one step begins the walk');
+
+  overlay.append(scroll, form, hint);
   host.appendChild(overlay);
 
   const exposeWitness = (revealed: number, done: boolean): void => {
@@ -158,13 +190,14 @@ export function mountOrchestrator(host: HTMLElement, opts: OrchestratorOptions):
       window as unknown as {
         __act2orch?: { revealed: number; total: number; done: boolean };
       }
-    ).__act2orch = { revealed, total: PROPOSAL_LINES.length, done };
+    ).__act2orch = { revealed, total: REPLY_LINES.length, done };
   };
 
   const finish = (): void => {
-    for (const el of lineEls) el.classList.remove('is-hidden');
+    for (const l of lineEls) l.classList.remove('is-hidden');
+    caret.classList.add('is-done'); // stop the caret once the stream lands
     actions.classList.remove('is-hidden');
-    exposeWitness(PROPOSAL_LINES.length, true);
+    exposeWitness(REPLY_LINES.length, true);
     try {
       acceptBtn.focus({ preventScroll: true });
     } catch {
@@ -201,7 +234,6 @@ export function mountOrchestrator(host: HTMLElement, opts: OrchestratorOptions):
     if (accepted || disposed) return;
     accepted = true;
     overlay.classList.add('is-leaving');
-    // let the fade-out run, then hand to the walk
     const handoff = (): void => {
       if (disposed) return;
       onAccept();
@@ -210,13 +242,8 @@ export function mountOrchestrator(host: HTMLElement, opts: OrchestratorOptions):
     else timers.push(window.setTimeout(handoff, 420));
   };
   acceptBtn.addEventListener('click', accept);
-  skipBtn.addEventListener('click', () => {
-    // skip reveals everything instantly if still streaming, then accepts
-    for (const el of lineEls) el.classList.remove('is-hidden');
-    accept();
-  });
 
-  // reveal on first paint (the fade-up is CSS)
+  // reveal on first paint (the slide-up is CSS)
   requestAnimationFrame(() => {
     if (!disposed) overlay.classList.add('is-live');
   });

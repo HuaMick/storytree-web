@@ -613,77 +613,199 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   .storm-land-canvas { position: absolute; inset: 0; }
 
   /* ======================================================================
-     The session orchestrator's mock-website proposal (ADR-0148 §2) — a short
-     scripted chat card over the calm 2.5D ground, shown right after the
-     transform and before the walk beats. Global because act2-orchestrator.ts
-     creates the DOM at runtime; namespaced a2o-. The card reads as a planning
-     agent scoping the work, then hands to the walk on accept.
+     The session orchestrator CHAT DOCK (ADR-0148 §2 / ADR-0153 §2/§4) — a
+     FAITHFUL re-creation of the REAL studio chat dock (apps/studio ChatDock/
+     ChatPanel; the site can't import studio React across the repo boundary, so
+     the look is replicated against the studio's chat tokens). A warm-dark,
+     terminal-style MONOSPACE dock anchored at the BOTTOM of the map frame,
+     carrying step 1's OUTCOME BRIEF. Global because act2-orchestrator.ts creates
+     the DOM at runtime; namespaced a2chat-. NO skip affordance (ADR-0153 §3).
      ====================================================================== */
-  .a2o-overlay {
-    position: absolute; inset: 0; z-index: 9;
-    display: flex; align-items: center; justify-content: center;
-    padding: 1.2rem;
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    font-family: var(--font-body);
+  .a2chat-dock {
+    /* the studio chat palette (apps/studio/src/index.css, scoped to .chat-dock) */
+    --chat-bg: #1e1a15;
+    --chat-input-bg: #191510;
+    --chat-border-inner: #2c251a;
+    --chat-border-outer: #38301f;
+    --chat-sage: #8fb87a;
+    --chat-reply: #d8cfb8;
+    --chat-user: #e7debd;
+    --chat-muted: #6f6450;
+    --chat-caret: #d9a441;
+    --chat-mono: 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', Menlo, ui-monospace, monospace;
+
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 9;
+    display: flex; flex-direction: column;
+    max-height: min(64vh, 460px);
+    background: var(--chat-bg);
+    border-top: 1px solid var(--chat-border-outer);
+    border-top-left-radius: 10px; border-top-right-radius: 10px;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.28);
+    font-family: var(--chat-mono);
+    translate: 0 12px; opacity: 0;
+    transition: translate 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s ease;
   }
-  .a2o-overlay.is-live { opacity: 1; }
-  .a2o-overlay.is-leaving { opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
+  .a2chat-dock.is-live { translate: 0 0; opacity: 1; }
+  .a2chat-dock.is-leaving { translate: 0 12px; opacity: 0; pointer-events: none; }
   @media (prefers-reduced-motion: reduce) {
-    .a2o-overlay, .a2o-overlay.is-leaving { transition: none; }
+    .a2chat-dock, .a2chat-dock.is-leaving { transition: none; translate: 0 0; }
   }
-  .a2o-card {
-    width: min(500px, 94vw);
-    max-height: 86vh; overflow-y: auto;
-    background: var(--surface); color: var(--ink);
-    border-radius: var(--radius);
-    box-shadow: 0 24px 80px rgba(40, 26, 12, 0.4);
-    padding: 1.3rem 1.4rem 1.2rem;
+
+  /* the scrollback (the studio's .chat-outcome): the prompt echo, then the reply */
+  .a2chat-scroll {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding: 16px 18px 10px;
+    font-size: 13px; line-height: 1.65;
   }
-  .a2o-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.85rem; }
-  .a2o-badge {
-    font: 700 0.62rem var(--font-body); letter-spacing: 0.1em; text-transform: uppercase;
-    color: #fff; background: var(--evergreen);
-    padding: 0.28rem 0.55rem; border-radius: 999px;
-  }
-  .a2o-who { margin: 0; font: 650 0.82rem var(--font-body); color: var(--ink-soft); }
-  .a2o-thread { display: flex; flex-direction: column; gap: 0.6rem; }
-  .a2o-line {
-    margin: 0; font-size: 0.95rem; line-height: 1.55; color: var(--ink);
+  .a2chat-glyph { color: var(--chat-sage); font-weight: 700; user-select: none; }
+  .a2chat-prompt-echo { display: flex; gap: 0.5ch; margin-bottom: 0.85rem; }
+  .a2chat-user { color: var(--chat-user); }
+  .a2chat-reply-block { display: flex; gap: 0.5ch; }
+  .a2chat-glyph--agent { align-self: flex-start; }
+  .a2chat-reply-body { flex: 1; min-width: 0; }
+  .a2chat-line {
+    margin: 0 0 0.6rem; color: var(--chat-reply);
     transition: opacity 0.4s ease, translate 0.4s ease;
   }
-  .a2o-line.is-hidden { opacity: 0; translate: 0 6px; }
-  .a2o-orchestrator {
-    background: rgba(60, 42, 22, 0.05);
-    border-radius: 0.6rem;
-    padding: 0.55rem 0.75rem;
+  .a2chat-line.is-hidden { opacity: 0; translate: 0 5px; }
+  /* the outcome-brief line — the EXAMPLE, set apart (a quiet card the way the
+     studio shows a plan block) */
+  .a2chat-brief {
+    color: var(--chat-user);
+    background: rgba(143, 184, 122, 0.09);
+    border-left: 2px solid var(--chat-sage);
+    padding: 0.5rem 0.7rem; border-radius: 0 6px 6px 0;
   }
-  /* the honest "this is a mock" aside — quiet, set apart */
-  .a2o-note {
-    font-size: 0.85rem; color: var(--ink-faint); font-style: italic;
-    border-left: 3px solid var(--line-strong); padding-left: 0.75rem;
-  }
+  /* the honest "this is a mock" aside — muted, italic */
+  .a2chat-note { color: var(--chat-muted); font-style: italic; }
   @media (prefers-reduced-motion: reduce) {
-    .a2o-line { transition: none; }
-    .a2o-line.is-hidden { opacity: 1; translate: 0 0; }
+    .a2chat-line { transition: none; }
+    .a2chat-line.is-hidden { opacity: 1; translate: 0 0; }
   }
-  .a2o-actions {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem;
-    margin-top: 1.1rem;
-    transition: opacity 0.4s ease;
+  /* the streaming caret (amber ▋, 1s step blink — the studio's) */
+  .a2chat-caret {
+    color: var(--chat-caret);
+    animation: a2chat-blink 1s steps(1) infinite;
   }
-  .a2o-actions.is-hidden { opacity: 0; pointer-events: none; }
+  .a2chat-caret.is-done { display: none; }
+  @keyframes a2chat-blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .a2chat-caret { animation: none; } }
+
+  /* the pinned prompt row (the studio's .chat-form): glyph + the sent prompt
+     (inert — a diorama) + the primary that begins the walk */
+  .a2chat-form {
+    flex: none;
+    display: flex; align-items: center; gap: 0.6ch;
+    padding: 11px 14px;
+    background: var(--chat-input-bg);
+    border-top: 1px solid var(--chat-border-inner);
+  }
+  .a2chat-input {
+    flex: 1; min-width: 0;
+    color: var(--chat-user); font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0.75;
+  }
+  .a2chat-actions { flex: none; transition: opacity 0.4s ease; }
+  .a2chat-actions.is-hidden { opacity: 0; pointer-events: none; }
   @media (prefers-reduced-motion: reduce) {
-    .a2o-actions { transition: none; }
-    .a2o-actions.is-hidden { opacity: 1; pointer-events: auto; }
+    .a2chat-actions { transition: none; }
+    .a2chat-actions.is-hidden { opacity: 1; pointer-events: auto; }
   }
-  .a2o-skip {
-    border: 0; background: none; cursor: pointer;
-    font: 500 0.85rem var(--font-body);
-    color: var(--ink-faint); text-decoration: underline;
-    padding: 0.4rem 0.2rem;
+  .a2chat-accept {
+    border: 1px solid var(--chat-sage); border-radius: 6px; cursor: pointer;
+    background: rgba(143, 184, 122, 0.14); color: var(--chat-sage);
+    font: 600 12px var(--chat-mono);
+    padding: 7px 13px; white-space: nowrap;
   }
-  .a2o-skip:hover { color: var(--ink); }
+  .a2chat-accept:hover { background: rgba(143, 184, 122, 0.24); color: #a9cf92; }
+  .a2chat-hint {
+    flex: none; margin: 0; padding: 5px 14px 9px;
+    background: var(--chat-input-bg);
+    font-size: 11px; color: var(--chat-muted);
+  }
+
+  /* ======================================================================
+     The drive-machinery overlays (ADR-0153 §5/§6) — TEMPORARY flow diagrams
+     that float ABOVE the map (not drawn on it) depicting the background
+     machinery: the agent loop (top-left, step 2) and the CI/CD / gates / wiring
+     (top-right, steps 3-4). Global because act2-overlays.ts creates the DOM at
+     runtime; namespaced act2-overlay-. A dark, technical panel (the product's
+     background-machinery register), revealed scaffolded and cleared on advance.
+     ====================================================================== */
+  .act2-overlay {
+    position: absolute; z-index: 8;
+    width: min(300px, 78vw);
+    pointer-events: none; /* the map + callout own interaction; this is a readout */
+    opacity: 0;
+    transition: opacity 0.42s ease, translate 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    font-family: 'SF Mono', 'Cascadia Code', Consolas, 'Liberation Mono', Menlo, ui-monospace, monospace;
+  }
+  .act2-overlay--top-left { top: 16px; left: 16px; translate: -8px 0; }
+  .act2-overlay--top-right { top: 16px; right: 16px; translate: 8px 0; }
+  .act2-overlay.is-live { opacity: 1; translate: 0 0; }
+  .act2-overlay.is-leaving { opacity: 0; }
+  .act2-overlay--top-left.is-leaving { translate: -8px 0; }
+  .act2-overlay--top-right.is-leaving { translate: 8px 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .act2-overlay { transition: opacity 0.2s ease; translate: 0 0 !important; }
+  }
+  .act2-overlay-panel {
+    background: rgba(24, 20, 15, 0.94);
+    border: 1px solid #38301f;
+    border-radius: 10px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
+    padding: 12px 13px 11px;
+    color: #d8cfb8;
+    backdrop-filter: blur(2px);
+  }
+  .act2-overlay-head { margin-bottom: 0.55rem; }
+  .act2-overlay-eyebrow {
+    margin: 0; font: 700 0.6rem 'SF Mono', Consolas, monospace;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #8fb87a;
+  }
+  .act2-overlay-title {
+    margin: 0.1rem 0 0; font: 650 0.95rem var(--font-display), serif; color: #efe6cf;
+  }
+  .act2-overlay-flow { list-style: none; margin: 0; padding: 0; }
+  .act2-overlay-row {
+    display: flex; gap: 0.6ch; align-items: flex-start;
+    padding: 0.32rem 0; position: relative;
+    transition: opacity 0.34s ease, translate 0.34s ease;
+  }
+  /* the connecting spine between steps (a quiet vertical tick) */
+  .act2-overlay-row + .act2-overlay-row::before {
+    content: ''; position: absolute; left: 7px; top: -0.32rem; height: 0.32rem;
+    border-left: 1px dashed #4a4030;
+  }
+  .act2-overlay-row.is-hidden { opacity: 0; translate: 0 4px; }
+  @media (prefers-reduced-motion: reduce) {
+    .act2-overlay-row { transition: none; }
+    .act2-overlay-row.is-hidden { opacity: 1; translate: 0 0; }
+  }
+  .act2-overlay-tag {
+    flex: none; width: 15px; height: 15px; margin-top: 0.1rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; border-radius: 4px;
+    background: #2c251a; color: #b9ad90;
+  }
+  .act2-overlay-row.role-run .act2-overlay-tag { background: #24303a; color: #8fbcd6; }
+  .act2-overlay-row.role-gate .act2-overlay-tag { background: #3a2420; color: #d6a08f; }
+  .act2-overlay-row.role-good .act2-overlay-tag { background: #23331f; color: #8fb87a; }
+  .act2-overlay-rowbody { flex: 1; min-width: 0; }
+  .act2-overlay-label { margin: 0; font-size: 0.78rem; line-height: 1.35; color: #e7debd; }
+  .act2-overlay-note { margin: 0.05rem 0 0; font-size: 0.68rem; line-height: 1.35; color: #8f846a; }
+  .act2-overlay-footer {
+    margin: 0.6rem 0 0; padding-top: 0.5rem;
+    border-top: 1px solid #2c251a;
+    font-size: 0.68rem; line-height: 1.4; color: #9a8f74; font-style: italic;
+    transition: opacity 0.34s ease;
+  }
+  .act2-overlay-footer.is-hidden { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .act2-overlay-footer { transition: none; }
+    .act2-overlay-footer.is-hidden { opacity: 1; }
+  }
 
   /* ---- small screens: same cap, stacked windows ---- */
   @media (max-width: 680px) {
@@ -703,12 +825,26 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
     .storm-finale .term-body { min-height: 150px; font-size: 12px; }
   }
 
+  /* ---- small screens: the chat dock + drive-machinery overlays ---- */
+  @media (max-width: 680px) {
+    .a2chat-scroll { font-size: 12px; padding: 13px 14px 8px; }
+    .a2chat-dock { max-height: min(56vh, 380px); }
+    /* the overlays shrink and pin tighter; they still float above the map but
+       never cover it — a first-timer can hold one small readout at a time */
+    .act2-overlay { width: min(240px, 82vw); }
+    .act2-overlay--top-left { top: 10px; left: 10px; }
+    .act2-overlay--top-right { top: 10px; right: 10px; }
+    .act2-overlay-note { display: none; } /* keep it to the labels on small screens */
+    .act2-overlay-panel { padding: 10px 11px 9px; }
+  }
+
   /* ======================================================================
      Act 2 — the guided walk on the REAL 2.5D map (ADR-0145). Global because
      the stage / callout DOM is created at runtime by act2-walkthrough.ts.
      The MAP itself is styled by TreeWorld.astro's tw-* vocabulary (always on
-     the page); only the walk chrome + the site's teaching furniture (ghost
-     pads, the violation flag) live here, namespaced act2-.
+     the page); only the walk chrome (callout, inspect, overlays, chat dock)
+     live here, namespaced act2-/a2chat-. (The wrong-way ghost pads + violation
+     flag are RETIRED — ADR-0150 §4 / ADR-0153; the dependency layers ARE the teach.)
      ====================================================================== */
 
   /* ---- the stage: fades up over the R3F canvas at begin ---- */
@@ -725,13 +861,19 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   .act2-stage .tw-svg { width: 100%; height: 100%; display: block; }
   .act2-stage .act2-bg { fill: url(#a2-board); }
   #a2-arrow path { fill: #a98e5f; }
-  #a2-arrow-bad path { fill: var(--crimson); }
   /* the walk is a diorama, not the studio: the delegation hit layer is inert */
   .act2-stage .tw-hit { pointer-events: none; cursor: default; }
   /* before beat 1 the land is empty — the synthetic territory's tree/plate/hit
      stay out of the render */
   .act2-svg.is-prestory .tw-flora-layer,
   .act2-svg.is-prestory .tw-hits { display: none; }
+  /* an inspectable proposed upstream tree (UAT 5) — a soft affordance cue */
+  .act2-stage .tw-terr.act2-inspectable { cursor: pointer; }
+  .act2-stage .tw-terr.act2-inspectable:hover .tw-plate .bg,
+  .act2-stage .tw-terr.act2-inspectable:focus-visible .tw-plate .bg {
+    stroke: var(--evergreen); stroke-width: 1.4;
+  }
+  .act2-stage .tw-terr.act2-inspectable:focus-visible { outline: none; }
 
   /* ---- growth: what a beat ADDS scales/fades in (deterministic classes;
           scale only ever rides transform-attribute-free groups) ---- */
@@ -747,29 +889,16 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   @keyframes act2-grow { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: scale(1); } }
   @keyframes act2-fade { from { opacity: 0; } to { opacity: 1; } }
 
-  /* ---- the site's teaching furniture (ghost pads + the violation flag) ---- */
-  .act2-pad .pad-shadow { fill: rgba(60, 42, 22, 0.12); }
-  .act2-pad .pad-top { fill: #e9dcc0; stroke: #cbb894; stroke-width: 1.2; }
-  .act2-pad .pad-label { font: 600 11px var(--font-body); fill: #6d6252; }
-  .act2-pad .pad-tag {
-    font: 700 8.5px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
-    fill: var(--crimson);
+  /* ---- the dependency road: a clean "NEEDS" edge from the dependent DOWN to
+          its prerequisite (ADR-0153 §1; the wrong-way-flag teach is RETIRED —
+          the honest dependency layers ARE the teach, ADR-0150 §4) ---- */
+  .act2-stage .tw-road .line {
+    stroke: var(--evergreen); stroke-width: 2.2; opacity: 0.85;
+    stroke-dasharray: 6 5;
+    animation: act2-needs 1.4s linear infinite;
   }
-  .act2-pad.is-bypassed .pad-top { stroke: var(--crimson); stroke-dasharray: 5 4; fill: #efe3cd; }
-  .act2-pad.is-bypassed .pad-label { fill: #8a5a44; }
-  .act2-flag .flag-post { stroke: #7a3d2c; stroke-width: 2; fill: none; stroke-linecap: round; }
-  .act2-flag .flag-cloth { fill: var(--crimson); }
-  .act2-flag .flag-bg { fill: rgba(255, 251, 245, 0.96); stroke: var(--crimson); stroke-width: 1.2; }
-  .act2-flag .flag-text { font: 650 9.5px var(--font-body); fill: var(--crimson); }
-
-  /* the violating road: flagged FROM ITS DATA (the fold marks the group) —
-     instantly distinguishable from a good road */
-  .act2-stage .tw-road.act2-violation .line {
-    stroke: var(--crimson); stroke-dasharray: 7 5; stroke-width: 2.6; opacity: 0.95;
-    animation: act2-wrongway 1.1s linear infinite;
-  }
-  .act2-stage .tw-road.act2-violation .bed { stroke: #d8a08d; }
-  @keyframes act2-wrongway { to { stroke-dashoffset: -12; } }
+  .act2-stage .tw-road .bed { stroke: #cdbfa6; stroke-width: 4.5; opacity: 0.5; }
+  @keyframes act2-needs { to { stroke-dashoffset: -11; } }
 
   /* ---- the anchored callout (the game-tutorial box, tail at its anchor) ---- */
   .act2-callout {
@@ -820,16 +949,59 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   /* keep Next pinned right while Back is absent (intro) */
   .act2-back[hidden] { display: block; visibility: hidden; }
 
-  /* ---- the quiet persistent skip (top corner, out of the way) ---- */
-  .act2-skipbar { position: absolute; top: 12px; right: 14px; z-index: 7; }
-  .act2-skipbar[hidden] { display: none; }
-  .act2-skip {
-    border: 1px solid var(--line-strong); border-radius: 999px; cursor: pointer;
-    background: rgba(255, 253, 250, 0.85);
-    font: 500 0.78rem var(--font-body); color: var(--ink-faint);
-    padding: 0.35rem 0.75rem;
+  /* ---- the inline inspect prompt (UAT 5 — open a proposed upstream story) ---- */
+  .act2-inspect-open {
+    display: block; margin: 0.7rem 0 0;
+    border: 1px solid var(--evergreen); border-radius: 999px; cursor: pointer;
+    background: var(--evergreen-soft); color: var(--evergreen-deep);
+    font: 600 0.82rem var(--font-body);
+    padding: 0.4rem 0.8rem; text-align: left; width: 100%;
   }
-  .act2-skip:hover { color: var(--ink); background: var(--surface); }
+  .act2-inspect-open[hidden] { display: none; }
+  .act2-inspect-open:hover { background: #dcebd9; }
+
+  /* ---- the inspect panel: what a proposed upstream story is + why (UAT 5) ---- */
+  .act2-inspect {
+    position: absolute; inset: 0; z-index: 9;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.2rem;
+    background: rgba(30, 22, 12, 0.28);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.24s ease;
+  }
+  .act2-inspect.is-open { opacity: 1; pointer-events: auto; }
+  .act2-inspect[hidden] { display: none; }
+  .act2-inspect-card {
+    width: min(430px, 92vw);
+    background: var(--surface); color: var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(40, 26, 12, 0.4);
+    padding: 1.3rem 1.4rem 1.2rem;
+    translate: 0 8px; transition: translate 0.24s ease;
+  }
+  .act2-inspect.is-open .act2-inspect-card { translate: 0 0; }
+  .act2-inspect-badge {
+    display: inline-block; margin-bottom: 0.6rem;
+    font: 700 0.62rem var(--font-body); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--amber); background: var(--amber-soft);
+    padding: 0.26rem 0.55rem; border-radius: 999px;
+  }
+  .act2-inspect-title { margin: 0 0 0.5rem; font-family: var(--font-display); font-size: 1.2rem; color: var(--evergreen); }
+  .act2-inspect-h {
+    margin: 0.7rem 0 0.15rem; font: 700 0.7rem var(--font-body);
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .act2-inspect-p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink-soft); }
+  .act2-inspect-close {
+    margin-top: 1rem; border: 1px solid var(--line-strong); border-radius: 8px; cursor: pointer;
+    background: var(--surface-2); color: var(--ink);
+    font: 600 0.82rem var(--font-body); padding: 0.45rem 0.95rem;
+  }
+  .act2-inspect-close:hover { background: var(--surface); }
+  @media (prefers-reduced-motion: reduce) {
+    .act2-inspect, .act2-inspect-card { transition: none; }
+    .act2-inspect.is-open .act2-inspect-card { translate: 0 0; }
+  }
 
   /* ---- the honest diorama-closing CTA ---- */
   .act2-done {
@@ -859,7 +1031,7 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   @media (prefers-reduced-motion: reduce) {
     .act2-stage { transition: none; }
     .act2-enter, .act2-enter-fade { animation: none; }
-    .act2-stage .tw-road.act2-violation .line { animation: none; }
+    .act2-stage .tw-road .line { animation: none; }
     .act2-callout { transition: none; translate: 0 0; }
   }
 </style>
