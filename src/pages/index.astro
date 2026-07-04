@@ -66,6 +66,18 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
         var t = ev.target && ev.target.closest ? ev.target.closest('[data-storm-disarm]') : null;
         if (!t) return;
         ev.preventDefault();
+        // ADR-0148 §5: the top-left "show me a better way" skip jumps a capable
+        // (JS) visitor STRAIGHT into the 2.5D tutorial — the tutorial is the front
+        // door, not the static page. If the engine has not loaded (or cannot),
+        // fall through to the calm fallback so the exit is never dead.
+        if (t.hasAttribute('data-experience-skip') && window.__stormSkipToTutorial) {
+          try {
+            window.__stormSkipToTutorial();
+            return;
+          } catch (e) {
+            /* engine present but threw — degrade to the calm view below */
+          }
+        }
         disarm();
       });
       document.addEventListener('keydown', function (ev) {
@@ -578,6 +590,13 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
     pointer-events: none;
   }
   .storm-root.is-transforming .storm-soil { opacity: 1; }
+
+  /* the skip-straight-to-tutorial jump (ADR-0148 §5): the top-left "show me a
+     better way" crosses straight to the tutorial. Unlike the finale transform,
+     there is no storm to collapse — so suppress the soil mound and fade any live
+     terminals out fast, for a clean cross-dissolve into the land, not a collapse. */
+  .storm-root.is-transforming.is-skip .storm-soil { opacity: 0; }
+  .storm-root.is-transforming.is-skip .storm-term { opacity: 0; transition: opacity 0.4s ease; }
 
   /* the calm land: mounted hidden→opacity-0, then fades up as the quiet
      resolves. Sits above all storm chrome (runtime hiding of the skip after
