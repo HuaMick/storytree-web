@@ -269,8 +269,9 @@ function discTiles(radius: number): Axial[] {
 }
 
 /** Sample a quadratic bezier A→(ctrl)→B into n points (emitted as an M/L polyline
- *  `d`). */
-function sampleQuadratic(a: Pt, ctrl: Pt, b: Pt, n: number): Pt[] {
+ *  `d`). Exported for the Phase-Z studio layer's hand-authored roads
+ *  (act2-studio.ts) — shared geometry, never duplicated. */
+export function sampleQuadratic(a: Pt, ctrl: Pt, b: Pt, n: number): Pt[] {
   const pts: Pt[] = [];
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
@@ -285,12 +286,13 @@ function sampleQuadratic(a: Pt, ctrl: Pt, b: Pt, n: number): Pt[] {
 
 const f = (n: number): string => n.toFixed(1);
 
-function polylineD(pts: Pt[]): string {
+export function polylineD(pts: Pt[]): string {
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${f(p.x)} ${f(p.y)}`).join(' ');
 }
 
-/** Move `a` toward `b` by `dist` (road end trimming). */
-function toward(a: Pt, b: Pt, dist: number): Pt {
+/** Move `a` toward `b` by `dist` (road end trimming). Exported for the studio
+ *  layer's roads. */
+export function toward(a: Pt, b: Pt, dist: number): Pt {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
@@ -302,7 +304,7 @@ function toward(a: Pt, b: Pt, dist: number): Pt {
  *  cells, the smoothed coast, the tree spot, and the fixed ground decor/wheat.
  *  Pure + deterministic: seeded by a FIXED per-story id, so the ground never
  *  changes when a beat renames or greens the territory. */
-interface DiscGeometry {
+export interface DiscGeometry {
   cells: RelaxedCell[];
   coastPaths: string[];
   treeSpot: Pt;
@@ -311,7 +313,10 @@ interface DiscGeometry {
   rect: Rect;
 }
 
-function buildDisc(centre: Pt, rings: number, seedId: string): DiscGeometry {
+/** Exported for the Phase-Z studio layer (act2-studio.ts): its hand-authored
+ *  multi-island scene builds every disc through THIS generator, so the studio
+ *  forest and the walked island share one geometry source. */
+export function buildDisc(centre: Pt, rings: number, seedId: string): DiscGeometry {
   const tiles = discTiles(rings);
   const centres = tiles.map(hexCenter);
   const cx = centres.reduce((s, c) => s + c.x, 0) / centres.length;
@@ -668,7 +673,7 @@ function terrOf(fold: FoldedWorld, id: string): TerritoryMeta | undefined {
 // 2. THE STAGE — scene string + the viewBox camera
 // ─────────────────────────────────────────────────────────────────────────────
 
-const escXml = (s: unknown): string =>
+export const escXml = (s: unknown): string =>
   String(s)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -841,6 +846,72 @@ function el<K extends keyof HTMLElementTagNameMap>(
 /** SVG namespace for the orbit post-process (renderScene builds the orbit
  *  wrapper nodes directly — the scene string stays the fold's). */
 const SVGNS = 'http://www.w3.org/2000/svg';
+
+/** One wisp-bearing territory's orbit parameters for {@link orbitWispLayers}. */
+export interface OrbitWispEntry {
+  /** The territory's declared radius — the orbit ring rides it (r·0.72 + 10,
+   *  the same idiom anchorFor's beat-2 rect uses). */
+  radius: number;
+  /** Optional FIXED initial angle (degrees): a static `rotate(θ)` wrapper
+   *  INSIDE the flattened plane, so two orbits read at distinct points — and
+   *  the phase holds under reduced motion (the wisp rests there). Omitted =
+   *  exactly the run-1 structure, no wrapper (the walk's single wisp). */
+  phaseDeg?: number;
+}
+
+/**
+ * The wisp ORBIT post-process (ADR-0165 §5), shared by the walk's renderScene
+ * and the Phase-Z studio layer (act2-studio.ts): rebuild each emitted
+ * `.tw-wisps` layer (one per wisp-bearing territory, in territory order) into
+ * an island-centred orbit structure — a plane flattened to the 2.5D tilt
+ * (scaleY 0.55) holding a rotating group; the scene's own offset group
+ * (translate(orbitR 0)) IS the carrier, so the wisp rides the ring the scene
+ * already declared. A faint dashed orbit ring makes the path legible; an
+ * invisible symmetric extent circle keeps the spin group's fill-box
+ * transform-origin at the true centre. The rotation itself is pure CSS on
+ * `.act2-orbit-spin` (fixed initial angle — byte-identical on Back replay;
+ * reduced-motion: no rotation, the wisp rests at its fixed orbit point with
+ * the glow pulse only).
+ */
+export function orbitWispLayers(scope: ParentNode, entries: readonly OrbitWispEntry[]): void {
+  const wispLayers = scope.querySelectorAll<SVGGElement>('.tw-wisps');
+  wispLayers.forEach((layer, i) => {
+    const entry = entries[i];
+    const orbitR = (entry ? entry.radius : ISLAND_R) * 0.72 + 10;
+    const plane = document.createElementNS(SVGNS, 'g');
+    plane.setAttribute('class', 'act2-orbit-plane');
+    // the layer sits at the territory centroid; the tree spot is 6 above it.
+    plane.setAttribute('transform', 'translate(0 -6) scale(1 0.55)');
+    const spin = document.createElementNS(SVGNS, 'g');
+    spin.setAttribute('class', 'act2-orbit-spin');
+    const extent = document.createElementNS(SVGNS, 'circle');
+    extent.setAttribute('r', f(orbitR + 17));
+    extent.setAttribute('fill', 'none');
+    extent.setAttribute('stroke', 'none');
+    const ring = document.createElementNS(SVGNS, 'circle');
+    ring.setAttribute('class', 'act2-orbit-ring');
+    ring.setAttribute('r', f(orbitR));
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', 'rgba(217, 164, 65, 0.18)');
+    ring.setAttribute('stroke-width', '1.4');
+    ring.setAttribute('stroke-dasharray', '3 7');
+    spin.append(extent, ring);
+    while (layer.firstChild) spin.appendChild(layer.firstChild);
+    spin
+      .querySelectorAll(':scope > .tw-wisp > g')
+      .forEach((c) => c.classList.add('act2-orbit-carrier'));
+    if (entry !== undefined && entry.phaseDeg !== undefined) {
+      const phase = document.createElementNS(SVGNS, 'g');
+      phase.setAttribute('class', 'act2-orbit-phase');
+      phase.setAttribute('transform', `rotate(${f(entry.phaseDeg)})`);
+      phase.appendChild(spin);
+      plane.appendChild(phase);
+    } else {
+      plane.appendChild(spin);
+    }
+    layer.appendChild(plane);
+  });
+}
 
 /** Replay the pure director from zero to `n` beats (Back is cheap by design). */
 function stateAt(n: number, script: Beat[]): DirectorState {
@@ -1334,47 +1405,14 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       }
     }
 
-    // the wisp ORBITS the island (ADR-0165 §5): rebuild each emitted wisp layer
-    // into an island-centred orbit structure — a plane flattened to the 2.5D
-    // tilt (scaleY 0.55) holding a rotating group; the scene's own offset group
-    // (translate(orbitR 0)) IS the carrier, so the wisp rides the ring the
-    // scene already declared (orbitR = radius*0.72+10 — the same idiom
-    // anchorFor's beat-2 rect uses). A faint dashed orbit ring makes the path
-    // legible; an invisible symmetric extent circle keeps the spin group's
-    // fill-box transform-origin at the true centre. The rotation itself is pure
-    // CSS on .act2-orbit-spin (fixed initial angle — byte-identical on Back
-    // replay; reduced-motion: no rotation, the wisp rests at its fixed orbit
-    // point with the glow pulse only).
-    const wispLayers = canvas.querySelectorAll<SVGGElement>('.tw-wisps');
-    const wispTerrs = fold.territories.filter((t) => t.hasWisp);
-    wispLayers.forEach((layer, i) => {
-      const t = wispTerrs[i];
-      const orbitR = (t ? t.radius : ISLAND_R) * 0.72 + 10;
-      const plane = document.createElementNS(SVGNS, 'g');
-      plane.setAttribute('class', 'act2-orbit-plane');
-      // the layer sits at the territory centroid; the tree spot is 6 above it.
-      plane.setAttribute('transform', 'translate(0 -6) scale(1 0.55)');
-      const spin = document.createElementNS(SVGNS, 'g');
-      spin.setAttribute('class', 'act2-orbit-spin');
-      const extent = document.createElementNS(SVGNS, 'circle');
-      extent.setAttribute('r', f(orbitR + 17));
-      extent.setAttribute('fill', 'none');
-      extent.setAttribute('stroke', 'none');
-      const ring = document.createElementNS(SVGNS, 'circle');
-      ring.setAttribute('class', 'act2-orbit-ring');
-      ring.setAttribute('r', f(orbitR));
-      ring.setAttribute('fill', 'none');
-      ring.setAttribute('stroke', 'rgba(217, 164, 65, 0.18)');
-      ring.setAttribute('stroke-width', '1.4');
-      ring.setAttribute('stroke-dasharray', '3 7');
-      spin.append(extent, ring);
-      while (layer.firstChild) spin.appendChild(layer.firstChild);
-      spin
-        .querySelectorAll(':scope > .tw-wisp > g')
-        .forEach((c) => c.classList.add('act2-orbit-carrier'));
-      plane.appendChild(spin);
-      layer.appendChild(plane);
-    });
+    // the wisp ORBITS the island (ADR-0165 §5): the shared orbit post-process
+    // (orbitWispLayers, above — also the studio layer's) rebuilds each emitted
+    // wisp layer into the island-centred orbit structure; the walk's single
+    // wisp keeps the run-1 structure exactly (no phase wrapper).
+    orbitWispLayers(
+      canvas,
+      fold.territories.filter((t) => t.hasWisp).map((t) => ({ radius: t.radius })),
+    );
 
     moveCamera(target, false);
   };

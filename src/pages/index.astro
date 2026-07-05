@@ -890,12 +890,14 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
           rotation (the wisp rests at a fixed orbit point), pulse only. Motion
           is site-side; the wisp presence marker stays the director's scene
           semantics (the ADR-0145 boundary). ---- */
-  .act2-stage .tw-wisp {
+  .act2-stage .tw-wisp,
+  .act2-studio .tw-wisp {
     transform-box: fill-box;
     transform-origin: center;
     animation: none; /* the orbit rides the wrapper, not the wisp group */
   }
-  .act2-stage .act2-orbit-spin {
+  .act2-stage .act2-orbit-spin,
+  .act2-studio .act2-orbit-spin {
     transform-box: fill-box;
     transform-origin: center;
     animation: act2-orbit 9s linear infinite;
@@ -903,14 +905,17 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
   @keyframes act2-orbit {
     to { transform: rotate(360deg); }
   }
-  .act2-stage .tw-wisp .glow { animation: act2-wisp-glow 3.4s ease-in-out infinite; }
+  .act2-stage .tw-wisp .glow,
+  .act2-studio .tw-wisp .glow { animation: act2-wisp-glow 3.4s ease-in-out infinite; }
   @keyframes act2-wisp-glow {
     0%, 100% { opacity: 0.22; }
     50%      { opacity: 0.5; }
   }
   @media (prefers-reduced-motion: reduce) {
     .act2-stage .act2-orbit-spin,
-    .act2-stage .tw-wisp .glow { animation: none; }
+    .act2-studio .act2-orbit-spin,
+    .act2-stage .tw-wisp .glow,
+    .act2-studio .tw-wisp .glow { animation: none; }
   }
   /* before beat 1 the land is empty — the synthetic territory's tree/plate/hit
      stay out of the render */
@@ -1064,9 +1069,13 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
     padding: 0.5rem 0.65rem 0.55rem;
     max-width: 300px;
     opacity: 0; translate: 0 -6px; pointer-events: none;
-    transition: opacity 0.5s ease, translate 0.5s ease;
+    transition: opacity 0.5s ease, translate 0.5s ease, top 0.5s ease;
   }
   .act2-minimap.is-docked { opacity: 1; translate: 0 0; }
+  /* Phase Z: the studio top bar owns the frame's top edge — the persistent
+     mini-map steps below it (the mock docked its mini at top 50px for the
+     same reason) so the re-created chrome stays legible. */
+  .act2-studio-on .act2-minimap { top: 48px; }
   @media (prefers-reduced-motion: reduce) {
     .act2-minimap { transition: none; translate: 0 0; }
   }
@@ -1207,6 +1216,173 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
     display: flex; flex-wrap: wrap; gap: 0.6rem;
     justify-content: center; align-items: center;
   }
+
+  /* ======================================================================
+     Phase Z — the STUDIO LAYER (ADR-0165 §6, run 2): the zoom-out to the real
+     studio. Created at runtime by act2-studio.ts (.act2-studio / act2-stu-*),
+     chrome re-created from studio tokens (the chat-dock precedent), the
+     forest on the real map rail (tw-* vocabulary). It owns the same stage
+     band as the growing diagram — bottom stops at the chat dock's band (keep
+     in step with DOCK_RESERVE_* in act2-walkthrough.ts). z-order: above the
+     walk stage (2), below the mini-map (7) and the dock (9).
+     ====================================================================== */
+  .act2-studio {
+    position: absolute; left: 0; right: 0; top: 0;
+    bottom: min(46vh, 420px); /* the chat dock's band — keep in step with it */
+    z-index: 5;
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line-strong);
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 0.9s ease, filter 0.9s ease, visibility 0s linear 0.9s;
+  }
+  .act2-studio.is-on {
+    opacity: 1; visibility: visible;
+    transition: opacity 0.9s ease, filter 0.9s ease;
+  }
+  /* the crossfade (Z1): the walk canvas fades UNDER the studio layer; its
+     callout leaves entirely (the studio is the picture now). The walk's
+     beat-6 state stays live beneath — Back returns it. */
+  .act2-canvas { transition: opacity 0.9s ease; }
+  .act2-studio-on .act2-canvas { opacity: 0; pointer-events: none; }
+  .act2-studio-on .act2-callout { display: none; }
+  /* the done step: the landed CTA card (inside the walk stage) lifts OVER the
+     gently veiled studio — the stage rises above the layer and lets the
+     studio show through where the card is not. */
+  .act2-cta-on .act2-stage { z-index: 6; background: none; }
+  .act2-cta-on .act2-studio { filter: brightness(0.93) saturate(0.8); }
+
+  /* ---- the top bar (chrome dimmed at Z1/Z2 — the mock's stu-dim idiom) ---- */
+  .act2-stu-bar {
+    flex: none; display: flex; align-items: center; gap: 0.7rem;
+    background: var(--surface); border-bottom: 1px solid var(--line);
+    padding: 0.45rem 0.8rem;
+    transition: opacity 0.6s ease, filter 0.6s ease;
+  }
+  .act2-studio.is-dim .act2-stu-bar { opacity: 0.28; filter: saturate(0.55); }
+  .act2-stu-logo { font: 700 0.78rem var(--font-display); color: var(--evergreen-deep); }
+  .act2-stu-tabs { display: flex; align-items: center; gap: 0.15rem; }
+  .act2-stu-tab {
+    font: 500 0.68rem var(--font-body); color: var(--ink-faint);
+    padding: 0.15rem 0.5rem; border-radius: 5px;
+  }
+  .act2-stu-tab.is-on {
+    background: var(--evergreen-soft); color: var(--evergreen-deep); font-weight: 600;
+  }
+  .act2-stu-session {
+    margin-left: auto;
+    font: 500 0.62rem 'SF Mono', 'Cascadia Code', Consolas, Menlo, ui-monospace, monospace;
+    color: var(--ink-faint); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 0.12rem 0.55rem; white-space: nowrap;
+  }
+
+  /* ---- the map area: the staged forest on the real rail ---- */
+  .act2-stu-main { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+  .act2-stu-svg {
+    width: 100%; height: 100%; display: block;
+    /* hover titles work (the layer itself is pointer-inert); nothing here is
+       clickable — the hit layer is post-processed inert, no handlers bound */
+    pointer-events: auto;
+  }
+  .act2-studio .tw-hit { pointer-events: none; cursor: default; }
+  /* the OTHER islands + roads + wisps light up at the 'forest' stage only */
+  .act2-studio .act2-stu-other { opacity: 0; transition: opacity 0.6s ease; }
+  .act2-studio.has-forest .act2-stu-other { opacity: 1; }
+  /* faint roads — quiet connective tissue, never the walk's animated teach */
+  .act2-studio .tw-road .line {
+    stroke: var(--road); stroke-width: 1.4; opacity: 0.45;
+    stroke-dasharray: 4 5; animation: none;
+  }
+  .act2-studio .tw-road .bed { stroke: #cdbfa6; stroke-width: 3.5; opacity: 0.3; }
+  #a2s-arrow path { fill: #a98e5f; }
+
+  /* ---- the legend card (Z2 — brightens bottom-left; the outline emphasis
+          holds while the legend IS the reveal, then the forest takes over) ---- */
+  .act2-stu-legend {
+    position: absolute; left: 14px; bottom: 14px; z-index: 3;
+    background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow);
+    padding: 0.55rem 0.75rem 0.6rem;
+    opacity: 0; translate: 0 6px;
+    transition: opacity 0.55s ease, translate 0.55s ease;
+  }
+  .act2-studio.has-legend .act2-stu-legend { opacity: 1; translate: 0 0; }
+  .act2-studio.has-legend:not(.has-forest) .act2-stu-legend {
+    outline: 2px solid var(--evergreen); outline-offset: 3px;
+  }
+  .act2-stu-lg-h {
+    margin: 0 0 0.35rem; font: 700 0.6rem var(--font-body);
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  .act2-stu-lg-row {
+    display: flex; align-items: center; gap: 0.45rem;
+    font: 500 0.72rem var(--font-body); color: var(--ink-soft); padding: 0.1rem 0;
+  }
+  .act2-stu-lg-k { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .act2-stu-lg-k.is-green { background: var(--evergreen); }
+  .act2-stu-lg-k.is-pale { background: var(--wheat); }
+  .act2-stu-lg-k.is-withered { background: var(--crimson); }
+  /* the wisp key matches what the rail actually paints (band-building teal —
+     the real studio legend's own key colour), not the mock's amber: the
+     legend must describe the map. */
+  .act2-stu-lg-k.is-wisp {
+    background: #2f9e8f; box-shadow: 0 0 6px 1px rgba(47, 158, 143, 0.55);
+  }
+
+  /* ---- the details panel (Z4 — slides in from the right) ---- */
+  .act2-stu-details {
+    position: absolute; top: 10px; right: 10px; bottom: 10px;
+    width: min(260px, 44%); z-index: 4; overflow: auto;
+    background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow);
+    padding: 0.8rem 0.85rem;
+    opacity: 0; translate: 16px 0;
+    transition: opacity 0.55s ease, translate 0.55s ease;
+  }
+  .act2-studio.has-details .act2-stu-details { opacity: 1; translate: 0 0; }
+  .act2-stu-dp-title {
+    margin: 0 0 0.3rem; font-family: var(--font-display);
+    font-weight: 600; font-size: 0.98rem; color: var(--ink);
+  }
+  .act2-stu-dp-status {
+    display: inline-block; font: 700 0.58rem var(--font-body);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--evergreen-deep); background: var(--evergreen-soft);
+    border-radius: 999px; padding: 0.14rem 0.5rem; margin-bottom: 0.55rem;
+  }
+  .act2-stu-dp-h {
+    font: 700 0.6rem var(--font-body); letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--ink-faint); margin: 0.6rem 0 0.25rem;
+  }
+  .act2-stu-dp-li {
+    font: 500 0.74rem var(--font-body); color: var(--ink-soft);
+    padding: 0.12rem 0; display: flex; gap: 0.4rem; align-items: baseline;
+  }
+  .act2-stu-dp-li .ok { color: var(--evergreen); font-weight: 700; }
+  .act2-stu-dp-li .pend { color: var(--amber); font-weight: 700; }
+  .act2-stu-dp-adr {
+    font: 500 0.7rem 'SF Mono', 'Cascadia Code', Consolas, Menlo, ui-monospace, monospace;
+    color: var(--evergreen-deep); background: var(--evergreen-soft);
+    border-radius: 5px; padding: 0.06rem 0.4rem; display: inline-block;
+    margin: 0.1rem 0.2rem 0.1rem 0;
+  }
+
+  /* ---- small screens: the studio chrome stays legible ---- */
+  @media (max-width: 680px) {
+    .act2-stu-details { width: min(240px, 62%); }
+    .act2-stu-legend { left: 8px; bottom: 8px; padding: 0.45rem 0.55rem 0.5rem; }
+    .act2-stu-bar { gap: 0.45rem; }
+  }
+
+  /* ---- reduced motion: everything instant, orbits static ---- */
+  @media (prefers-reduced-motion: reduce) {
+    .act2-studio, .act2-studio.is-on { transition: none; }
+    .act2-canvas { transition: none; }
+    .act2-stu-bar, .act2-stu-legend, .act2-stu-details,
+    .act2-studio .act2-stu-other { transition: none; }
+  }
+
   /* ---- reduced motion: jump-cuts, no growth, no dash march ---- */
   @media (prefers-reduced-motion: reduce) {
     .act2-stage { transition: none; }

@@ -17,12 +17,17 @@
 // 1250 ms; reduced-motion = all at once), the amber caret. Namespaced
 // `a2chat-`, styled by index.astro's global CSS with the studio chat tokens.
 //
-// This module is the SEQUENCER: it owns the step index and drives the three
+// This module is the SEQUENCER: it owns the step index and drives the four
 // stage surfaces per the guide script's DECLARATIVE target state
 // (act2-guide.ts — the single source): the growing diagram (act2-diagram.ts),
-// the docked mini-map (act2-minimap.ts), and the landed walk (act2-walkthrough
+// the docked mini-map (act2-minimap.ts), the landed walk (act2-walkthrough
 // — thin wrappers around the same next()/back() the retired buttons called;
-// ADR-0165 §10: chat-advance is site wiring, the director engine untouched).
+// ADR-0165 §10: chat-advance is site wiring, the director engine untouched),
+// and — run 2 — the Phase-Z studio layer (act2-studio.ts, ADR-0165 §6):
+// mounted lazily at the first step that declares a `studio` stage, advanced/
+// retreated by pure stage re-application, hidden again on a Back into Phase I
+// (the host's `act2-studio-on` class carries the walk-canvas crossfade;
+// `act2-cta-on` lifts the landed done card over the veiled studio at the end).
 // Back = re-apply the previous step's state from scratch: the chat re-renders
 // lines 0..n instantly (no streaming) and the scene renders byte-identical.
 //
@@ -39,6 +44,7 @@
 import { GUIDE_STEPS, USER_PROMPT, type GuideStep } from './act2-guide';
 import { mountDiagram, type DiagramHandle } from './act2-diagram';
 import { mountMinimap, type MinimapHandle } from './act2-minimap';
+import { mountStudio, type StudioHandle } from './act2-studio';
 import type { WalkthroughHandle } from './act2-walkthrough';
 
 export { USER_PROMPT };
@@ -114,6 +120,9 @@ export function mountGuide(host: HTMLElement, opts: GuideOptions): GuideHandle {
   // ── the stage surfaces the guide drives ──
   const diagram: DiagramHandle = mountDiagram(host, { reducedMotion });
   const minimap: MinimapHandle = mountMinimap(host);
+  /** The Phase-Z studio layer — mounted LAZILY at the first step that declares
+   *  a `studio` stage (D/I visitors never pay for it). */
+  let studio: StudioHandle | null = null;
   // mirrors of the walk state (the guide is the only driver, so the mirror is
   // exact; the walk's own __act2 witness stays the scene source of truth).
   let walkBeat = 0;
@@ -202,6 +211,14 @@ export function mountGuide(host: HTMLElement, opts: GuideOptions): GuideHandle {
       diagram.setAway(true);
       minimap.set(step.minimap);
     }
+    // Phase Z — the studio layer (ADR-0165 §6): mount lazily at the first
+    // declared stage, then pure stage re-application (additive reveal; null on
+    // a Back into Phase I hides it and the crossfade class returns the walk).
+    const studioStage = step.studio ?? null;
+    if (studioStage !== null && studio === null) studio = mountStudio(host);
+    if (studio !== null) studio.setStage(studioStage);
+    host.classList.toggle('act2-studio-on', studioStage !== null);
+    host.classList.toggle('act2-cta-on', step.cta);
     // the walk: thin wrappers around the same next()/back() the buttons called
     if (walkCta && !step.cta) {
       walk.back(); // leave the done state (pure replay)
@@ -401,6 +418,9 @@ export function mountGuide(host: HTMLElement, opts: GuideOptions): GuideHandle {
       dock.remove();
       diagram.unmount();
       minimap.unmount();
+      studio?.unmount();
+      studio = null;
+      host.classList.remove('act2-studio-on', 'act2-cta-on');
       delete (window as unknown as { __act2guide?: unknown }).__act2guide;
     },
   };

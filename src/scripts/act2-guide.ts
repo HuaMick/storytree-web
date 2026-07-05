@@ -36,11 +36,17 @@
 // row-list overlays' load-bearing words live HERE now); green = a signed proof
 // against declared obligations only; no "storm" word; no stats.
 //
-// RUN-2 SEAM (ADR-0165 Phase Z): the final 'done' step below is run 1's
-// TEMPORARY ending — it plays the landed pull-back (beat 6) and enters the
-// landed done/CTA state. Run 2 replaces that step with the Phase-Z zoom-out
-// (Z1–Z4 + done) — the studio frame, legend, forest, details panel — advanced
-// by the same chips; the mini-map persists through it (accepted default 2).
+// RUN 2 (ADR-0165 §6, Phase Z — built here): after I4b the walk ZOOMS OUT to
+// the real studio. The view crossfades into a re-created studio frame around
+// the map area (act2-studio.ts — top bar, legend, the multi-island forest,
+// details panel, all on the REAL scene rail), revealed one chip per stage:
+// Z1 frame (dimmed) → Z2 legend → Z3 forest → Z4 details → done (the honest
+// close + the landed CTA affordances). Every Z step keeps beat 6 (the landed
+// pull-back/website-greens state stays the walk's true final state beneath)
+// and the mini-map stays docked at `signal` — all six dots earned (accepted
+// default 2). The `studio` field is the ADDITIVE reveal target: frame ⊂
+// legend ⊂ forest ⊂ details; Back re-applies a lower stage from scratch and
+// the layer renders byte-identical (pure class state over fixed DOM).
 // ---------------------------------------------------------------------------
 
 /** The visitor's reused request, echoed at the top of the chat (the prompt the
@@ -49,9 +55,16 @@
 export const USER_PROMPT = 'build me a shopping website';
 
 /** Which act of the experience a step belongs to: 'D' = the system on the one
- *  growing diagram; 'I' = the island walk (the landed director beats); 'done' =
- *  run 1's temporary ending (run 2 re-homes it into Phase Z). */
-export type GuidePhase = 'D' | 'I' | 'done';
+ *  growing diagram; 'I' = the island walk (the landed director beats); 'Z' =
+ *  the studio zoom-out (ADR-0165 §6); 'done' = the honest close + the landed
+ *  CTA affordances. */
+export type GuidePhase = 'D' | 'I' | 'Z' | 'done';
+
+/** The studio layer's ADDITIVE reveal stages (ADR-0165 §6; act2-studio.ts):
+ *  each stage includes all previous — frame (the chrome, dimmed, the visitor's
+ *  island centred) ⊂ legend ⊂ forest (un-dim + the other islands, wisps
+ *  orbiting, roads) ⊂ details (the panel slides in). */
+export type StudioStage = 'frame' | 'legend' | 'forest' | 'details';
 
 /** One streamed chat line, tagged by how it reads (the landed orchestrator
  *  vocabulary): 'reply' = the orchestrator's plain voice; 'brief' = the
@@ -104,8 +117,13 @@ export interface GuideStep {
    *  untouched). */
   readonly beat: number;
   /** null = the growing diagram is up (Phase D); a stage = the diagram is
-   *  compacted to the docked mini-map with that stage lit (Phase I). */
+   *  compacted to the docked mini-map with that stage lit (Phase I onward —
+   *  the mini-map persists through Phase Z, accepted default 2). */
   readonly minimap: MiniStage | null;
+  /** The studio layer's reveal stage (Phase Z; absent = no studio layer — the
+   *  default for every D/I step). The sequencer mounts the layer lazily at the
+   *  first non-null stage and hides it again on a Back into Phase I. */
+  readonly studio?: StudioStage;
   /** True only on the final step: the landed done/CTA state is entered. */
   readonly cta: boolean;
 }
@@ -349,10 +367,88 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     minimap: 'signal',
     cta: false,
   },
-  // RUN-2 SEAM (ADR-0165 Phase Z): run 1's TEMPORARY ending — the landed
-  // pull-back (beat 6: the website greens, full-forest camera) + the landed
-  // done/CTA affordances. Run 2 replaces this step with Z1–Z4 + done (the
-  // studio zoom-out); until then the arc is complete-so-far.
+  // Phase Z (ADR-0165 §6 — run 2): the zoom-out to the real studio. Z1 still
+  // advances the director to beat 6 (the landed pull-back plays beneath the
+  // crossfade — the walk's true final state); each later chip only brightens
+  // the next studio stage. Copy is the owner-approved proposal mock's STEPS
+  // array, verbatim.
+  {
+    id: 'Z1',
+    phase: 'Z',
+    lines: [
+      [
+        'reply',
+        'This is the actual studio — the tool storytree is built with, building itself. Same map you’ve been walking. Just… all of it.',
+      ],
+    ],
+    chip: 'what am I looking at?',
+    diagramStep: 6,
+    beat: 6,
+    minimap: 'signal',
+    studio: 'frame',
+    cta: false,
+  },
+  {
+    id: 'Z2',
+    phase: 'Z',
+    lines: [
+      [
+        'reply',
+        'The legend you already know. Green: proven. Pale: being built. Withered: something broke — and everyone can see exactly where, upstream of whatever it affects.',
+      ],
+    ],
+    chip: 'and all these islands?',
+    diagramStep: 6,
+    beat: 6,
+    minimap: 'signal',
+    studio: 'legend',
+    cta: false,
+  },
+  {
+    id: 'Z3',
+    phase: 'Z',
+    lines: [
+      [
+        'reply',
+        'Every island is a story like yours. This is a whole codebase at a glance — what’s proven, what’s growing, where agents are working right now.',
+      ],
+      [
+        'reply',
+        'You can only hold so much of a system in your head. The map holds the rest — so you always know where to look, and where to start asking.',
+      ],
+    ],
+    chip: 'can I look inside one?',
+    // the one quiet Z aside (plain words; a restatement of D6's landed thesis —
+    // no new claim, ADR-0165 §9).
+    aside: {
+      label: 'why does that matter?',
+      line: 'Because you check on your own terms: glance at the whole forest, and read deeper only where a signal asks you to.',
+    },
+    diagramStep: 6,
+    beat: 6,
+    minimap: 'signal',
+    studio: 'forest',
+    cta: false,
+  },
+  {
+    id: 'Z4',
+    phase: 'Z',
+    lines: [
+      [
+        'reply',
+        'Tap any island: its promises, its proofs, and the decisions behind it — the same records from the start of our walk, attached to the thing they explain.',
+      ],
+      ['reply', 'Ask why anything is the way it is, and the answer is already there.'],
+    ],
+    chip: 'got it — what now?',
+    diagramStep: 6,
+    beat: 6,
+    minimap: 'signal',
+    studio: 'details',
+    cta: false,
+  },
+  // the honest close: the studio stays fully revealed (a calm veil under the
+  // card), the walk's landed done/CTA affordances present the real exits.
   {
     id: 'done',
     phase: 'done',
@@ -366,6 +462,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     diagramStep: 6,
     beat: 6,
     minimap: 'signal',
+    studio: 'details',
     cta: true,
   },
 ];
