@@ -22,6 +22,16 @@
 //    the visitor is walked through; the rest of the interface reveals as the walk
 //    earns it.
 //
+// ── ADR-0157 re-direction ────────────────────────────────────────────────────
+//  • The voice reads as OUR ACTUAL session orchestrator (ADR-0030 — the human-
+//    facing planning agent that SCOPES intent into routed, PROVEN work; the org
+//    analogy's manager scoping the next slice), NOT a generic coding assistant: it
+//    says up front it doesn't write the code itself — it scopes, routes to agents,
+//    and calls nothing done until a test proves it.
+//  • It names honestly that the first story lands as a PROPOSAL, green only once a
+//    test passes (the verification-gap thesis; ADR-0094 / ADR-0020).
+//  • Plain, newcomer-legible language throughout, no "storm" metaphor, no jargon.
+//
 // This module is PURE data + a small DOM streamer, mirroring act1-storm's finale
 // idiom (a deterministic plan → a rAF-free timed reveal). No React, no three.js,
 // no WebGL, no live data, no Math.random, no wall-clock in the PLAN (elapsed time
@@ -53,25 +63,29 @@ export interface ReplyLine {
 export const REPLY_LINES: readonly ReplyLine[] = [
   {
     kind: 'reply',
-    text: 'Got it. Let me read that back as an outcome, so we both know what “done” means.',
+    text: 'I’m the orchestrator — I don’t write the code myself. I scope the work, hand it to the agents, and only call it done once a test proves it.',
+  },
+  {
+    kind: 'reply',
+    text: 'So first, let me turn that into one clear outcome we can both check.',
   },
   {
     kind: 'brief',
-    text: 'Outcome: shoppers can add items to a cart, pay, and get a receipt. Example: a visitor fills a cart, checks out, and sees “order confirmed”.',
+    text: 'Outcome: shoppers can add items to a cart, pay, and get a receipt. Example: someone fills a cart, checks out, and sees “order confirmed”.',
   },
   {
     kind: 'reply',
     text:
-      'First pass, let’s stand up a mock of exactly that — cart, payments, receipts — running ' +
-      'locally, no backend yet. Just enough to see your idea and feel whether it’s right.',
+      'I’ll scope the first slice small: a mock of exactly that — cart, payments, receipts — ' +
+      'running locally, no backend yet. Enough to see your idea and feel whether it’s right.',
   },
   {
     kind: 'note',
-    text: 'To be clear: this is a mock. Nothing charges a card or stores an order yet — it’s a sketch you can look at.',
+    text: 'To be clear, it’s a mock: nothing charges a card or saves an order yet. It’s a sketch you can look at.',
   },
   {
     kind: 'reply',
-    text: 'That’s on purpose — you asked for a website, not a database diagram. We start with what you can see, then grow the real parts it rests on, only when you ask.',
+    text: 'When you tap start, this becomes a proposal — not a finished thing. It only turns green once a test passes. Then we grow the real parts it needs, one at a time.',
   },
 ];
 

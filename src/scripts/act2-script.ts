@@ -13,16 +13,23 @@
 // keys), so keeping the ids identical keeps the wall green while the DATA tells a
 // different story.
 //
-// ── ADR-0153 CORRECTION: the dependency DIRECTION ────────────────────────────
-// The `add-upstream-story` delta carries `dependentId` — the id of the EXISTING
-// story whose `dependsOn` gains the new upstream story's id. The edge points FROM
-// the dependent TO its prerequisite (ADR-0058 / cross-story-dependency: A
-// depends_on B iff A needs B's delivered outcome to pass A's OWN UAT):
-//   • website.dependsOn = [backend]  (beat 4: dependentId = the website)
-//   • backend.dependsOn = [database] (beat 5: dependentId = the backend)
-//   • database.dependsOn = []
-// The refused first build encoded this BACKWARDS (`dependsOn: [website]` on the
-// backend). The synced director's shape is `dependentId`; this script matches it.
+// ── ADR-0157: the BaaS DIAMOND (the frontend reads the database directly) ─────
+// The `add-upstream-story` delta carries `dependentId` — the id (or ids) of the
+// EXISTING stories whose `dependsOn` gains the new upstream story's id. The edge
+// points FROM the dependent TO its prerequisite (ADR-0058 / cross-story-dependency:
+// A depends_on B iff A needs B's delivered outcome to pass A's OWN UAT). The owner
+// confirmed BaaS at the H#2 gate (ADR-0157): a real shopping app reads the catalog
+// DIRECTLY from the database AND still needs the backend for checkout/payments, so:
+//   • website.dependsOn  = [backend, database]  (beat 4 fans the backend into the
+//        website; beat 5 fans the database into BOTH the website and the backend)
+//   • backend.dependsOn  = [database]
+//   • database.dependsOn = []                    (the shared foundation, the sink)
+// A DIAMOND, not a spine: the database is depended on by two stories (the website
+// reads its catalog directly; the backend keeps its data). The refused first build
+// encoded the direction BACKWARDS (`dependsOn: [website]` on the backend); ADR-0153
+// corrected the direction, ADR-0157 adds the direct read edge in that same
+// direction. The synced director's delta accepts `dependentId: string | string[]`;
+// this script matches it (beat 5 passes both dependents).
 //
 // The thesis guarantee is intact regardless of whose script it is: this const is
 // parsed against the director's exported `BeatScript` zod contract at build time
@@ -120,15 +127,15 @@ export const walkthroughScript: BeatScript = [
 
   // ─── Upstream forest reveal (beats 4-5 — the dependency layers ARE the
   //     advantage; ADR-0150 §4 replaces G's wrong-way-flag antipattern.
-  //     Direction CORRECTED by ADR-0153 — the WEBSITE dependsOn the backend) ────
+  //     Direction CORRECTED by ADR-0153; the BaaS diamond added by ADR-0157) ─────
 
   // Beat 4 — Grow upstream: the backend. add-upstream-story raises a backend story
   // the WEBSITE depends on — `dependentId: STORY_WEBSITE` makes the edge
   // website.dependsOn=[backend] (dependent → prerequisite; ADR-0058 / ADR-0153).
-  // The teach: the mock's cart / payments / receipts can't truly work without a
-  // backend — you SEE the layer, up front, in order. PROPOSED (building) — the
-  // layer you build next. Rendered as the FOUNDATION BELOW the website (frontend
-  // high; ADR-0153 spatial preference).
+  // The teach: cart / payments / receipts need privileged writes (checkout, taking
+  // payment) that a mock can't do — that's the backend. You SEE the layer, up
+  // front, in order. PROPOSED (building) — the layer you build next. Rendered as a
+  // FOUNDATION layer BELOW the website (frontend high; ADR-0153 spatial preference).
   {
     id: 'beat-4-add-upstream-backend',
     narrationKey: 'act2.beat4.addUpstreamBackend',
@@ -136,19 +143,23 @@ export const walkthroughScript: BeatScript = [
     delta: {
       kind: 'add-upstream-story',
       id: STORY_BACKEND,
-      label: 'A backend that serves the shop',
+      label: 'A backend for checkout',
       status: 'building',
       dependentId: STORY_WEBSITE,
     },
   },
 
-  // Beat 5 — Grow upstream: the database. add-upstream-story raises a database
-  // story the BACKEND depends on — `dependentId: STORY_BACKEND` makes the edge
-  // backend.dependsOn=[database]. The forest now holds the layered stack
-  // website → backend → database (dependent → prerequisite). Both upstream layers
-  // are PROPOSED (building) — the honest dependency structure, shown up front, in
-  // order, as the foundation beneath the website. (UAT 2: the upstream forest is
-  // proposed/sapling, NEVER green.)
+  // Beat 5 — Grow upstream: the database, the SHARED FOUNDATION (the BaaS diamond,
+  // ADR-0157). add-upstream-story raises a database story that BOTH the website AND
+  // the backend depend on — `dependentId: [STORY_BACKEND, STORY_WEBSITE]` fans the
+  // database id into backend.dependsOn AND website.dependsOn, giving the diamond:
+  //   website → {backend, database},  backend → database,  database → []
+  // The website reads its catalog DIRECTLY from the database (as a real shopping
+  // app does), so it has a direct read edge to the database ALONGSIDE its backend
+  // edge; the backend keeps the data too. The database sits at the base as the
+  // foundation both rest on. Both upstream layers are PROPOSED (building) — the
+  // honest structure shown up front, in order. (UAT 2: upstream is proposed/sapling,
+  // NEVER green.)
   {
     id: 'beat-5-add-upstream-database',
     narrationKey: 'act2.beat5.addUpstreamDatabase',
@@ -156,18 +167,19 @@ export const walkthroughScript: BeatScript = [
     delta: {
       kind: 'add-upstream-story',
       id: STORY_DATABASE,
-      label: 'A database to keep it all',
+      label: 'A database to store it all',
       status: 'building',
-      dependentId: STORY_BACKEND,
+      dependentId: [STORY_BACKEND, STORY_WEBSITE],
     },
   },
 
   // Beat 6 — Pull back: the camera widens to the whole legible forest AND the
   // website you grew resolves to 'proven' (the culminating reveal). The forest now
-  // reads: website = proven (green, on top), backend + database = building (the
-  // proposed foundation below it). Green = proven, sapling = in-progress, withered
-  // = broken — the legend is backed by real story statuses, not a uniform amber.
-  // done: true → CTA state (parked here by advance()).
+  // reads as the BaaS diamond: website = proven (green, on top, with edges to BOTH
+  // the backend and the database), backend + database = building (the proposed
+  // foundation below it, the database at the base). Green = proven, sapling =
+  // in-progress, withered = broken — the legend is backed by real story statuses,
+  // not a uniform amber. done: true → CTA state (parked here by advance()).
   {
     id: 'beat-6-pull-back',
     narrationKey: 'act2.beat6.pullBack',
@@ -210,13 +222,13 @@ export interface StoryInspect {
  */
 export const STORY_INSPECT: Readonly<Record<string, StoryInspect>> = {
   [STORY_BACKEND]: {
-    label: 'A backend that serves the shop',
-    what: 'A small server the shop talks to — it takes an order, checks the payment, and remembers what happened.',
-    why: 'Your cart, payments and receipts can’t truly work as a mock. They each need server logic that runs somewhere real — that’s a backend. Your website depends on it, so it sits just beneath the website: the layer the shop rests on.',
+    label: 'A backend for checkout',
+    what: 'A small server the shop calls when it needs to do something for real — take a payment, place an order, send a receipt.',
+    why: 'Reading the catalog is one thing; taking someone’s money is another. Checkout and payments can’t run safely straight from the browser — they need server code you control. That’s the backend. Your website depends on it, so it sits just beneath the website.',
   },
   [STORY_DATABASE]: {
-    label: 'A database to keep it all',
-    what: 'The place your orders, carts and customers are stored so they’re still there tomorrow.',
-    why: 'A cart that forgets itself on refresh isn’t a shop. Somewhere has to keep the data — that’s a database. The backend depends on it, so it sits at the very bottom — the foundation the whole stack rests on: website → backend → database.',
+    label: 'A database to store it all',
+    what: 'The place your products, orders and customers are kept, so they’re still there tomorrow.',
+    why: 'Two things need the same store: your website reads the product list straight from it (that’s how a real shop shows its catalog fast), and the backend saves each order into it. So both depend on the database — it sits at the very bottom, the shared foundation the whole shop rests on.',
   },
 };
