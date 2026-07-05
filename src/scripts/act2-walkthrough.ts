@@ -34,17 +34,29 @@
 //     the website (max depth) renders HIGHEST and the database (depth 0) sits at
 //     the BASE — the foundation below. The dependency edges are drawn from the
 //     dependent DOWN to each prerequisite (the arrow points at what you rest on).
-//  3. Real app UI + progressive disclosure (§2). The orchestrator chat dock and the
-//     drive-machinery overlays are the real-app surfaces; the walk reveals them
-//     keyed by beat. The map itself is already the real render.
-//  4. Drive-machinery overlays (§5/§6). Temporary flow diagrams (agent loop top-
-//     left, CI/CD-gates-wiring top-right) mount ABOVE the map on their beats and
-//     clear — site-side content keyed by beat id (act2-overlays.ts).
+//  3. Real app UI + progressive disclosure (§2). The orchestrator chat dock is the
+//     real-app surface — and since ADR-0165 §3 it is THE advance surface: the guide
+//     (act2-orchestrator) drives next()/back() through this handle; the walk renders
+//     no advance affordance of its own. The map itself is already the real render.
+//  4. The corner drive-machinery overlays are RETIRED (ADR-0165 §2, accepted
+//     default 5): the honest-TDD loop relocated into the growing system diagram's
+//     D5 (act2-diagram.ts, from act2-loop-diagram's HONEST_LOOP), the CI/CD
+//     row-lists' teach compressed into D5/D6 chat copy ("gate", "signed"), and the
+//     persistent mini-map (act2-minimap.ts) replaced the corner pattern. Nothing
+//     mounts over the map's corners here any more; the callout is a pure anchored
+//     narration POINTER (tail + step label + title + body — no buttons, no dots).
 //  5. No escape hatches (§3). No in-walk "skip the walk" jump and no path to any
-//     deprecated page — the visitor-paced Next/Back is the only progression; Escape
-//     stays the page's global disarm to the a11y fallback (never intercepted here).
-//     (ADR-0150 §4: the wrong-way road + its ghost/flag furniture is RETIRED — the
-//     honest dependency layers ARE the teach.)
+//     deprecated page — the visitor-paced chat chips are the only progression;
+//     Escape stays the page's global disarm to the a11y fallback (never
+//     intercepted here). (ADR-0150 §4: the wrong-way road + its ghost/flag
+//     furniture is RETIRED — the honest dependency layers ARE the teach.)
+//  6. The wisp ORBITS (ADR-0165 §5, sharpening ADR-0157 §6's as-built drift):
+//     renderScene post-processes each emitted wisp layer into an island-centred
+//     orbit structure — a rotating group nested in a flattened plane (scaleY
+//     0.55) so the circle reads as an ellipse lying on the 2.5D map; one lap
+//     ≈ 9 s (pure CSS), the glow pulse kept; reduced-motion: stationary at a
+//     fixed orbit point + pulse only. Fixed initial angle — byte-identical on
+//     Back replay.
 //
 // Determinism: every piece of geometry and every scene string is a pure function
 // of the beat data (hash/rand01 seeding — no Math.random, no wall-clock); elapsed
@@ -100,7 +112,6 @@ import {
   type StoryInspect,
 } from './act2-script';
 import { DONE_KEY, INTRO, NARRATION, type BeatNarration } from './act2-narration';
-import { mountDriveOverlay, type OverlayHandle } from './act2-overlays';
 
 // ── the parameters (few, meaningful, named — never a knob per pixel) ─────────
 
@@ -145,6 +156,20 @@ const FIT_PAD = 1.14; // a focus bbox always fits with this margin
 /** Callout placement. */
 const CALLOUT_GAP = 20; // px between the anchor and the callout box
 const CALLOUT_MARGIN = 12; // px the callout keeps from the stage edges
+/** The persistent guide chat dock (ADR-0165 §3) owns the BOTTOM band of the
+ *  frame for the whole walk, so the camera centres the focused content in the
+ *  VISIBLE band above it and the callout never places under the dock. A fixed
+ *  reserve (matching the dock's CSS max-height, min(46vh, 420px)) keeps the
+ *  geometry deterministic — no live dock measuring. */
+const DOCK_RESERVE_FRAC = 0.46;
+const DOCK_RESERVE_MAX_PX = 420;
+
+/** How much of the stage height the dock reserve leaves visible (0..1). */
+function visibleFrac(stageH: number): number {
+  if (stageH <= 0) return 1;
+  const reserve = Math.min(stageH * DOCK_RESERVE_FRAC, DOCK_RESERVE_MAX_PX);
+  return Math.max(0.3, 1 - reserve / stageH);
+}
 
 /** Fold a director tri-state story status → the scene's visual status. proven →
  *  green (healthy), building → sapling (proposed), broken → withered (unhealthy).
@@ -662,7 +687,7 @@ function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string
 
   const label =
     'A staged map of fictional stories growing on quiet ground — the same look as the real ' +
-    'storytree map. Nothing here is live; each Next step adds one idea.';
+    'storytree map. Nothing here is live; each reply you tap adds one idea.';
   return (
     `<svg class="tw-svg act2-svg${fold.preStory ? ' is-prestory' : ''}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" role="group" aria-roledescription="illustrated map" aria-label="${escXml(label)}" data-act2-beat="${beatIndex}">` +
     `<defs>` +
@@ -749,16 +774,20 @@ function focusRect(fold: FoldedWorld, focus: string): Rect {
 }
 
 /** The declared CameraTarget → an aspect-matched viewBox rect (absolute scene
- *  coordinates). zoom 0 = widest, 1 = tightest; the focus bbox always fits. */
-function cameraRect(fold: FoldedWorld, cam: CameraTarget, aspect: number): CamRect {
+ *  coordinates). zoom 0 = widest, 1 = tightest; the focus bbox always fits —
+ *  inside the VISIBLE band above the persistent chat dock (`vf` = the visible
+ *  fraction of the stage height): the fit constraint tightens by 1/vf and the
+ *  focus centres in the band, not the occluded full frame. */
+function cameraRect(fold: FoldedWorld, cam: CameraTarget, aspect: number, vf: number): CamRect {
   const rect = focusRect(fold, cam.focus);
   const cxa = rect.x + rect.w / 2 + OFFSET.x;
   const cya = rect.y + rect.h / 2 + OFFSET.y;
   const zoom = Math.min(1, Math.max(0, cam.zoom));
   let halfW = HALF_WIDE - zoom * (HALF_WIDE - HALF_TIGHT);
-  halfW = Math.max(halfW, (rect.w / 2) * FIT_PAD, (rect.h / 2) * FIT_PAD * aspect);
+  halfW = Math.max(halfW, (rect.w / 2) * FIT_PAD, ((rect.h / 2) * FIT_PAD * aspect) / vf);
   const halfH = halfW / aspect;
-  return { x: cxa - halfW, y: cya - halfH, w: halfW * 2, h: halfH * 2 };
+  // centre the focus in the visible band: its centre sits at y + halfH*vf.
+  return { x: cxa - halfW, y: cya - halfH * vf, w: halfW * 2, h: halfH * 2 };
 }
 
 const vbString = (r: CamRect): string => `${f(r.x)} ${f(r.y)} ${f(r.w)} ${f(r.h)}`;
@@ -772,12 +801,18 @@ const easeInOutCubic = (t: number): number =>
 
 export interface WalkthroughHandle {
   unmount(): void;
-  /** Advance one beat programmatically — the orchestrator proposal's accept
-   *  (ADR-0148 §2) plants the first story so the visitor flows straight from the
-   *  proposal into beat 1 (a single felt gesture, not accept-then-tap). */
+  /** Advance one beat programmatically — the guide chat's reply chips
+   *  (ADR-0165 §3) are thin wrappers around the same advance() the retired Next
+   *  button called; at the final beat (director.done) one more next() enters
+   *  the landed done/CTA state. */
   next(): void;
+  /** Step one beat back — pure replay (stateAt re-applies the director from
+   *  zero; the fold re-renders byte-identical scenes). In the done/CTA state,
+   *  the first back() leaves it (the landed leaveCta), the next steps a beat. */
+  back(): void;
   /** Reveal the beat callout that {@link WalkthroughOptions.deferCallout}
-   *  suppressed — called once the orchestrator overlay hands off. */
+   *  suppressed — called at the island handoff (I1), once the growing diagram
+   *  compacts and the map becomes the focus. */
   revealCallout(): void;
 }
 
@@ -786,8 +821,9 @@ export interface WalkthroughOptions {
    *  reduced motion. Read once by the caller at begin. */
   reducedMotion: boolean;
   /** Keep the beat callout hidden until {@link WalkthroughHandle.revealCallout} is
-   *  called — the walk mounts UNDER the orchestrator chat dock (ADR-0148 §2) and
-   *  its narration must not compete while the brief reads. Defaults to false. */
+   *  called — the walk mounts UNDER the guide chat + growing diagram (ADR-0165
+   *  Phase D) and its narration must not compete until the island handoff (I1).
+   *  Defaults to false. */
   deferCallout?: boolean;
 }
 
@@ -801,6 +837,10 @@ function el<K extends keyof HTMLElementTagNameMap>(
   if (text !== undefined) node.textContent = text;
   return node;
 }
+
+/** SVG namespace for the orbit post-process (renderScene builds the orbit
+ *  wrapper nodes directly — the scene string stays the fold's). */
+const SVGNS = 'http://www.w3.org/2000/svg';
 
 /** Replay the pure director from zero to `n` beats (Back is cheap by design). */
 function stateAt(n: number, script: Beat[]): DirectorState {
@@ -890,9 +930,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   // The inspect panel's open story id (null = closed). Only proposed upstream
   // stories are inspectable (STORY_INSPECT keys).
   let inspectId: string | null = null;
-  // The current drive-machinery overlay (ADR-0153 §5/§6), keyed by beat id; null
-  // when the current beat has no overlay.
-  let overlay: OverlayHandle | null = null;
 
   // ── the stage scaffold (plain DOM; styled by index.astro's global CSS) ──
   const stage = el('div', 'act2-stage');
@@ -903,7 +940,9 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const canvas = el('div', 'act2-canvas');
   canvas.setAttribute('data-act2-canvas', '');
 
-  // the anchored callout box (narration + the one primary Next)
+  // the anchored callout box — a pure narration POINTER since ADR-0165 §3:
+  // tail + head step label + title + body (+ the inspect prompt / pull-back
+  // legend). No Next, no Back, no dots — the chat chips advance the walk.
   const callout = el('div', 'act2-callout');
   callout.setAttribute('data-act2-callout', '');
   callout.setAttribute('role', 'group');
@@ -913,15 +952,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const head = el('div', 'act2-head');
   const step = el('p', 'act2-step');
   step.setAttribute('data-act2-step', '');
-  const dots = el('div', 'act2-dots');
-  dots.setAttribute('aria-hidden', 'true');
-  const dotEls: HTMLElement[] = [];
-  for (let i = 0; i < script.length; i++) {
-    const d = el('span', 'act2-dot');
-    dotEls.push(d);
-    dots.appendChild(d);
-  }
-  head.append(step, dots);
+  head.append(step);
   const voice = el('div', 'act2-voice');
   voice.setAttribute('aria-live', 'polite');
   const title = el('h2', 'act2-title');
@@ -943,15 +974,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     '<li><span class="k k-with" aria-hidden="true"></span>withered — broken</li>';
   legend.hidden = true;
   voice.append(legend);
-  const controls = el('div', 'act2-controls');
-  const backBtn = el('button', 'act2-back', '← back');
-  backBtn.type = 'button';
-  backBtn.setAttribute('data-act2-back', '');
-  const nextBtn = el('button', 'act2-next btn btn--primary', 'next →');
-  nextBtn.type = 'button';
-  nextBtn.setAttribute('data-act2-next', '');
-  controls.append(backBtn, nextBtn);
-  callout.append(tail, head, voice, controls);
+  callout.append(tail, head, voice);
 
   // ── the inspect panel (UAT 5): open a proposed upstream story → what + why ──
   const inspect = el('div', 'act2-inspect');
@@ -1007,10 +1030,9 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   ctaHow.href = '/how-it-works/';
   ctaHow.textContent = 'how it works';
   doneNav.append(ctaNext, ctaHow);
-  const doneBack = el('button', 'act2-back-forest', '← back to the forest');
-  doneBack.type = 'button';
-  doneBack.setAttribute('data-act2-back', '');
-  done.append(doneTitle, doneBody, doneNav, doneBack);
+  // (the card's own "← back to the forest" retired with the callout buttons —
+  // the chat's single Back control is the one replay affordance, ADR-0165 §3)
+  done.append(doneTitle, doneBody, doneNav);
   done.hidden = true;
 
   stage.append(canvas, callout, inspect, done);
@@ -1102,12 +1124,18 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
 
   const placeCallout = (): void => {
     if (cta || disposed || calloutDeferred) return;
+    // beat 0 is the quiet ground UNDER the growing diagram (Phase D) — there is
+    // nothing on the map to point at, and the guide chat carries the framing;
+    // the callout only ever anchors the island beats (ADR-0165 §4b).
+    if (director.beatIndex === 0) return;
     const fold = currentFold();
     const { rect } = anchorFor(fold, director.beatIndex);
     const a1 = sceneToStagePx({ x: rect.x, y: rect.y });
     const a2 = sceneToStagePx({ x: rect.x + rect.w, y: rect.y + rect.h });
     const anchor = { left: a1.x, top: a1.y, right: a2.x, bottom: a2.y };
     const sr = stage.getBoundingClientRect();
+    // the persistent chat dock owns the bottom band — never place under it.
+    const availH = sr.height * visibleFrac(sr.height);
 
     callout.hidden = false;
     callout.style.visibility = 'hidden';
@@ -1127,10 +1155,10 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       let y = 0;
       if (side === 'right') {
         x = anchor.right + G;
-        y = clamp(acy - ch / 2, M, sr.height - ch - M);
+        y = clamp(acy - ch / 2, M, availH - ch - M);
       } else if (side === 'left') {
         x = anchor.left - G - cw;
-        y = clamp(acy - ch / 2, M, sr.height - ch - M);
+        y = clamp(acy - ch / 2, M, availH - ch - M);
       } else if (side === 'bottom') {
         x = clamp(acx - cw / 2, M, sr.width - cw - M);
         y = anchor.bottom + G;
@@ -1138,24 +1166,21 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
         x = clamp(acx - cw / 2, M, sr.width - cw - M);
         y = anchor.top - G - ch;
       }
-      const fits = x >= M && y >= M && x + cw <= sr.width - M && y + ch <= sr.height - M;
+      const fits = x >= M && y >= M && x + cw <= sr.width - M && y + ch <= availH - M;
       return { side, x, y, fits };
     };
     // the pull-back speaks about the whole board — a calm fixed corner spot;
-    // otherwise hug the anchor on the first side that fits. On the upstream beats
-    // (4/5) the drive-machinery overlay owns the TOP-RIGHT corner, so prefer LEFT
-    // there to avoid a collision.
-    const wide = director.beatIndex === 6 || director.beatIndex === 0;
-    const upstreamReveal = director.beatIndex === 4 || director.beatIndex === 5;
+    // otherwise hug the anchor on the first side that fits (the corner overlays
+    // are retired, ADR-0165 §2 — no corner to dodge; the mini-map top-left is
+    // small and the anchor-hugging sides clear it in practice).
+    const wide = director.beatIndex === 6;
     const order: Cand['side'][] = wide
       ? ['bottom', 'right', 'left', 'top']
-      : upstreamReveal
-        ? ['left', 'bottom', 'right', 'top']
-        : ['right', 'left', 'bottom', 'top'];
+      : ['right', 'left', 'bottom', 'top'];
     let pick = order.map(mk).find((c) => c.fits);
     if (!pick) {
       const x = clamp(acx - cw / 2, M, Math.max(M, sr.width - cw - M));
-      const y = clamp(anchor.bottom + G, M, Math.max(M, sr.height - ch - M));
+      const y = clamp(anchor.bottom + G, M, Math.max(M, availH - ch - M));
       pick = { side: 'bottom', x, y, fits: false };
     }
 
@@ -1198,22 +1223,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     };
   };
 
-  // ── the drive-machinery overlay (ADR-0153 §5/§6): mount for this beat, clear the
-  //    previous. Keyed by beat id — the id of the beat just applied. ──
-  const clearOverlay = (): void => {
-    if (overlay) {
-      overlay.clear();
-      overlay = null;
-    }
-  };
-  const syncOverlay = (): void => {
-    clearOverlay();
-    if (cta || director.beatIndex === 0) return;
-    const beat = script[director.beatIndex - 1];
-    if (!beat) return;
-    overlay = mountDriveOverlay(stage, beat.id, { reducedMotion });
-  };
-
   // ── the inspect affordance (UAT 5) ──
   const inspectableAt = (beatIndex: number): TerritoryMeta | null => {
     // On the upstream-reveal beats, the newest revealed upstream story is the one
@@ -1249,20 +1258,16 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     inspect.classList.remove('is-open');
     inspect.hidden = true;
     exposeWitness();
-    if (!cta) {
-      try {
-        nextBtn.focus({ preventScroll: true });
-      } catch {
-        /* focus is a courtesy */
-      }
-    }
+    // focus returns to the guide chat's chip naturally (the walk renders no
+    // advance affordance of its own — ADR-0165 §3).
   };
 
   // ── render: fold → buildScene → sceneToSvg → swap the stage svg ──
   const renderScene = (): void => {
     const fold = currentFold();
     const aspect = stageAspect();
-    const target = cameraRect(fold, director.camera, aspect);
+    const sr = stage.getBoundingClientRect();
+    const target = cameraRect(fold, director.camera, aspect, visibleFrac(sr.height));
     const startVb = svgEl
       ? (() => {
           const vb = svgEl.viewBox.baseVal;
@@ -1329,10 +1334,52 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       }
     }
 
+    // the wisp ORBITS the island (ADR-0165 §5): rebuild each emitted wisp layer
+    // into an island-centred orbit structure — a plane flattened to the 2.5D
+    // tilt (scaleY 0.55) holding a rotating group; the scene's own offset group
+    // (translate(orbitR 0)) IS the carrier, so the wisp rides the ring the
+    // scene already declared (orbitR = radius*0.72+10 — the same idiom
+    // anchorFor's beat-2 rect uses). A faint dashed orbit ring makes the path
+    // legible; an invisible symmetric extent circle keeps the spin group's
+    // fill-box transform-origin at the true centre. The rotation itself is pure
+    // CSS on .act2-orbit-spin (fixed initial angle — byte-identical on Back
+    // replay; reduced-motion: no rotation, the wisp rests at its fixed orbit
+    // point with the glow pulse only).
+    const wispLayers = canvas.querySelectorAll<SVGGElement>('.tw-wisps');
+    const wispTerrs = fold.territories.filter((t) => t.hasWisp);
+    wispLayers.forEach((layer, i) => {
+      const t = wispTerrs[i];
+      const orbitR = (t ? t.radius : ISLAND_R) * 0.72 + 10;
+      const plane = document.createElementNS(SVGNS, 'g');
+      plane.setAttribute('class', 'act2-orbit-plane');
+      // the layer sits at the territory centroid; the tree spot is 6 above it.
+      plane.setAttribute('transform', 'translate(0 -6) scale(1 0.55)');
+      const spin = document.createElementNS(SVGNS, 'g');
+      spin.setAttribute('class', 'act2-orbit-spin');
+      const extent = document.createElementNS(SVGNS, 'circle');
+      extent.setAttribute('r', f(orbitR + 17));
+      extent.setAttribute('fill', 'none');
+      extent.setAttribute('stroke', 'none');
+      const ring = document.createElementNS(SVGNS, 'circle');
+      ring.setAttribute('class', 'act2-orbit-ring');
+      ring.setAttribute('r', f(orbitR));
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', 'rgba(217, 164, 65, 0.18)');
+      ring.setAttribute('stroke-width', '1.4');
+      ring.setAttribute('stroke-dasharray', '3 7');
+      spin.append(extent, ring);
+      while (layer.firstChild) spin.appendChild(layer.firstChild);
+      spin
+        .querySelectorAll(':scope > .tw-wisp > g')
+        .forEach((c) => c.classList.add('act2-orbit-carrier'));
+      plane.appendChild(spin);
+      layer.appendChild(plane);
+    });
+
     moveCamera(target, false);
   };
 
-  // ── panel sync (copy, dots, buttons, witness) ──
+  // ── panel sync (copy, step label, inspect prompt, witness) ──
   const syncPanel = (): void => {
     const n = narrationFor();
     title.textContent = n.title;
@@ -1345,10 +1392,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
         ? 'before the walk'
         : `step ${director.beatIndex} of ${script.length}`;
 
-    dotEls.forEach((d, i) => {
-      d.classList.toggle('is-lit', director.beatIndex >= i + 1);
-    });
-
     // the inspect prompt: shown on the upstream-reveal beats, labelled for the
     // story it opens (UAT 5 — comprehension on demand, first-class not a tooltip).
     const insp = inspectableAt(director.beatIndex);
@@ -1360,13 +1403,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       inspectPrompt.hidden = true;
       delete inspectPrompt.dataset['act2InspectId'];
     }
-
-    if (director.beatIndex === 0) nextBtn.textContent = 'plant a story →';
-    else if (director.done) nextBtn.textContent = 'finish the walk →';
-    else nextBtn.textContent = 'next →';
-    if (director.done) nextBtn.setAttribute('data-act2-finish', '');
-    else nextBtn.removeAttribute('data-act2-finish');
-    backBtn.hidden = director.beatIndex === 0;
 
     done.hidden = !cta;
     callout.classList.toggle('is-cta', cta);
@@ -1384,18 +1420,11 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     hideCallout();
     renderScene();
     syncPanel();
-    syncOverlay();
     onSettle = (): void => {
       if (cta || disposed) return;
       placeCallout();
-      // while the orchestrator chat dock owns focus (calloutDeferred), the walk
-      // must not steal it back to Next behind the overlay.
-      if (calloutDeferred) return;
-      try {
-        nextBtn.focus({ preventScroll: true });
-      } catch {
-        /* focus is a courtesy */
-      }
+      // focus stays with the guide chat's chip — the walk renders no advance
+      // affordance of its own (ADR-0165 §3), so it never steals focus.
     };
     if (settled) {
       const cb = onSettle;
@@ -1407,7 +1436,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const enterCta = (): void => {
     cta = true;
     if (inspectId !== null) closeInspect();
-    clearOverlay();
     hideCallout();
     callout.hidden = true;
     syncPanel();
@@ -1422,18 +1450,14 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     cta = false;
     callout.hidden = false;
     syncPanel();
-    syncOverlay();
     onSettle = null;
     placeCallout();
-    try {
-      nextBtn.focus({ preventScroll: true });
-    } catch {
-      /* focus is a courtesy */
-    }
   };
 
-  // ── the affordances (the visitor disposes; nothing auto-advances). No in-walk
-  //    skip (ADR-0153 §3 — Escape is the only exit, to the a11y fallback). ──
+  // ── the advance/replay mechanics — driven ONLY through the handle by the
+  //    guide chat's chips (ADR-0165 §3: thin wrappers around the same advance()
+  //    the retired Next button called; nothing auto-advances). No in-walk skip
+  //    (ADR-0153 §3 — Escape is the only exit, to the a11y fallback). ──
   const onNext = (): void => {
     if (cta) return;
     if (!director.done) applyDirector(advance(director, script));
@@ -1467,9 +1491,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       openInspect(id);
     }
   };
-  nextBtn.addEventListener('click', onNext);
-  backBtn.addEventListener('click', onBack);
-  doneBack.addEventListener('click', onBack);
   inspectPrompt.addEventListener('click', onInspectPromptClick);
   inspectClose.addEventListener('click', closeInspect);
   canvas.addEventListener('click', onCanvasClick);
@@ -1479,7 +1500,8 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   const onResize = (): void => {
     if (disposed) return;
     const fold = currentFold();
-    const target = cameraRect(fold, director.camera, stageAspect());
+    const sr = stage.getBoundingClientRect();
+    const target = cameraRect(fold, director.camera, stageAspect(), visibleFrac(sr.height));
     cancelAnimationFrame(camRaf);
     camFrom = null;
     camTo = target;
@@ -1501,6 +1523,10 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       if (disposed) return;
       onNext();
     },
+    back(): void {
+      if (disposed) return;
+      onBack();
+    },
     revealCallout(): void {
       if (disposed || !calloutDeferred) return;
       calloutDeferred = false;
@@ -1511,10 +1537,6 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
       disposed = true;
       cancelAnimationFrame(camRaf);
       onSettle = null;
-      clearOverlay();
-      nextBtn.removeEventListener('click', onNext);
-      backBtn.removeEventListener('click', onBack);
-      doneBack.removeEventListener('click', onBack);
       inspectPrompt.removeEventListener('click', onInspectPromptClick);
       inspectClose.removeEventListener('click', closeInspect);
       canvas.removeEventListener('click', onCanvasClick);

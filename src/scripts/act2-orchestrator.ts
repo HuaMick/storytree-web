@@ -1,117 +1,79 @@
 // ---------------------------------------------------------------------------
-// act2-orchestrator — the SESSION-ORCHESTRATOR chat that carries step 1's OUTCOME
-// BRIEF (ADR-0148 §2, re-directed by ADR-0153 §4). Right after the storm→2.5D
-// transform, before the guided walk beats, the session orchestrator (storytree's
-// human-facing planning agent, ADR-0030 — the "manager who scopes the work" in
-// the owner's org analogy) answers the reused prompt ("build me a shopping
-// website") by reading the OUTCOME back with an EXAMPLE, then proposing the honest
-// minimum a vibe coder wants: a MOCK LOCAL WEBSITE — no backend — to see the idea.
+// act2-orchestrator — the PERSISTENT session-orchestrator GUIDE CHAT
+// (ADR-0165 §3, reshaping the landed one-shot proposal exchange of ADR-0148 §2
+// / ADR-0153 §4): after Act 1's transform the visitor STAYS in this chat from
+// D0 through the end of the walk — it IS the single advance surface. Each step
+// the orchestrator streams one or two short lines, then offers ONE bounded
+// reply chip in the input row (exactly where the landed build put "plant the
+// first story →"), voiced as the questions a skeptical developer would ask —
+// tapping through IS the persuasion arc. Occasionally one quiet "why does that
+// matter?" aside is offered alongside: it streams one extra muted line WITHOUT
+// advancing, then disappears. The separate Next button is retired everywhere;
+// a small quiet '← back' in the form is pure replay (accepted default 9).
 //
-// ── ADR-0153 re-direction ────────────────────────────────────────────────────
-//  • Step 1 is an OUTCOME BRIEF with an example, carried by the orchestrator CHAT
-//    at the BOTTOM (§4) — the REAL app's chat surface, not a centered card.
-//  • REAL app UI (§2): this faithfully RE-CREATES the studio's chat dock (the site
-//    can't import studio React across the repo boundary) — a warm-dark, terminal-
-//    style MONOSPACE dock anchored at the bottom of the map frame, with a `›` glyph
-//    for the orchestrator, streamed warm-beige replies + an amber caret, and a
-//    pinned prompt row. Tokens are the studio's (apps/studio/src/index.css chat
-//    palette): --chat-bg #1e1a15, --chat-sage #8fb87a, --chat-reply #d8cfb8, etc.
-//  • NO escape hatches (§3): the old "skip the intro" secondary is REMOVED — the
-//    only affordance is the primary that plants the first story and begins the walk.
-//  • Progressive disclosure (§2): the chat dock is the FIRST piece of the real UI
-//    the visitor is walked through; the rest of the interface reveals as the walk
-//    earns it.
+// The DOM is the landed FAITHFUL re-creation of the studio chat dock (the site
+// can't import studio React across the repo boundary): warm-dark monospace,
+// the `›` glyphs, streamed reveal at the landed cadence (LEAD 620 / STEP
+// 1250 ms; reduced-motion = all at once), the amber caret. Namespaced
+// `a2chat-`, styled by index.astro's global CSS with the studio chat tokens.
 //
-// ── ADR-0157 re-direction ────────────────────────────────────────────────────
-//  • The voice reads as OUR ACTUAL session orchestrator (ADR-0030 — the human-
-//    facing planning agent that SCOPES intent into routed, PROVEN work; the org
-//    analogy's manager scoping the next slice), NOT a generic coding assistant: it
-//    says up front it doesn't write the code itself — it scopes, routes to agents,
-//    and calls nothing done until a test proves it.
-//  • It names honestly that the first story lands as a PROPOSAL, green only once a
-//    test passes (the verification-gap thesis; ADR-0094 / ADR-0020).
-//  • Plain, newcomer-legible language throughout, no "storm" metaphor, no jargon.
+// This module is the SEQUENCER: it owns the step index and drives the three
+// stage surfaces per the guide script's DECLARATIVE target state
+// (act2-guide.ts — the single source): the growing diagram (act2-diagram.ts),
+// the docked mini-map (act2-minimap.ts), and the landed walk (act2-walkthrough
+// — thin wrappers around the same next()/back() the retired buttons called;
+// ADR-0165 §10: chat-advance is site wiring, the director engine untouched).
+// Back = re-apply the previous step's state from scratch: the chat re-renders
+// lines 0..n instantly (no streaming) and the scene renders byte-identical.
 //
-// This module is PURE data + a small DOM streamer, mirroring act1-storm's finale
-// idiom (a deterministic plan → a rAF-free timed reveal). No React, no three.js,
-// no WebGL, no live data, no Math.random, no wall-clock in the PLAN (elapsed time
-// drives the reveal cadence only). It is site-side FICTION (the Cohoot precedent,
-// ADR-0093) and the SEAM the walk continues from (the same voice returns to guide
-// the upstream reveal). Keep it SHORT — a felt exchange, not a wall of chat.
+// The voice discipline is unchanged (ADR-0157 §3, carried into Phase D by
+// ADR-0165): OUR actual session orchestrator — it scopes, routes to agents,
+// and calls nothing done until the system proves it. Plain, newcomer-legible,
+// no "storm" metaphor, industry terms embodied never named (ADR-0165 §9).
+//
+// Determinism: the PLAN is pure data (the guide script); timers drive the
+// reveal cadence only. Witness hook: window.__act2guide = { step, index,
+// total, phase, linesDone, chip } (updated on every state change).
 // ---------------------------------------------------------------------------
 
-/** The visitor's reused request, echoed at the top of the chat (the prompt the
- *  storm carried in). */
-export const USER_PROMPT = 'build me a shopping website';
+import { GUIDE_STEPS, USER_PROMPT, type GuideStep } from './act2-guide';
+import { mountDiagram, type DiagramHandle } from './act2-diagram';
+import { mountMinimap, type MinimapHandle } from './act2-minimap';
+import type { WalkthroughHandle } from './act2-walkthrough';
 
-/** One streamed line of the orchestrator's reply, tagged by how it reads. */
-export interface ReplyLine {
-  /** 'reply' = the orchestrator's plain voice; 'brief' = the outcome-brief line
-   *  (the example, set apart); 'note' = a quiet honest aside (the "this is a mock"
-   *  framing, styled muted). */
-  readonly kind: 'reply' | 'brief' | 'note';
-  readonly text: string;
-}
+export { USER_PROMPT };
 
-/**
- * The scripted reply. The orchestrator reads the OUTCOME back with an EXAMPLE (the
- * brief), then proposes the honest mock-first plan and names why. Deliberately
- * short — the walk itself carries the teaching.
- *
- * FICTION discipline (as the storm corpus): no real vendors, no statistics.
- */
-export const REPLY_LINES: readonly ReplyLine[] = [
-  {
-    kind: 'reply',
-    text: 'I’m the orchestrator — I don’t write the code myself. I scope the work, hand it to the agents, and only call it done once a test proves it.',
-  },
-  {
-    kind: 'reply',
-    text: 'So first, let me turn that into one clear outcome we can both check.',
-  },
-  {
-    kind: 'brief',
-    text: 'Outcome: shoppers can add items to a cart, pay, and get a receipt. Example: someone fills a cart, checks out, and sees “order confirmed”.',
-  },
-  {
-    kind: 'reply',
-    text:
-      'I’ll scope the first slice small: a mock of exactly that — cart, payments, receipts — ' +
-      'running locally, no backend yet. Enough to see your idea and feel whether it’s right.',
-  },
-  {
-    kind: 'note',
-    text: 'To be clear, it’s a mock: nothing charges a card or saves an order yet. It’s a sketch you can look at.',
-  },
-  {
-    kind: 'reply',
-    text: 'When you tap start, this becomes a proposal — not a finished thing. It only turns green once a test passes. Then we grow the real parts it needs, one at a time.',
-  },
-];
+// ── the reveal cadence (motion only; the PLAN is act2-guide's pure data) ─────
 
-/** The primary button label that begins the walk (plants the first story). There
- *  is NO skip affordance (ADR-0153 §3 — no escape hatches). */
-export const PROPOSAL_CTA = 'plant the first story →';
-
-// ── the reveal cadence (motion only; the PLAN above is pure) ──────────────────
-
-/** ms before the first line appears (a beat of calm after the land resolves). */
+/** ms before a step's first line appears (a beat of calm after the chip echo). */
 const LEAD_MS = 620;
 /** ms between successive lines revealing. */
 const STEP_MS = 1250;
-/** ms after the last line before the primary CTA fades in. */
-const CTA_BEAT_MS = 640;
+/** ms after the last line before the reply chip fades in. */
+const CHIP_BEAT_MS = 640;
 
-export interface OrchestratorOptions {
+export interface GuideOptions {
   /** Reduced motion (or a fast path): reveal every line at once, no stagger. */
   readonly reducedMotion: boolean;
-  /** Called when the visitor accepts the proposal — starts the walk. */
-  readonly onAccept: () => void;
+  /** The mounted walk — the guide drives next()/back()/revealCallout() per the
+   *  step script's target state (thin wrappers around the same advance() calls
+   *  the retired Next button made). */
+  readonly walk: WalkthroughHandle;
 }
 
-export interface OrchestratorHandle {
-  /** Tear the chat dock down (chained by the page's disarm path). */
+export interface GuideHandle {
+  /** Tear the guide down (chat dock + diagram + mini-map) — the page's disarm
+   *  path chains this (the walk is unmounted separately by the seam). */
   unmount(): void;
+}
+
+interface GuideWitness {
+  step: string;
+  index: number;
+  total: number;
+  phase: GuideStep['phase'];
+  linesDone: boolean;
+  chip: string | null;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -125,152 +87,321 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+/** A chip's text echoed as the visitor's line (a trailing ' →' is affordance
+ *  chrome, not words the visitor "said"). */
+const echoText = (chip: string): string => chip.replace(/\s*→\s*$/, '');
+
 /**
- * Mount the orchestrator chat DOCK into `host` (the 2.5D land layer). It anchors
- * at the BOTTOM of the frame (the real app's chat position) over the calm empty
- * ground; its primary begins the walk via `onAccept`. One handle out — the page's
- * existing disarm path chains unmount() so a mid-exchange exit tears it down.
- *
- * The DOM is a faithful re-creation of the studio chat dock (namespaced
- * `a2chat-`/`chat-dock`, styled by index.astro's global CSS with the studio's
- * chat tokens). A witness hook (window.__act2orch) exposes { revealed, total,
- * done } so the headless witness can assert the brief reads before the walk.
+ * Mount the persistent guide chat into `host` (the 2.5D land layer) and take
+ * ownership of the flow: D0 streams immediately; every later step is entered by
+ * its chip (forward, streamed) or the back control (replay, instant). One
+ * handle out — the disarm path chains unmount() so a mid-walk exit tears the
+ * whole guide down.
  */
-export function mountOrchestrator(host: HTMLElement, opts: OrchestratorOptions): OrchestratorHandle {
-  const { reducedMotion, onAccept } = opts;
+export function mountGuide(host: HTMLElement, opts: GuideOptions): GuideHandle {
+  const { reducedMotion, walk } = opts;
+  const steps = GUIDE_STEPS;
+
   let disposed = false;
+  let index = 0;
+  let linesDone = false;
   const timers: number[] = [];
+  /** Steps whose aside was tapped — the extra line is part of the scrollback
+   *  from then on (deterministic given the visit history), and the aside chip
+   *  is not offered again on a Back replay. */
+  const consumedAsides = new Set<number>();
 
-  const overlay = el('div', 'a2chat-dock chat-dock');
-  overlay.setAttribute('data-act2-orchestrator', '');
-  overlay.setAttribute('role', 'group');
-  overlay.setAttribute('aria-label', 'The session orchestrator — your chat');
+  // ── the stage surfaces the guide drives ──
+  const diagram: DiagramHandle = mountDiagram(host, { reducedMotion });
+  const minimap: MinimapHandle = mountMinimap(host);
+  // mirrors of the walk state (the guide is the only driver, so the mirror is
+  // exact; the walk's own __act2 witness stays the scene source of truth).
+  let walkBeat = 0;
+  let walkCta = false;
+  let calloutRevealed = false;
 
-  // scrollback (the real app's .chat-outcome): the prompt echo, then the reply.
+  // ── the chat dock (the landed studio re-creation, now persistent) ──
+  const dock = el('div', 'a2chat-dock chat-dock');
+  dock.setAttribute('data-act2-orchestrator', '');
+  dock.setAttribute('role', 'group');
+  dock.setAttribute('aria-label', 'The session orchestrator — your chat');
+
   const scroll = el('div', 'a2chat-scroll');
   scroll.setAttribute('aria-live', 'polite');
 
-  // the user's echoed prompt: `› ` sage glyph + the request text.
+  // the visitor's original prompt, echoed at the top (their own words —
+  // accepted default 3; the whole walk pays this line off).
   const promptRow = el('div', 'a2chat-prompt-echo');
   const promptGlyph = el('span', 'a2chat-glyph', '›');
   promptGlyph.setAttribute('aria-hidden', 'true');
-  const promptText = el('span', 'a2chat-user', USER_PROMPT);
-  promptRow.append(promptGlyph, promptText);
+  promptRow.append(promptGlyph, el('span', 'a2chat-user', USER_PROMPT));
   scroll.appendChild(promptRow);
 
-  // the orchestrator's streamed reply block.
-  const replyBlock = el('div', 'a2chat-reply-block');
-  const replyGlyph = el('span', 'a2chat-glyph a2chat-glyph--agent', '›');
-  replyGlyph.setAttribute('aria-hidden', 'true');
-  const replyBody = el('div', 'a2chat-reply-body');
-  replyBlock.append(replyGlyph, replyBody);
-  scroll.appendChild(replyBlock);
+  // the guided exchange (re-rendered per step — the mock's rebuild idiom, so
+  // any state's scrollback is byte-identical however it was reached).
+  const linesHost = el('div', 'a2chat-lines');
+  scroll.appendChild(linesHost);
 
-  const lineEls: HTMLElement[] = REPLY_LINES.map((line) => {
-    const row = el('p', `a2chat-line a2chat-${line.kind}`, line.text);
-    if (!reducedMotion) row.classList.add('is-hidden');
-    replyBody.appendChild(row);
-    return row;
-  });
-  // the streaming caret (amber ▋) — sits at the end of the reply while it streams.
   const caret = el('span', 'a2chat-caret', '▋');
   caret.setAttribute('aria-hidden', 'true');
-  replyBody.appendChild(caret);
+  scroll.appendChild(caret);
 
-  // the pinned prompt row (the real app's .chat-form): `›` glyph + a disabled
-  // textarea showing the sent prompt (a diorama — the input is inert), then the
-  // primary that begins the walk. Hint below, as the studio.
+  // the pinned input row: glyph + back + the inert "input" + the reply chips.
   const form = el('div', 'a2chat-form');
   const formGlyph = el('span', 'a2chat-glyph', '›');
   formGlyph.setAttribute('aria-hidden', 'true');
-  const input = el('div', 'a2chat-input');
-  input.setAttribute('aria-hidden', 'true');
-  input.textContent = USER_PROMPT;
+  const backBtn = el('button', 'a2chat-back', '← back');
+  backBtn.type = 'button';
+  backBtn.setAttribute('data-act2-back', '');
+  backBtn.hidden = true;
+  const fakeIn = el('div', 'a2chat-input', 'the orchestrator is guiding — reply below');
+  fakeIn.setAttribute('aria-hidden', 'true');
   const actions = el('div', 'a2chat-actions');
-  if (!reducedMotion) actions.classList.add('is-hidden');
-  const acceptBtn = el('button', 'a2chat-accept', PROPOSAL_CTA);
-  acceptBtn.type = 'button';
-  acceptBtn.setAttribute('data-act2-orchestrator-accept', '');
-  actions.append(acceptBtn);
-  form.append(formGlyph, input, actions);
+  form.append(formGlyph, backBtn, fakeIn, actions);
 
-  const hint = el('p', 'a2chat-hint', 'a staged chat — one step begins the walk');
+  const hint = el('p', 'a2chat-hint', 'a staged chat — your reply moves the walk one step');
 
-  overlay.append(scroll, form, hint);
-  host.appendChild(overlay);
+  dock.append(scroll, form, hint);
+  host.appendChild(dock);
 
-  const exposeWitness = (revealed: number, done: boolean): void => {
-    (
-      window as unknown as {
-        __act2orch?: { revealed: number; total: number; done: boolean };
-      }
-    ).__act2orch = { revealed, total: REPLY_LINES.length, done };
+  const exposeWitness = (): void => {
+    const step = steps[index]!;
+    const w: GuideWitness = {
+      step: step.id,
+      index,
+      total: steps.length,
+      phase: step.phase,
+      linesDone,
+      chip: linesDone && step.chip !== null ? step.chip : null,
+    };
+    (window as unknown as { __act2guide?: GuideWitness }).__act2guide = w;
   };
 
-  const finish = (): void => {
-    for (const l of lineEls) l.classList.remove('is-hidden');
-    caret.classList.add('is-done'); // stop the caret once the stream lands
-    actions.classList.remove('is-hidden');
-    exposeWitness(REPLY_LINES.length, true);
-    try {
-      acceptBtn.focus({ preventScroll: true });
-    } catch {
-      /* focus is a courtesy */
+  const clearTimers = (): void => {
+    for (const t of timers) window.clearTimeout(t);
+    timers.length = 0;
+  };
+
+  const scrollToEnd = (): void => {
+    scroll.scrollTop = scroll.scrollHeight;
+  };
+
+  // ── the stage: apply a step's DECLARATIVE target state (pure re-apply) ──
+  /** When true, the final step's CTA entry is deferred until its line has
+   *  streamed (reveal cadence only — the state sequence is identical). */
+  let pendingCta = false;
+
+  const applyStage = (step: GuideStep, stream: boolean): void => {
+    pendingCta = false;
+    // the diagram ↔ mini-map handoff (ADR-0165 §2)
+    if (step.minimap === null) {
+      minimap.set(null);
+      diagram.setAway(false);
+      diagram.setStep(step.diagramStep);
+    } else {
+      diagram.setAway(true);
+      minimap.set(step.minimap);
+    }
+    // the walk: thin wrappers around the same next()/back() the buttons called
+    if (walkCta && !step.cta) {
+      walk.back(); // leave the done state (pure replay)
+      walkCta = false;
+    }
+    while (walkBeat < step.beat) {
+      walk.next();
+      walkBeat++;
+    }
+    while (walkBeat > step.beat) {
+      walk.back();
+      walkBeat--;
+    }
+    // the island handoff reveals the (deferred) narration callout once.
+    if (walkBeat >= 1 && !calloutRevealed) {
+      walk.revealCallout();
+      calloutRevealed = true;
+    }
+    if (step.cta && !walkCta) {
+      if (reducedMotion || !stream) {
+        walk.next(); // director.done → the landed done/CTA state
+        walkCta = true;
+      } else {
+        pendingCta = true; // enter it when the sign-off line has streamed
+      }
     }
   };
 
-  if (reducedMotion) {
-    finish();
-  } else {
-    exposeWitness(0, false);
-    lineEls.forEach((row, i) => {
+  const enterPendingCta = (): void => {
+    if (!pendingCta || disposed) return;
+    pendingCta = false;
+    walk.next();
+    walkCta = true;
+  };
+
+  // ── the chat: render steps 0..upto (the rebuild idiom) ──
+  const onChip = (): void => {
+    if (disposed || !linesDone) return;
+    applyStep(index + 1, true);
+  };
+
+  const onAside = (): void => {
+    if (disposed || consumedAsides.has(index)) return;
+    const step = steps[index]!;
+    if (!step.aside) return;
+    consumedAsides.add(index);
+    // stream the ONE extra muted line into the current step's block…
+    const line = el('p', 'a2chat-line a2chat-note', step.aside.line);
+    const block = linesHost.lastElementChild?.querySelector('.a2chat-reply-body');
+    (block ?? linesHost).appendChild(line);
+    if (!reducedMotion) {
+      line.classList.add('is-hidden');
+      requestAnimationFrame(() => {
+        if (!disposed) line.classList.remove('is-hidden');
+      });
+    }
+    // …and the aside chip disappears (the primary chip stays).
+    actions.querySelector('[data-act2-aside]')?.remove();
+    scrollToEnd();
+  };
+
+  const onBack = (): void => {
+    if (disposed || index === 0) return;
+    applyStep(index - 1, false);
+  };
+
+  /** Show the step's chips in the input-row actions slot (the aside first, so
+   *  the primary keeps the outer edge — the landed accept position). */
+  const showChips = (step: GuideStep, focusChip: boolean): void => {
+    actions.innerHTML = '';
+    if (step.aside && !consumedAsides.has(index)) {
+      const aside = el('button', 'a2chat-chip a2chat-chip--aside', step.aside.label);
+      aside.type = 'button';
+      aside.setAttribute('data-act2-aside', '');
+      aside.addEventListener('click', onAside);
+      actions.appendChild(aside);
+    }
+    if (step.chip !== null) {
+      const chip = el('button', 'a2chat-chip', step.chip);
+      chip.type = 'button';
+      chip.setAttribute('data-act2-chip', '');
+      chip.addEventListener('click', onChip);
+      actions.appendChild(chip);
+      requestAnimationFrame(() => {
+        if (!disposed) chip.classList.add('is-on');
+      });
+      if (focusChip) {
+        try {
+          chip.focus({ preventScroll: true });
+        } catch {
+          /* focus is a courtesy */
+        }
+      }
+    }
+    caret.classList.add('is-done');
+    linesDone = true;
+    exposeWitness();
+    enterPendingCta();
+    scrollToEnd();
+  };
+
+  const renderChat = (upto: number, streamLast: boolean): void => {
+    linesHost.innerHTML = '';
+    actions.innerHTML = '';
+    caret.classList.remove('is-done');
+    const hidden: HTMLElement[] = [];
+    for (let s = 0; s <= upto; s++) {
+      const step = steps[s]!;
+      // the visitor's echoed reply (the previous step's chip) opens the block.
+      const prevChip = s > 0 ? steps[s - 1]!.chip : null;
+      if (prevChip !== null) {
+        const you = el('div', 'a2chat-prompt-echo');
+        const g = el('span', 'a2chat-glyph', '›');
+        g.setAttribute('aria-hidden', 'true');
+        you.append(g, el('span', 'a2chat-user', echoText(prevChip)));
+        linesHost.appendChild(you);
+      }
+      const block = el('div', 'a2chat-reply-block');
+      const glyph = el('span', 'a2chat-glyph a2chat-glyph--agent', '›');
+      glyph.setAttribute('aria-hidden', 'true');
+      const body = el('div', 'a2chat-reply-body');
+      for (const [kind, text] of step.lines) {
+        const row = el('p', `a2chat-line a2chat-${kind}`, text);
+        if (streamLast && s === upto && !reducedMotion) {
+          row.classList.add('is-hidden');
+          hidden.push(row);
+        }
+        body.appendChild(row);
+      }
+      // a consumed aside's extra line is part of the record from then on.
+      if (consumedAsides.has(s) && step.aside) {
+        const row = el('p', 'a2chat-line a2chat-note', step.aside.line);
+        if (streamLast && s === upto && !reducedMotion) {
+          row.classList.add('is-hidden');
+          hidden.push(row);
+        }
+        body.appendChild(row);
+      }
+      block.append(glyph, body);
+      linesHost.appendChild(block);
+    }
+
+    const step = steps[upto]!;
+    if (hidden.length === 0) {
+      // instant path: Back replay, reduced motion, or a lineless step.
+      showChips(step, streamLast && !reducedMotion);
+      scrollToEnd();
+      return;
+    }
+    hidden.forEach((row, i) => {
       timers.push(
         window.setTimeout(() => {
           if (disposed) return;
           row.classList.remove('is-hidden');
-          exposeWitness(i + 1, false);
+          scrollToEnd();
+          if (i === hidden.length - 1) {
+            timers.push(
+              window.setTimeout(() => {
+                if (!disposed) showChips(step, true);
+              }, CHIP_BEAT_MS),
+            );
+          }
         }, LEAD_MS + i * STEP_MS),
       );
     });
-    timers.push(
-      window.setTimeout(
-        () => {
-          if (disposed) return;
-          finish();
-        },
-        LEAD_MS + (lineEls.length - 1) * STEP_MS + CTA_BEAT_MS,
-      ),
-    );
-  }
-
-  let accepted = false;
-  const accept = (): void => {
-    if (accepted || disposed) return;
-    accepted = true;
-    overlay.classList.add('is-leaving');
-    const handoff = (): void => {
-      if (disposed) return;
-      onAccept();
-    };
-    if (reducedMotion) handoff();
-    else timers.push(window.setTimeout(handoff, 420));
+    scrollToEnd();
   };
-  acceptBtn.addEventListener('click', accept);
 
-  // reveal on first paint (the slide-up is CSS)
+  /** Enter step `n`: apply its declarative stage state, then render the chat —
+   *  streamed on a forward tap, instant on a Back replay. */
+  const applyStep = (n: number, stream: boolean): void => {
+    if (n < 0 || n >= steps.length) return;
+    clearTimers();
+    linesDone = false;
+    index = n;
+    const step = steps[n]!;
+    applyStage(step, stream);
+    backBtn.hidden = n === 0;
+    exposeWitness();
+    renderChat(n, stream);
+  };
+
+  backBtn.addEventListener('click', onBack);
+
+  // ── first paint: D0 streams over the quiet ground (the slide-up is CSS) ──
+  applyStep(0, true);
   requestAnimationFrame(() => {
-    if (!disposed) overlay.classList.add('is-live');
+    if (!disposed) dock.classList.add('is-live');
   });
 
   return {
     unmount(): void {
       if (disposed) return;
       disposed = true;
-      for (const t of timers) window.clearTimeout(t);
-      timers.length = 0;
-      acceptBtn.removeEventListener('click', accept);
-      overlay.remove();
-      delete (window as unknown as { __act2orch?: unknown }).__act2orch;
+      clearTimers();
+      backBtn.removeEventListener('click', onBack);
+      dock.remove();
+      diagram.unmount();
+      minimap.unmount();
+      delete (window as unknown as { __act2guide?: unknown }).__act2guide;
     },
   };
 }
