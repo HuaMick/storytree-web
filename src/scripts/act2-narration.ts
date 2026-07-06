@@ -25,9 +25,10 @@
 //    the database AND needs the backend for checkout; the backend needs the
 //    database. So beat 4 names the backend (privileged writes — checkout/payments)
 //    and beat 5 names the database as the SHARED foundation both lean on.
-//  • The drive-machinery OVERLAY copy lives in act2-overlays.ts (keyed by beat id
-//    too) — the narration here is the map's teach; the overlay is the background
-//    machinery floating above it (§5/§6).
+//  • The corner drive-machinery overlays are RETIRED (ADR-0165 §2): their teach
+//    lives in the growing system diagram + the guide chat's D5/D6 copy
+//    (act2-guide.ts). The narration here is the map's anchored teach — the
+//    callout is a pure pointer now (no buttons); the chat chips advance.
 // The `done` CTA is the true END of the whole walk (the walk already grew
 // upstream — there is no "grow the backend next" destination to hand off to).
 // ---------------------------------------------------------------------------
@@ -60,9 +61,9 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
   'beat-2-attach-wisp': {
     title: 'See it working — without watching it',
     body:
-      'That soft light drifting over the tree means an agent is working on this story right now. ' +
+      'That soft light circling the island means an agent is working on this story right now. ' +
       'You don’t have to watch it. Look over any time, or don’t — the work carries on either ' +
-      'way. (Want to see how the agents actually prove it? The loop is sketched top-left.)',
+      'way.',
   },
   'beat-3-branch-caps': {
     title: 'Green means proven',
@@ -97,13 +98,15 @@ export const NARRATION: Readonly<Record<string, BeatNarration>> = {
       'one at a time. Green means proven, a sapling means in progress, a withered tree would mean ' +
       'something broke. One quiet view of everything that matters.',
   },
+  // the done card shares the ending with the guide chat's sign-off line, which
+  // carries the staged/made-up-data honesty (ADR-0165 §7 '✓') — this body
+  // recaps the walk without echoing that sentence word for word.
   [DONE_KEY]: {
     title: 'This is how the real thing grows',
     body:
-      'That was a staged demo, on made-up data, to show the idea. You proposed a website, watched ' +
-      'a test turn it green, and saw the backend and database it leans on come into view — the ' +
-      'honest shape, in the right order, nothing hidden. The real storytree grows exactly this ' +
-      'way: watched live, proof by proof, one story at a time.',
+      'You proposed a website, watched a test turn it green, and saw the backend and database ' +
+      'it leans on come into view — the honest shape, in the right order, nothing hidden. The ' +
+      'real storytree grows exactly this way: watched live, proof by proof, one story at a time.',
   },
 };
 
