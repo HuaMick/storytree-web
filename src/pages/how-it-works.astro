@@ -2,8 +2,8 @@
 import Base from '../layouts/Base.astro';
 import TreeWorld from '../components/TreeWorld.astro';
 import AgentMaze from '../components/AgentMaze.astro';
-// Prose copy for this page is editable in Keystatic (/keystatic) and stored in
-// src/data/how-it-works.json. Rendered with set:html so inline emphasis
+// Prose copy for this page lives in src/data/how-it-works.json (plain file
+// edits). Rendered with set:html so inline emphasis
 // (<em>/<strong>/<code>) and entities (&nbsp;) in the copy render as authored.
 import data from '../data/how-it-works.json';
 ---
@@ -128,9 +128,18 @@ import data from '../data/how-it-works.json';
       <p set:html={data.differentBody2}></p>
       <p set:html={data.differentBody3}></p>
       <p class="muted" set:html={data.differentMuted}></p>
-      <p class="see-survey">
-        <a href="/landscape/" set:html={data.seeSurveyLink}></a>
-      </p>
+    </div>
+  </section>
+
+  <!-- the industry's words for it (ADR-0165 §8: the terms the experience embodies,
+       named + cited ONCE, on this page only; the §9 honesty rules bind this copy) -->
+  <section class="section--tight">
+    <div class="wrap prose" data-grounds="ADR-0165">
+      <p class="eyebrow" set:html={data.termsEyebrow}></p>
+      <h2 set:html={data.termsHeading}></h2>
+      {data.terms.map((t) => (
+        <p class="term"><strong set:html={t.term}></strong> — <span set:html={t.body}></span></p>
+      ))}
     </div>
   </section>
 
@@ -159,8 +168,7 @@ import data from '../data/how-it-works.json';
 
   .legend-note { margin-top: 1rem; }
   .legend-note p { font-size: 0.92rem; margin: 0; }
-  .see-survey { margin-top: 1.4rem; font-size: 1.0rem; }
-  .see-survey a { font-weight: 600; }
+  .term strong { font-family: var(--font-display); font-size: 1.05rem; }
   .ladder { margin-top: 1.3rem; }
   .ladder .card p { margin: 0.4rem 0 0; }
   .ladder .card strong { font-family: var(--font-display); font-size: 1.12rem; }
