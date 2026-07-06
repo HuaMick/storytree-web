@@ -63,7 +63,7 @@ export type GuidePhase = 'D' | 'I' | 'Z' | 'done';
 /** The studio layer's ADDITIVE reveal stages (ADR-0165 §6; act2-studio.ts):
  *  each stage includes all previous — frame (the chrome, dimmed, the visitor's
  *  island centred) ⊂ legend ⊂ forest (un-dim + the other islands, wisps
- *  orbiting, roads) ⊂ details (the panel slides in). */
+ *  orbiting, trails) ⊂ details (the panel slides in). */
 export type StudioStage = 'frame' | 'legend' | 'forest' | 'details';
 
 /** One streamed chat line, tagged by how it reads (the landed orchestrator

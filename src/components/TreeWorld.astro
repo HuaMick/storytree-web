@@ -3,7 +3,8 @@
 // TreeWorld — an interactive, build-time-rendered "story world" map of a
 // fictional software system. Recreates the depth and game-feel of storytree's
 // real studio view (a Dorfromantik-style hex world of status-coloured story
-// trees, garden-flora capabilities, dependency roads, witness signposts,
+// trees, garden-flora capabilities, dependency trails (hidden by default,
+// ADR-0169), witness signposts,
 // fresh-verdict blooms and live-session wisps) in fully ORIGINAL SVG, driven
 // only by fictional mock JSON. Nothing here copies private studio source.
 // ---------------------------------------------------------------------------
@@ -87,8 +88,8 @@ const filters = [
         <p class="tw-ov-eyebrow">The map</p>
         <p class="tw-ov-lead">
           A whole system at a glance. Each tree is a <strong>story</strong> — one slice of the
-          product. Its colour is its health, the garden around it is its capabilities, and the
-          roads are what it depends on.
+          product. Its colour is its health and the garden around it is its capabilities —
+          inspect a story to see what it depends on.
         </p>
         <ul class="tw-key">
           <li><span class="dot s-healthy"></span><span><strong>Proven</strong> — a failing test was made to pass, and a person signed off.</span></li>
@@ -187,13 +188,10 @@ const filters = [
          above — src/styles/tree-world-map.css — so the Act 2 walk shares it and
          cannot drift. Only this component's own defs-id arrow + focus/filter
          chrome stay here. ---- */
-  #tw-arrow path { fill: #a98e5f; }
-
-  /* ---- focus + filter states (TreeWorld-only interactive chrome) ---- */
+  /* ---- focus + filter states (TreeWorld-only interactive chrome) ----
+     (Dependency trails are hidden by default on the public map — ADR-0169
+     §3/§4 — so the docked roads' per-edge focus tinting retired with them.) */
   .tw-root.has-focus .tw-terr.is-dim { opacity: 0.28; }
-  .tw-root.has-focus .tw-road.is-dim { opacity: 0.1; }
-  .tw-road.is-anc .line { stroke: #b07d1f; opacity: 1; stroke-width: 2.7; stroke-dasharray: none; }
-  .tw-road.is-desc .line { stroke: #b5544a; opacity: 1; stroke-width: 2.7; stroke-dasharray: none; }
   .tw-root.hide-healthy .tw-terr.st-healthy, .tw-root.hide-healthy .tw-flora.st-healthy,
   .tw-root.hide-healthy .tw-ground.st-healthy, .tw-root.hide-healthy .tw-isle.st-healthy { opacity: 0.1 !important; }
   .tw-root.hide-mapped .tw-terr.st-mapped, .tw-root.hide-mapped .tw-flora.st-mapped,
@@ -280,7 +278,6 @@ const filters = [
     const story = document.getElementById('tw-story')!;
     const hits = Array.from(root.querySelectorAll<SVGRectElement>('.tw-hit'));
     const terrs = Array.from(root.querySelectorAll<SVGGElement>('.tw-terr'));
-    const roads = Array.from(root.querySelectorAll<SVGGElement>('.tw-road'));
     const stage = root.querySelector('.tw-stage');
 
     const LABEL: Record<string, string> = { healthy: 'Proven', mapped: 'Mapped', proposed: 'Building', unhealthy: 'Needs attention' };
@@ -293,12 +290,9 @@ const filters = [
       if (!id) {
         root!.classList.remove('has-focus');
         terrs.forEach((e) => e.classList.remove('is-focus', 'is-anc', 'is-desc', 'is-dim'));
-        roads.forEach((e) => e.classList.remove('is-anc', 'is-desc', 'is-dim'));
         return;
       }
       const d = blob[id];
-      const anc = new Set([id, ...d.ancestors]);
-      const desc = new Set([id, ...d.descendants]);
       root!.classList.add('has-focus');
       terrs.forEach((e) => {
         const eid = e.getAttribute('data-id')!;
@@ -306,14 +300,6 @@ const filters = [
         if (eid === id) e.classList.add('is-focus');
         else if (d.ancestors.includes(eid)) e.classList.add('is-anc');
         else if (d.descendants.includes(eid)) e.classList.add('is-desc');
-        else e.classList.add('is-dim');
-      });
-      roads.forEach((e) => {
-        const fr = e.getAttribute('data-from')!;
-        const to = e.getAttribute('data-to')!;
-        e.classList.remove('is-anc', 'is-desc', 'is-dim');
-        if (anc.has(fr) && anc.has(to)) e.classList.add('is-anc');
-        else if (desc.has(fr) && desc.has(to)) e.classList.add('is-desc');
         else e.classList.add('is-dim');
       });
     }

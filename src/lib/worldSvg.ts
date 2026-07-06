@@ -109,12 +109,7 @@ export function worldToSceneInput(w: World): SceneInput {
     relaxedCells: w.relaxedCells,
     drawTiles: [],
     wheatSets: [],
-    roads: w.roads.map((e) => ({
-      from: e.from,
-      to: e.to,
-      d: e.d,
-      title: `${e.to} depends on ${e.from}`,
-    })),
+    trails: w.trails,
     territories: w.territories.map(territoryToSceneInput),
   };
 }
@@ -126,7 +121,7 @@ export function worldToSceneInput(w: World): SceneInput {
 // Role → the website's base class(es). A kind absent here (or mapped to '')
 // renders an unclassed element (a structural <g>, or a child the website styles
 // via its group's class, e.g. crown blobs styled by `.tw-terr .lo circle`).
-// Composed kinds (status / variant / road / tree / bloom / wisp) are handled in
+// Composed kinds (status / variant / trail / tree / bloom / wisp) are handled in
 // the walk below, NOT here.
 const BASE: Partial<Record<SceneKind, string>> = {
   'coast-shore': 'tw-shore',
@@ -165,6 +160,10 @@ const BASE: Partial<Record<SceneKind, string>> = {
   'plate-bg': 'bg',
   'plate-id': 'ttl',
   'plate-sub': 'sub',
+  // cave-portal internals (the group carries tw-cave; ADR-0169 §2)
+  'cave-apron': 'apron',
+  'cave-arch': 'arch',
+  'cave-rim': 'rim',
 };
 
 /** The class(es) for a node — the website's class for the role, plus folded
@@ -204,7 +203,7 @@ function commonAttrs(node: SceneNode): string {
 }
 
 /** Emit a leaf primitive (everything but <g>) as an SVG string. In the scene,
- *  `<title>` tooltips ride GROUP nodes (territory / flora / tree / road / …), so
+ *  `<title>` tooltips ride GROUP nodes (territory / flora / tree / trail-edge / …), so
  *  leaf primitives never carry one — kept self-closing. */
 function emitPrimitive(node: SceneNode, cls: string): string {
   const c = cls ? ` class="${cls}"` : '';
@@ -236,7 +235,8 @@ const childrenSvg = (node: Extract<SceneNode, { el: 'g' }>, storyId?: string): s
  * sway/orbit animations) need bespoke handling and are special-cased here:
  *  - the per-territory flora group carries `data-id` (delegation);
  *  - coast / ground groups carry `st-<vis>` + `data-id`;
- *  - a road emits BOTH a `bed` and a `line` path from its single `d`;
+ *  - the trail passes emit classed paths with the segment metadata as `data-*`
+ *    (hidden by default on the public map — ADR-0169 §3/§4);
  *  - the hit layer becomes focusable `<rect>`s (the website renders it — the
  *    studio skips it);
  *  - the tree splits its translate (outer <g>) from a swaying `.tw-crown` (inner
@@ -261,8 +261,31 @@ export function sceneToSvg(node: SceneNode, storyId?: string): string {
       case 'ground-mesh':
       case 'ground-hex':
         return `<g class="tw-land">${childrenSvg(node, storyId)}</g>`;
-      case 'roads-layer':
-        return `<g class="tw-roads">${childrenSvg(node, storyId)}</g>`;
+      // ---- the trail network (ADR-0169 §2): fixed-order full passes (shadow >
+      //      casing > fill > ghost) so merged trunks read as ONE trail, plus the
+      //      non-visual per-edge reveal metadata (`trail-edges`). HIDDEN BY
+      //      DEFAULT on the public map (§3/§4 — the site has no island-focus
+      //      interaction, so default-hidden degrades gracefully to clean
+      //      islands); the Act 2 diorama opts back in with a scoped class. ----
+      case 'trails-layer':
+        return `<g class="tw-trails">${childrenSvg(node, storyId)}</g>`;
+      case 'trail-shadow-pass':
+      case 'trail-casing-pass':
+      case 'trail-fill-pass':
+      case 'trail-ghost-pass':
+        return `<g class="tw-${k}">${childrenSvg(node, storyId)}</g>`;
+      case 'trail-edges':
+        return `<g class="tw-trail-edges">${childrenSvg(node, storyId)}</g>`;
+      case 'trail-edge':
+        // pure metadata (no geometry): the edge's endpoints + its ordered
+        // segment chain, so a surface can reveal-by-selection without
+        // re-walking the graph. The tooltip text rides along for parity.
+        return (
+          `<g class="tw-trail-edge" data-from="${esc(node.from)}" data-to="${esc(node.to)}"` +
+          ` data-segments="${esc(node.segments ?? '')}">` +
+          (node.title ? `<title>${esc(node.title)}</title>` : '') +
+          `</g>`
+        );
       case 'flora-layer':
         return `<g class="tw-flora-layer">${childrenSvg(node, storyId)}</g>`;
       case 'hits-layer':
@@ -275,20 +298,16 @@ export function sceneToSvg(node: SceneNode, storyId?: string): string {
       case 'tile':
         return `<g class="tw-ground st-${node.status ?? 'unknown'}" data-id="${esc(node.id)}">${childrenSvg(node, node.id)}</g>`;
 
-      // ---- a road: one scene `road-line` → both bed + dashed line. The road's
-      //      `title` (surface vocabulary — e.g. "<a> needs <b>", or the BaaS
-      //      "<website> reads directly from <database>" edge) rides the GROUP as a
-      //      <title> tooltip, the same way flora/tree/territory groups carry theirs. ----
-      case 'road': {
-        const line = node.children.find((c) => c.kind === 'road-line');
-        const d = line && line.el === 'path' ? line.d : '';
+      // ---- a cave portal (ADR-0169 §2): where a forced route disappears under
+      //      an island. Rides the flora layer (the core appends it there so the
+      //      arch occludes the trail); island status + edge keys as data-*. ----
+      case 'cave':
         return (
-          `<g class="tw-road" data-from="${esc(node.from)}" data-to="${esc(node.to)}">` +
-          (node.title ? `<title>${esc(node.title)}</title>` : '') +
-          `<path class="bed" d="${d}"/>` +
-          `<path class="line" d="${d}" marker-end="url(#tw-arrow)"/></g>`
+          `<g class="tw-cave st-${node.status ?? 'unknown'}" data-island="${esc(node.island)}"` +
+          ` data-edges="${esc(node.edges ?? '')}"${node.transform ? ` transform="${node.transform}"` : ''}>` +
+          childrenSvg(node, storyId) +
+          `</g>`
         );
-      }
 
       // ---- a whole island's flora group (the delegation hook) ----
       case 'territory':
@@ -387,6 +406,21 @@ export function sceneToSvg(node: SceneNode, storyId?: string): string {
     }
   }
 
+  // ---- a trail-segment pass path (ADR-0169): the segment id + usage + the
+  //      edge keys ride as data-* (reveal/selection hooks); stroke-width comes
+  //      from the node attr (the ONE shared width rule, trailFillWidth). A
+  //      usage-1 fill is a `spur` — the CSS dashes it (a footpath). ----
+  if (
+    node.el === 'path' &&
+    (k === 'trail-shadow' || k === 'trail-casing' || k === 'trail-fill' || k === 'trail-ghost')
+  ) {
+    const spur = k === 'trail-fill' && node.spur ? ' spur' : '';
+    return (
+      `<path class="tw-${k}${spur}"${commonAttrs(node)} data-id="${esc(node.id)}"` +
+      ` data-usage="${node.usage ?? 0}" data-edges="${esc(node.edges ?? '')}" d="${node.d}"/>`
+    );
+  }
+
   // ---- leaf primitives ----
   return emitPrimitive(node, classOf(node));
 }
@@ -434,7 +468,6 @@ export function renderWorld(w: World): string {
     `<defs>` +
     `<radialGradient id="tw-board" cx="50%" cy="40%" r="80%"><stop offset="0" stop-color="#fbf3ea"/><stop offset="1" stop-color="#edd9c9"/></radialGradient>` +
     `<filter id="tw-soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#5a3f1f" flood-opacity="0.10"/></filter>` +
-    `<marker id="tw-arrow" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1.4 L 8 5 L 0 8.6 z"/></marker>` +
     `</defs>` +
     `<rect class="tw-bg" x="0" y="0" width="${w.width}" height="${w.height}"/>` +
     scene +

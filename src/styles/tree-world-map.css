@@ -10,7 +10,7 @@
        shared sheet its territory/flora fell back to unstyled BLACK fill).
 
    This is the WORLD paint only — the ground cells, the smoothed shore, the story
-   trees, garden flora, roads, wisps, blooms, signposts, nameplates, and their
+   trees, garden flora, trails, wisps, blooms, signposts, nameplates, and their
    status colours + gentle idle animations. It carries NONE of TreeWorld's shell
    chrome (toolbar, filters, inspector, legend) — that stays component-scoped in
    TreeWorld.astro. All colours resolve against the site tokens in global.css
@@ -53,12 +53,32 @@
 .tw-terr.st-unhealthy .tw-flora .accent,
 .tw-terr.st-unhealthy .tw-flora .dead-head { fill: #6f5a44; }
 
-/* dependency roads */
-.tw-road .bed { fill: none; stroke: #cdb285; stroke-width: 9; stroke-linecap: round; opacity: 0.4; }
-.tw-road .line {
-  fill: none; stroke: #a98e5f; stroke-width: 2.2; stroke-linecap: round;
-  stroke-dasharray: 1 9; opacity: 0.7;
+/* dependency trails (ADR-0169): procedurally routed shared segments, drawn as
+   full cased passes (shadow > casing > fill > ghost; stroke-width rides each
+   path's attribute — the ONE usage-driven width rule, never restated here).
+   HIDDEN BY DEFAULT on the public map (§3/§4): the site has no island-focus
+   interaction, so default-hidden degrades gracefully to clean islands. A
+   surface that narratively needs them (the Act 2 diorama) opts in with a
+   scoped `display` override on its container. */
+.tw-trails { display: none; }
+.tw-trail-shadow { fill: none; stroke: rgba(60, 42, 22, 0.10); stroke-linecap: round; stroke-linejoin: round; }
+.tw-trail-casing { fill: none; stroke: #cdb285; stroke-linecap: round; stroke-linejoin: round; opacity: 0.75; }
+.tw-trail-fill { fill: none; stroke: #a98e5f; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+.tw-trail-fill.spur { stroke-dasharray: 5 6; } /* usage-1 spur = a dashed footpath */
+.tw-trail-ghost { /* the under-island run — the OSM tunnel convention */
+  fill: none; stroke: #a98e5f; stroke-linecap: round;
+  stroke-dasharray: 2 5; opacity: 0.45;
 }
+.tw-trail-edges { display: none; } /* pure per-edge reveal metadata, never drawn */
+
+/* cave portals (ADR-0169 §2) — where a forced route disappears under an island.
+   Island props in the flora layer, so they render even while trails are hidden:
+   a quiet dark arch against the island wall reads as landscape, not noise. */
+.tw-cave .apron { fill: rgba(60, 42, 22, 0.16); }
+.tw-cave .arch { fill: #4a3a26; }
+.tw-cave .rim { fill: none; stroke: #8a795c; stroke-linecap: round; }
+.tw-cave.st-unhealthy .arch { fill: #3c332a; }
+.tw-cave.st-unhealthy .rim { stroke: #6f6350; }
 
 /* the story tree */
 .tw-terr .sh { fill: rgba(60, 42, 22, 0.13); }
@@ -139,7 +159,7 @@
 .tw-hit:focus-visible { outline: 2.5px solid var(--amber); outline-offset: -3px; }
 
 /* idle transitions shared by the layers */
-.tw-terr, .tw-road, .tw-ground, .tw-isle { transition: opacity 0.18s ease; }
+.tw-terr, .tw-ground, .tw-isle { transition: opacity 0.18s ease; }
 
 @media (prefers-reduced-motion: reduce) {
   .tw-bloom, .tw-wisp, .tw-crown { animation: none; }

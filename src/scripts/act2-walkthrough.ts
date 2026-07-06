@@ -27,9 +27,9 @@
 //     story that depends on nothing is depth 0). The ANCHOR is the deepest dependent
 //     (the website — the story nothing else depends on), rendered as the big disc;
 //     the shallower stories (backend, database) are the smaller upstream discs it
-//     rests on. The direct `website → database` edge SPANS two layers, so the road
-//     generator bows it WIDE (span ≥ 2) to arc clear of the backend, and the render
-//     styles it as the distinct "reads directly" curve.
+//     rests on. The direct `website → database` edge SPANS two layers; the shared
+//     trail router (routeTrails, ADR-0169) winds it clear of the backend island by
+//     construction, and the render styles it as the distinct "reads directly" curve.
 //  2. Spatial (§5 — frontend HIGH / foundation BELOW). y = -depth * LAYER_RISE, so
 //     the website (max depth) renders HIGHEST and the database (depth 0) sits at
 //     the BASE — the foundation below. The dependency edges are drawn from the
@@ -75,6 +75,7 @@ import {
   hexCenter,
   hexCorners,
   rand01,
+  routeTrails,
   smoothCoast,
   type Axial,
   type BoundarySeg,
@@ -82,7 +83,6 @@ import {
   type RelaxedCell,
   type SceneInput,
   type ScenePlantInput,
-  type SceneRoadInput,
   type SceneStatus,
   type SceneTerritoryInput,
 } from '../lib/forest-world';
@@ -143,10 +143,6 @@ const LIMB_FAN_STEP = 0.78; // radians between limbs, fanned south of the tree
 const PLATE_Y = 80;
 /** An upstream story's nameplate sits closer under its (smaller) tree. */
 const UPSTREAM_PLATE_Y = 52;
-/** Road routing: gentle bow on a dependency edge. */
-const ROAD_BOW = 10;
-const ROAD_SAMPLES = 12; // polyline samples per road
-const ROAD_TRIM_TREE = 10; // back a road's end off a tree trunk
 /** Camera: zoom 0 = widest, 1 = tightest (the director's CameraTarget contract).
  *  half-width of the viewBox in scene units at the two extremes. */
 const HALF_WIDE = 720;
@@ -203,13 +199,12 @@ export interface RoadMeta {
   from: string;
   /** The prerequisite story (what is depended ON — lower in the stack). */
   to: string;
-  /** The site-routed polyline (scene space, pre-offset). */
-  points: Pt[];
-  /** How many dependency layers this edge spans (|depth(from) − depth(to)|). 1 = an
-   *  adjacent layer (a small bow). ≥2 = a LAYER-SKIPPING edge — the BaaS direct
-   *  `website → database` read edge, which must bow WIDE so it arcs clearly around
-   *  the intervening layer (the backend) rather than passing through its tree. The
-   *  render styles it as the distinct "reads directly" curve (ADR-0157 §1). */
+  /** How many dependency layers this edge spans (|depth(from) − depth(to)|).
+   *  1 = an adjacent layer. ≥2 = a LAYER-SKIPPING edge — the BaaS direct
+   *  `website → database` read edge (ADR-0157 §1); its tooltip reads "reads
+   *  directly", and the render styles its trail segments distinctly (keyed by
+   *  the segments' data-edges). The GEOMETRY is the shared engine's now
+   *  (routeTrails, ADR-0169) — island-avoiding, procedural, never hand-bowed. */
   span: number;
 }
 
@@ -268,37 +263,7 @@ function discTiles(radius: number): Axial[] {
   return tiles;
 }
 
-/** Sample a quadratic bezier A→(ctrl)→B into n points (emitted as an M/L polyline
- *  `d`). Exported for the Phase-Z studio layer's hand-authored roads
- *  (act2-studio.ts) — shared geometry, never duplicated. */
-export function sampleQuadratic(a: Pt, ctrl: Pt, b: Pt, n: number): Pt[] {
-  const pts: Pt[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const u = 1 - t;
-    pts.push({
-      x: u * u * a.x + 2 * u * t * ctrl.x + t * t * b.x,
-      y: u * u * a.y + 2 * u * t * ctrl.y + t * t * b.y,
-    });
-  }
-  return pts;
-}
-
 const f = (n: number): string => n.toFixed(1);
-
-export function polylineD(pts: Pt[]): string {
-  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${f(p.x)} ${f(p.y)}`).join(' ');
-}
-
-/** Move `a` toward `b` by `dist` (road end trimming). Exported for the studio
- *  layer's roads. */
-export function toward(a: Pt, b: Pt, dist: number): Pt {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const k = Math.min(0.45, dist / len);
-  return { x: a.x + dx * k, y: a.y + dy * k };
-}
 
 /** One disc's geometry, built at the origin then TRANSLATED to `centre` — the
  *  cells, the smoothed coast, the tree spot, and the fixed ground decor/wheat.
@@ -476,14 +441,17 @@ export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorl
   });
   const terrById = new Map(territories.map((t) => [t.id, t] as const));
 
-  // ── the dependency edges: draw each edge from the DEPENDENT story (higher up)
+  // ── the dependency edges: each edge runs from the DEPENDENT story (higher up)
   //    DOWN to its PREREQUISITE (lower/foundation). dependsOn now points FROM the
   //    dependent TO its prerequisite (ADR-0153), so for each story s and each dep
-  //    in s.dependsOn we draw s → dep with the arrowhead (marker-end) landing ON
-  //    dep — the arrow points DOWN at what the story rests on. This reads "the
-  //    website NEEDS the backend NEEDS the database" (UAT 2/3), the arrow pointing
-  //    at the prerequisite beneath. data-from = the dependent (upper), data-to =
-  //    the prerequisite (lower); the tooltip reads "<dependent> needs <prereq>". ──
+  //    in s.dependsOn we declare s → dep. This reads "the website NEEDS the
+  //    backend NEEDS the database" (UAT 2/3). data-from = the dependent (upper),
+  //    data-to = the prerequisite (lower); the tooltip reads "<dependent> needs
+  //    <prereq>". The GEOMETRY is no longer bowed here: the shared trail router
+  //    (routeTrails, ADR-0169) routes every edge procedurally — island-avoiding,
+  //    so the layer-skipping BaaS edge (span ≥ 2, the direct website → database
+  //    read, ADR-0157 §1) winds AROUND the intervening backend island by
+  //    construction, never through it. ──
   const roads: RoadMeta[] = [];
   for (const s of stories) {
     const upper = terrById.get(s.id); // the dependent (higher up)
@@ -491,35 +459,7 @@ export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorl
     for (const depId of s.dependsOn) {
       const lower = terrById.get(depId); // the prerequisite (lower/foundation)
       if (!lower) continue;
-      // path a → b: a = the dependent (upper), b = the prerequisite (lower), so the
-      // marker-end arrow lands on the prerequisite (points DOWN, at what it rests on).
-      const rawA = { x: upper.treeSpot.x, y: upper.treeSpot.y };
-      const rawB = { x: lower.treeSpot.x, y: lower.treeSpot.y };
-      const a = toward(rawA, rawB, ROAD_TRIM_TREE);
-      const b = toward(rawB, rawA, ROAD_TRIM_TREE);
-      const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-      const px = -(b.y - a.y) / len;
-      const py = (b.x - a.x) / len;
-      // depth span: 1 = adjacent layer; ≥2 = a LAYER-SKIPPING edge (the BaaS direct
-      // website → database read, ADR-0157 §1). A skipping edge must arc WIDE so it
-      // passes clearly to one side of the intervening tree (the backend at x≈0), not
-      // through it. Bow it hard to a FIXED side (right of the column) and size the
-      // bow to clear the intervening disc's radius + a calm margin; adjacent edges
-      // keep the subtle hash-picked bow.
-      const span = Math.abs(upper.depth - lower.depth);
-      let side: number;
-      let bow: number;
-      if (span >= 2) {
-        side = 1; // always bow the direct read edge to the same side (legible, stable)
-        bow = UPSTREAM_R + LAYER_RISE * 0.42; // wide enough to clear the middle tree
-      } else {
-        side = rand01(hash(`${s.id}->${depId}:side`)) < 0.5 ? 1 : -1;
-        bow = ROAD_BOW;
-      }
-      const ctrl: Pt = { x: mid.x + px * bow * side, y: mid.y + py * bow * side };
-      const points = sampleQuadratic(a, ctrl, b, ROAD_SAMPLES);
-      roads.push({ from: s.id, to: depId, points, span });
+      roads.push({ from: s.id, to: depId, span: Math.abs(upper.depth - lower.depth) });
     }
   }
 
@@ -600,24 +540,23 @@ export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorl
     });
   }
 
-  const sceneRoads: SceneRoadInput[] = roads.map((r) => {
-    const fromT = terrById.get(r.from);
-    const toT = terrById.get(r.to);
-    const fromLabel = fromT?.label ?? r.from;
-    const toLabel = toT?.label ?? r.to;
-    // the layer-skipping edge is the BaaS direct read (ADR-0157 §1): the website
-    // reads its catalog straight from the database. Name it honestly in the tooltip.
-    const title =
-      r.span >= 2
-        ? `${fromLabel} reads directly from ${toLabel}`
-        : `${fromLabel} needs ${toLabel}`;
-    return {
-      from: r.from,
-      to: r.to,
-      d: polylineD(r.points),
-      title,
-    };
-  });
+  // the trail network through the SHARED router (ADR-0169 §1): the stacked story
+  // discs as obstacle islands, the declared dependency edges, a fixed seed —
+  // procedural, never hand-forged `d` strings. Tooltips keep the walk's honest
+  // vocabulary: the layer-skipping edge is the BaaS direct read (ADR-0157 §1).
+  const trails = routeTrails(
+    territories.map((t) => ({ id: t.id, x: t.centre.x, y: t.centre.y, r: t.radius })),
+    roads.map((r) => {
+      const fromLabel = terrById.get(r.from)?.label ?? r.from;
+      const toLabel = terrById.get(r.to)?.label ?? r.to;
+      const title =
+        r.span >= 2
+          ? `${fromLabel} reads directly from ${toLabel}`
+          : `${fromLabel} needs ${toLabel}`;
+      return { from: r.from, to: r.to, title };
+    }),
+    'act2-walk-trails',
+  );
 
   const sceneInput: SceneInput = {
     offset: { x: OFFSET.x, y: OFFSET.y },
@@ -627,7 +566,7 @@ export function foldWorldToScene(world: WorldState, _script: Beat[]): FoldedWorl
     relaxedCells: allCells,
     drawTiles: [],
     wheatSets: [],
-    roads: sceneRoads,
+    trails,
     territories: sceneTerritories,
   };
 
@@ -685,10 +624,7 @@ export const escXml = (s: unknown): string =>
  *  defs ids (`a2-*`, so nothing depends on the hidden home-map svg), then the
  *  walked scene-graph. Pure string of the fold. */
 function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string {
-  let scene = sceneToSvg(buildScene(fold.sceneInput));
-  // the scene's road marker references the home map's defs id — retarget it at
-  // this svg's own copy so the stage is self-contained.
-  scene = scene.split('url(#tw-arrow)').join('url(#a2-arrow)');
+  const scene = sceneToSvg(buildScene(fold.sceneInput));
 
   const label =
     'A staged map of fictional stories growing on quiet ground — the same look as the real ' +
@@ -697,7 +633,6 @@ function stageSvg(fold: FoldedWorld, beatIndex: number, viewBox: string): string
     `<svg class="tw-svg act2-svg${fold.preStory ? ' is-prestory' : ''}" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" role="group" aria-roledescription="illustrated map" aria-label="${escXml(label)}" data-act2-beat="${beatIndex}">` +
     `<defs>` +
     `<radialGradient id="a2-board" cx="50%" cy="40%" r="80%"><stop offset="0" stop-color="#fbf3ea"/><stop offset="1" stop-color="#edd9c9"/></radialGradient>` +
-    `<marker id="a2-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1.4 L 8 5 L 0 8.6 z"/></marker>` +
     `</defs>` +
     `<rect class="tw-bg act2-bg" x="0" y="0" width="${SCENE_W}" height="${SCENE_H}"/>` +
     scene +
@@ -720,9 +655,9 @@ function enterSelectorsFor(beatIndex: number): { scale: string[]; fade: string[]
       return { scale: [], fade: ['.tw-flora-layer .tw-flora'] };
     case 4:
     case 5:
-      // the newest upstream disc (its ground + coast + tree) fades/scales in; its
-      // dependency road fades in with it.
-      return { scale: [], fade: ['.tw-roads .tw-road'] };
+      // the newest upstream disc (its ground + coast + tree) fades/scales in; the
+      // trail network (re-routed whole for the grown world) fades in with it.
+      return { scale: [], fade: ['.tw-trails'] };
     default:
       return { scale: [], fade: [] };
   }
@@ -960,7 +895,7 @@ function anchorFor(fold: FoldedWorld, beatIndex: number): { rect: Rect; selector
           selector: `.tw-terr[data-id="${t.id}"]`,
         };
       }
-      return { rect: fold.contentRect, selector: '.tw-roads' };
+      return { rect: fold.contentRect, selector: '.tw-trails' };
     }
     case 5: {
       // the database (the base) — anchor on it.
@@ -1391,8 +1326,8 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
         }
       });
     }
-    // on the upstream beats, the newest disc's flora/coast/ground fade in with its
-    // road (scoped to the newest territory by data-id).
+    // on the upstream beats, the newest disc's flora/coast/ground fade in with the
+    // trails (scoped to the newest territory by data-id).
     if (director.beatIndex === 4 || director.beatIndex === 5) {
       const id = director.beatIndex === 4 ? STORY_BACKEND : STORY_DATABASE;
       const t = terrOf(fold, id);
