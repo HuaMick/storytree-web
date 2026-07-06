@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
-// The accessibility-fallback copy (eyebrow / headline / lede) is editable in
-// Keystatic (/keystatic) and stored in src/data/home.json. Rendered with set:html
+// The accessibility-fallback copy (eyebrow / headline / lede) lives in
+// src/data/home.json (plain file edits). Rendered with set:html
 // so inline emphasis (<em>/<strong>) and entities (&nbsp;) render as authored.
 // (The live map + marketing intro were retired from the front door by ADR-0148 §5;
 // the map still lives on /how-it-works and its own pages via TreeWorld.astro.)
@@ -208,7 +208,7 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
        here too), never stranded, with honest links onward. `data-experience-fallback`
        stays physically in this source (the parent's check:web-experience greps for
        it, and for data-experience-skip in the storm HUD above). The headline copy
-       stays editable in Keystatic (home.json). -->
+       lives in home.json. -->
   <div class="calm-view" id="calm-view" tabindex="-1" data-experience-fallback>
     <section class="fallback section">
       <div class="wrap fallback__copy">

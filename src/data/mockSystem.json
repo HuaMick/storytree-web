@@ -99,8 +99,8 @@
       "capabilities": [
         { "id": "gf-sockets", "title": "Socket sessions", "status": "healthy", "contracts": 7, "verdict": { "outcome": "pass", "at": "2026-06-08T12:00:00Z" } },
         { "id": "gf-subscribe", "title": "Channel subscriptions", "status": "mapped", "contracts": 8, "dependsOn": ["gf-sockets"] },
-        { "id": "gf-reconnect", "title": "Reconnect storm handling", "status": "unhealthy", "contracts": 9, "dependsOn": ["gf-sockets"], "verdict": { "outcome": "fail", "at": "2026-06-14T09:05:00Z" } },
-        { "id": "gf-backpressure", "title": "Backpressure tuning", "status": "unhealthy", "contracts": 6, "dependsOn": ["gf-reconnect"], "verdict": { "outcome": "fail", "at": "2026-06-14T08:40:00Z" } }
+        { "id": "gf-reconnect", "title": "Recovering dropped connections", "status": "unhealthy", "contracts": 9, "dependsOn": ["gf-sockets"], "verdict": { "outcome": "fail", "at": "2026-06-14T09:05:00Z" } },
+        { "id": "gf-backpressure", "title": "Keeping up under load", "status": "unhealthy", "contracts": 6, "dependsOn": ["gf-reconnect"], "verdict": { "outcome": "fail", "at": "2026-06-14T08:40:00Z" } }
       ]
     },
     {
@@ -150,7 +150,7 @@
     { "id": "agent-a3f", "branch": "feat/search-index", "workingOn": "building the search index pipeline", "band": "fresh", "nodes": ["se-index", "search"], "phase": "CONFIRM_GREEN" },
     { "id": "priya", "branch": "feat/huddles-sfu", "workingOn": "wiring the SFU media path", "band": "fresh", "nodes": ["hd-sfu", "huddles"] },
     { "id": "agent-c92", "branch": "feat/seat-metering", "workingOn": "seat metering and proration", "band": "fresh", "nodes": ["bl-seats", "billing"] },
-    { "id": "rowan", "branch": "fix/fanout-backpressure", "workingOn": "triaging the Monday reconnect storm", "band": "fresh", "nodes": ["gf-backpressure", "fanout"], "phase": "CONFIRM_RED" },
+    { "id": "rowan", "branch": "fix/monday-outage", "workingOn": "fixing the Monday outage", "band": "fresh", "nodes": ["gf-backpressure", "fanout"], "phase": "CONFIRM_RED" },
     { "id": "agent-7d1", "branch": "exp/search-backfill", "workingOn": "backfilling the legacy index", "band": "stale", "nodes": ["se-backfill"] }
   ]
 }

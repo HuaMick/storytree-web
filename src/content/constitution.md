@@ -18,7 +18,7 @@ Most projects ask you to trust the people running them. We're trying to show tha
 
 This is the part that has to be real, or none of the rest is.
 
-Two things hold us to it. First, proof: inside storytree, work only counts as done when a check that was failing is made to pass — and not by the same agent that wrote it, so nothing grades its own homework. Second, plain talk: we describe only what's actually built, and name what isn't. Where we're still figuring something out, you'll hear us say so rather than paper over it — the [roadmap](/roadmap/) lays out what's built, what's being built now, and what's honestly still ahead. And the simplest check is open to anyone: ask us a hard question, point at a hole, and see whether the answer holds up.
+Two things hold us to it. First, proof: inside storytree, work only counts as done when a check that was failing is made to pass — and not by the same agent that wrote it, so nothing grades its own homework. Second, plain talk: we describe only what's actually built, and name what isn't. Where we're still figuring something out, you'll hear us say so rather than paper over it. And the simplest check is open to anyone: ask us a hard question, point at a hole, and see whether the answer holds up.
 
 ## Where we are right now
 
