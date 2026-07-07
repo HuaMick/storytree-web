@@ -4,13 +4,13 @@ import Base from '../layouts/Base.astro';
 // src/data/home.json (plain file edits). Rendered with set:html
 // so inline emphasis (<em>/<strong>) and entities (&nbsp;) render as authored.
 // (The live map + marketing intro were retired from the front door by ADR-0148 §5;
-// the map still lives on /how-it-works and its own pages via TreeWorld.astro.)
+// the how-it-works page that hosted the full TreeWorld map was itself retired in
+// the info-pages retirement — the experience is now the whole site.)
 import home from '../data/home.json';
-// The Act 2 guided walk (ADR-0145) renders the SAME buildScene → sceneToSvg map
-// SVG the real TreeWorld uses, but this page does NOT mount <TreeWorld/> (the map
-// retired from the front door, ADR-0148 §5) — so the map's `tw-*` paint rules are
-// not otherwise on the page and the territory/flora would fall back to black fill.
-// Pull in the SHARED map-layer stylesheet (one home, referenced by both surfaces).
+// The Act 2 guided walk (ADR-0145) renders a buildScene → sceneToSvg map SVG that
+// needs the `tw-*` map-layer paint rules; the walk is now their SOLE consumer (the
+// TreeWorld component that used to share them retired with how-it-works). Without
+// this stylesheet the territory/flora would fall back to black fill.
 import '../styles/tree-world-map.css';
 // ---------------------------------------------------------------------------
 // THE HOME FLIP (ADR-0134 Act 1): the page ships two top-level branches.
@@ -205,7 +205,7 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
        A CLEAN MINIMAL static page — NOT the old marketing homepage, and NOT an
        escape a capable visitor is offered. It is graceful degradation only: no-JS
        and reduced-motion visitors land here (and the storm's skip / Escape route
-       here too), never stranded, with honest links onward. `data-experience-fallback`
+       here too), never stranded. `data-experience-fallback`
        stays physically in this source (the parent's check:web-experience greps for
        it, and for data-experience-skip in the storm HUD above). The headline copy
        lives in home.json. -->
@@ -219,10 +219,6 @@ import { BOOT_BANNER, PROMPT_CHIPS, DEFAULT_PROMPT } from '../scripts/storm-scri
           storytree grows software as a living map of stories, watched as it happens. This is
           the plain-text door; the full guided experience needs JavaScript and motion.
         </p>
-        <nav class="fallback__cta" aria-label="Learn more about storytree">
-          <a class="btn btn--primary" href="/how-it-works/">how it works</a>
-          <a class="btn btn--ghost" href="/get-involved/">get involved</a>
-        </nav>
       </div>
     </section>
   </div>
