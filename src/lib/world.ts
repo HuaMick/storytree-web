@@ -8,7 +8,8 @@
 // traces the load-bearing base up through the canopy. Each story claims a
 // cluster of hex tiles and grows ONE central tree whose SIZE scales with its
 // capability count, so a richer story is a visibly bigger tree. Garden flora are
-// its capabilities; dashed "roads" are dependency edges; a signpost marks a
+// its capabilities; procedurally routed "trails" (ADR-0169, hidden by default on
+// the public map) are dependency edges; a signpost marks a
 // human-witnessed story; "blooms" announce fresh passing verdicts; "wisps" are
 // the sessions working right now. Each story also carries a laid-out capability
 // sub-DAG for the drill-down.
@@ -30,6 +31,8 @@ import {
   type Axial,
   type RelaxedCell,
   type BuildPhase,
+  type TrailNetwork,
+  routeTrails,
   HEX_R,
   HEX_W,
   TILE_DEPTH,
@@ -162,12 +165,13 @@ export interface Territory {
   deps: string[]; ancestors: string[]; descendants: string[];
   sessions: { id: string; workingOn: string; band: string }[];
 }
-interface Road { from: string; to: string; d: string; }
-
 export interface World {
   project: string;
   width: number; height: number; ox: number; oy: number;
-  relaxedCells: RelaxedCell[]; roads: Road[];
+  relaxedCells: RelaxedCell[];
+  /** The routed `depends_on` trail network (ADR-0169) — `routeTrails`' output,
+   *  carried whole so the scene fold passes it straight through as `trails`. */
+  trails: TrailNetwork;
   territories: Territory[];
   drawOrder: number[];
   stats: { stories: number; caps: number; contracts: number; proven: number; building: number; unhealthy: number; sessions: number };
@@ -436,25 +440,14 @@ export function buildWorld(data: Dataset): World {
     territories[i].coastPaths = smoothCoast(segs, stories[i].id).paths;
   }
 
-  // roads (dep -> dependent), bowed for multi-rank spans
-  const roads: Road[] = edgeList.map(({ from, to }) => {
-    const a = territories[idIndex.get(from)!];
-    const b = territories[idIndex.get(to)!];
-    const dx = b.cx - a.cx, dy = b.cy - a.cy;
-    const dist = Math.hypot(dx, dy) || 1;
-    const ux = dx / dist, uy = dy / dist;
-    const sx = a.cx + ux * a.radius * 0.78, sy = a.cy + uy * a.radius * 0.78;
-    const ex = b.cx - ux * b.radius * 0.82, ey = b.cy - uy * b.radius * 0.82;
-    const span = Math.abs((ranks.get(to) ?? 0) - (ranks.get(from) ?? 0));
-    const rr = rand01(hash(`${from}->${to}`));
-    let bow: number;
-    if (span >= 2) {
-      const side = Math.sign((a.cx + b.cx) / 2) || (rr < 0.5 ? -1 : 1);
-      bow = side * Math.min(0.42, 0.16 + 0.06 * span + 0.05 * rr) * dist;
-    } else bow = (rr - 0.5) * 0.36 * dist;
-    const mx = (sx + ex) / 2 - uy * bow, my = (sy + ey) / 2 + ux * bow;
-    return { from, to, d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}` };
-  });
+  // trails (dep -> dependent): the shared core's deterministic cost-grid router
+  // (ADR-0169 §1) — islands from the territory centroids/radii, edges from the
+  // declared depends_on list, a stable seed from the story ids. Never hand-forged.
+  const trails = routeTrails(
+    territories.map((t) => ({ id: t.id, x: t.cx, y: t.cy, r: t.radius })),
+    edgeList.map(({ from, to }) => ({ from, to, title: `${to} depends on ${from}` })),
+    `web:${stories.map((s) => s.id).join('|')}`,
+  );
 
   // bounds (the smoothed coast extends only ~COAST_OUTSET beyond the land, well
   // inside MARGIN; the tree canopy reach comes from the core's storyTreeReach).
@@ -480,7 +473,7 @@ export function buildWorld(data: Dataset): World {
   return {
     project: data.project,
     width: Math.ceil(maxX - minX), height: Math.ceil(maxY - minY), ox: -minX, oy: -minY,
-    relaxedCells, roads, territories, drawOrder,
+    relaxedCells, trails, territories, drawOrder,
     stats: { stories: n, caps, contracts: contractsTotal, proven, building, unhealthy, sessions: sessions.length },
   };
 }

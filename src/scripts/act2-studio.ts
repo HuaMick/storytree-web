@@ -11,7 +11,7 @@
 //             visitor's island centred, bright.
 //   legend  — the legend card brightens bottom-left (the rest stays dim).
 //   forest  — the frame un-dims and the FOREST lights up: the other islands,
-//             faint roads, wisps ORBITING where agents are live.
+//             faint trails, wisps ORBITING where agents are live.
 //   details — the details panel slides in (promises with proof-signed marks,
 //             the decisions behind the story as ADR chips, its needs).
 //
@@ -46,23 +46,15 @@
 
 import {
   buildScene,
+  routeTrails,
   type Pt,
   type RelaxedCell,
   type SceneInput,
-  type SceneRoadInput,
   type SceneStatus,
   type SceneTerritoryInput,
 } from '../lib/forest-world';
 import { sceneToSvg } from '../lib/worldSvg';
-import {
-  buildDisc,
-  escXml,
-  orbitWispLayers,
-  polylineD,
-  sampleQuadratic,
-  toward,
-  type DiscGeometry,
-} from './act2-walkthrough';
+import { buildDisc, escXml, orbitWispLayers, type DiscGeometry } from './act2-walkthrough';
 import type { StudioStage } from './act2-guide';
 
 // ── the hand-authored fiction (fixed data — the whole scene is a pure
@@ -82,9 +74,6 @@ const HOME_R = 64;
 const OTHER_R = 40;
 const HOME_PLATE_Y = 80;
 const OTHER_PLATE_Y = 52;
-/** Road ends back off a tree trunk (the walk's idiom). */
-const ROAD_TRIM = 10;
-const ROAD_SAMPLES = 12;
 
 interface StudioIsland {
   id: string;
@@ -171,16 +160,17 @@ const ISLANDS: readonly StudioIsland[] = [
 
 const HOME_ID = 'stu-checkout';
 
-/** Faint roads between islands — dependent → prerequisite (the settled
- *  direction, ADR-0058/0153; the arrowhead lands on the prerequisite). No
- *  proven story rests on the withered one — the broken island broke on its
- *  own, honest with the Z2 legend line. Fixed bows/sides — deterministic. */
-const ROADS: readonly { from: string; to: string; bow: number; side: 1 | -1 }[] = [
-  { from: 'stu-checkout', to: 'stu-signin', bow: 22, side: 1 },
-  { from: 'stu-checkout', to: 'stu-browse', bow: 20, side: -1 },
-  { from: 'stu-orders', to: 'stu-checkout', bow: 24, side: -1 },
-  { from: 'stu-refunds', to: 'stu-checkout', bow: 24, side: 1 },
-  { from: 'stu-search', to: 'stu-browse', bow: 26, side: 1 },
+/** Faint trails between islands — dependent → prerequisite (the settled
+ *  direction, ADR-0058/0153). No proven story rests on the withered one — the
+ *  broken island broke on its own, honest with the Z2 legend line. The
+ *  GEOMETRY is the shared engine's (routeTrails, ADR-0169 — procedural, never
+ *  hand-forged): only the edge list is authored fiction. */
+const ROADS: readonly { from: string; to: string }[] = [
+  { from: 'stu-checkout', to: 'stu-signin' },
+  { from: 'stu-checkout', to: 'stu-browse' },
+  { from: 'stu-orders', to: 'stu-checkout' },
+  { from: 'stu-refunds', to: 'stu-checkout' },
+  { from: 'stu-search', to: 'stu-browse' },
 ];
 
 // ── the scene, through the real rail (pure string of the fixed data) ─────────
@@ -235,25 +225,18 @@ function studioSvg(): string {
     });
   });
 
-  const roads: SceneRoadInput[] = ROADS.map((r) => {
-    const fromIsl = byId.get(r.from)!;
-    const toIsl = byId.get(r.to)!;
-    const rawA = discs.get(r.from)!.treeSpot;
-    const rawB = discs.get(r.to)!.treeSpot;
-    const a = toward(rawA, rawB, ROAD_TRIM);
-    const b = toward(rawB, rawA, ROAD_TRIM);
-    const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    const px = -(b.y - a.y) / len;
-    const py = (b.x - a.x) / len;
-    const ctrl: Pt = { x: mid.x + px * r.bow * r.side, y: mid.y + py * r.bow * r.side };
-    return {
+  // the trail network through the SHARED router (ADR-0169 §1): islands as
+  // obstacle discs, the authored edge list, a fixed seed — procedural, never
+  // hand-forged `d` strings. Titles keep the walk's "needs" vocabulary.
+  const trails = routeTrails(
+    ISLANDS.map((isl) => ({ id: isl.id, x: isl.centre.x, y: isl.centre.y, r: isl.radius })),
+    ROADS.map((r) => ({
       from: r.from,
       to: r.to,
-      d: polylineD(sampleQuadratic(a, ctrl, b, ROAD_SAMPLES)),
-      title: `${fromIsl.label} needs ${toIsl.label}`,
-    };
-  });
+      title: `${byId.get(r.from)!.label} needs ${byId.get(r.to)!.label}`,
+    })),
+    'act2-studio-trails',
+  );
 
   const sceneInput: SceneInput = {
     offset: STU_OFFSET,
@@ -263,24 +246,18 @@ function studioSvg(): string {
     relaxedCells: allCells,
     drawTiles: [],
     wheatSets: [],
-    roads,
+    trails,
     territories,
   };
 
-  // the same shell pattern as the walk's stageSvg: own defs ids (a2s-*), the
-  // scene's marker refs retargeted at this svg's copy.
-  let scene = sceneToSvg(buildScene(sceneInput));
-  scene = scene.split('url(#tw-arrow)').join('url(#a2s-arrow)');
+  const scene = sceneToSvg(buildScene(sceneInput));
 
   const label =
     'A staged studio map on made-up data: story islands — some proven green, some being ' +
     'built with a light circling where an agent session is live, one withered — with faint ' +
-    'roads between them. Nothing here is live.';
+    'trails between them. Nothing here is live.';
   return (
     `<svg class="tw-svg act2-stu-svg" viewBox="0 0 ${STU_W} ${STU_H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escXml(label)}">` +
-    `<defs>` +
-    `<marker id="a2s-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1.4 L 8 5 L 0 8.6 z"/></marker>` +
-    `</defs>` +
     scene +
     `</svg>`
   );
@@ -366,7 +343,7 @@ export function mountStudio(host: HTMLElement): StudioHandle {
 
   // tag everything that only lights at the 'forest' stage: every island but
   // the visitor's (ground/coast/flora — the wisps live inside the flora
-  // groups, tagged explicitly too in case the rail moves them) + all roads.
+  // groups, tagged explicitly too in case the rail moves them) + the trails.
   for (const isl of ISLANDS) {
     if (isl.id === HOME_ID) continue;
     main
@@ -375,7 +352,7 @@ export function mountStudio(host: HTMLElement): StudioHandle {
       )
       .forEach((n) => n.classList.add('act2-stu-other'));
   }
-  main.querySelectorAll('.tw-road, .tw-wisps').forEach((n) => n.classList.add('act2-stu-other'));
+  main.querySelectorAll('.tw-trails, .tw-wisps').forEach((n) => n.classList.add('act2-stu-other'));
 
   // the legend card (Z2) — the mock's rows verbatim.
   const legend = el('div', 'act2-stu-legend');
