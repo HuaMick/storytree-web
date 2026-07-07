@@ -2,18 +2,17 @@
    tree-world-map — the MAP-LAYER paint vocabulary for the 2.5D story world SVG
    (the `tw-*` classes emitted by src/lib/worldSvg.ts's sceneToSvg / renderWorld).
 
-   Extracted from TreeWorld.astro so it has ONE home and both consumers share it
-   (reference, don't restate — asset:reference-dont-restate):
-     • TreeWorld.astro (the real interactive map on /how-it-works and friends)
-     • index.astro (the Act 2 guided walk — the same buildScene → sceneToSvg rail,
-       ADR-0145; the walk is NOT accompanied by <TreeWorld/>, so without this
-       shared sheet its territory/flora fell back to unstyled BLACK fill).
+   Originally extracted from the (now-retired) TreeWorld.astro component; its sole
+   consumer is the Act 2 guided walk (index.astro — the buildScene → sceneToSvg
+   rail, ADR-0145). The walk renders the map SVG directly, so without this sheet
+   its territory/flora would fall back to unstyled BLACK fill. (TreeWorld.astro and
+   the /how-it-works map that hosted it retired 2026-07-07.)
 
    This is the WORLD paint only — the ground cells, the smoothed shore, the story
    trees, garden flora, trails, wisps, blooms, signposts, nameplates, and their
-   status colours + gentle idle animations. It carries NONE of TreeWorld's shell
-   chrome (toolbar, filters, inspector, legend) — that stays component-scoped in
-   TreeWorld.astro. All colours resolve against the site tokens in global.css
+   status colours + gentle idle animations. It carries NONE of the retired
+   TreeWorld component's shell chrome (toolbar, filters, inspector, legend). All
+   colours resolve against the site tokens in global.css
    (--ink / --evergreen / --amber / --crimson / --font-body), which Base.astro
    loads globally, so this sheet needs no variable definitions of its own.
 

@@ -46,12 +46,17 @@ export default defineConfig({
     // Emit clean per-page directories (about/index.html) for pretty URLs.
     format: 'directory',
   },
-  // Discarded info pages (info-pages-triage sign-off, 2026-07-06). Static output
-  // emits meta-refresh stubs at the old URLs — here.now has no server redirects,
-  // so the stub IS the redirect; inbound links land somewhere sensible, never 404.
+  // Retired info pages (info-pages-triage: the ADR-0167 discards 2026-07-06, then
+  // the full retirement 2026-07-07). Static output emits meta-refresh stubs at the
+  // old URLs — here.now has no server redirects, so the stub IS the redirect;
+  // inbound links land on the experience at /, never a 404.
   redirects: {
-    '/roadmap': '/get-involved/',
-    '/landscape': '/how-it-works/',
+    '/roadmap': '/',
+    '/landscape': '/',
+    '/how-it-works': '/',
+    '/get-involved': '/',
+    '/contact': '/',
+    '/constitution': '/',
   },
   devToolbar: { enabled: false },
   integrations,

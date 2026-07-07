@@ -1011,34 +1011,20 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
   inspect.appendChild(inspectCard);
   inspect.hidden = true;
 
-  // the honest diorama-closing CTA (revealed at the end; every exit is real)
+  // the honest diorama-closing card (revealed at the end; every exit is real)
   const done = el('div', 'act2-done');
   done.setAttribute('data-act2-cta', '');
   done.setAttribute('role', 'group');
-  done.setAttribute('aria-label', 'The end of the walk — where to next');
+  done.setAttribute('aria-label', 'The end of the walk');
+  done.setAttribute('tabindex', '-1'); // focus lands here when the close is revealed (was the retired CTA)
   const doneTitle = el('h2', 'act2-title', NARRATION[DONE_KEY]!.title);
   const doneBody = el('p', 'act2-body', NARRATION[DONE_KEY]!.body);
-  // ADR-0150/0153: the walk ALREADY grew upstream — there is no "grow the backend
-  // next" destination. The CTA is the true END: it points at the real product
-  // (watched-live) and how it works — NOT any deprecated page. The no-JS /
-  // reduced-motion fallback (the ONLY non-experience path, ADR-0153 §3) lives on
-  // index.astro; these are real onward product pages, not an escape hatch.
-  const doneNav = document.createElement('nav');
-  doneNav.className = 'act2-done-links';
-  doneNav.setAttribute('aria-label', 'Where to next');
-  const ctaNext = document.createElement('a');
-  ctaNext.className = 'btn btn--primary';
-  ctaNext.href = '/get-involved/';
-  ctaNext.setAttribute('data-act2-whats-next', '');
-  ctaNext.textContent = 'watch the real thing grow →';
-  const ctaHow = document.createElement('a');
-  ctaHow.className = 'btn btn--ghost';
-  ctaHow.href = '/how-it-works/';
-  ctaHow.textContent = 'how it works';
-  doneNav.append(ctaNext, ctaHow);
-  // (the card's own "← back to the forest" retired with the callout buttons —
-  // the chat's single Back control is the one replay affordance, ADR-0165 §3)
-  done.append(doneTitle, doneBody, doneNav);
+  // The info pages retired (2026-07-07) — the walk's onward links (get-involved,
+  // how-it-works) went with them; the experience is now the whole site, so the
+  // done state is the honest close itself, with no onward page link. The contact
+  // door may be added back later (owner's call). Replay is the chat's single Back
+  // control (ADR-0165 §3); the card's own back retired with the callout buttons.
+  done.append(doneTitle, doneBody);
   done.hidden = true;
 
   stage.append(canvas, callout, inspect, done);
@@ -1413,7 +1399,7 @@ export function mountWalkthrough(land: HTMLElement, opts: WalkthroughOptions): W
     callout.hidden = true;
     syncPanel();
     try {
-      ctaNext.focus({ preventScroll: true }); // the "what's next" primary
+      done.focus({ preventScroll: true }); // move focus to the close card (its CTA retired)
     } catch {
       /* focus is a courtesy */
     }
