@@ -2194,12 +2194,12 @@ const GARDEN_HERO_TARGET: Record<GardenHeroId, number> = {
 const GARDEN_FIT_HALF_FRAC = 0.42; // scaled base half-width ≤ 0.42·radius (full width ≤ 0.84·radius)
 const GARDEN_FIT_HEIGHT_FRAC = 1.25; // scaled height ≤ 1.25·radius (a standing object may rise a little above)
 
-/** The lawn gap a free garden hero's PLACEMENT POINT keeps beyond the fitted tree canopy, as a fraction
- *  of the tree's fitted footprint half-width (grounded-art inc 12 — the small-island collision fix). The
- *  keep-out is `max(radius·0.5, treeHalfW·(1+GAP))`: a `max` so it never LOOSENS the historical
- *  `radius·0.5` (the attested large-island / studio composition, where `radius·0.5` governs, is
- *  unchanged), and footprint-scaled so on a SMALL island — where the fitted tree fills the island and a
- *  building would otherwise merge into the trunk — the hero centre is pushed just outside the canopy. */
+/** The lawn gap a free garden hero's PLACEMENT POINT keeps beyond the fitted tree canopy, as a fraction of
+ *  the tree's fitted footprint half-width (grounded-art inc 12 — the small-island collision fix). It sets
+ *  the canopy keep-out `treeHalfW·(1+GAP)` ({@link treeKeepOut}): the anti-merge bound that keeps a building
+ *  from sitting inside the trunk. See {@link placeGardenHeroes} for how the sampler layers the historical
+ *  `radius·0.5` spread on top of it while the fallback uses only this canopy bound (which is what leaves the
+ *  attested studio composition unchanged). */
 const GARDEN_TREE_GAP = 0.15;
 
 /** The fitted scale for one hero on island `t`: the crown-based target height, CAPPED so the scaled
