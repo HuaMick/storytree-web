@@ -120,26 +120,37 @@ export type SceneKind =
   | 'sign-fail'
   | 'sign-post'
   | 'sign-head'
-  // the UAT markers (forest-parcels inc 2) — the story's UAT criteria as STANDING-STONE markers
-  // SCATTERED deterministically around the island (owner call 2026-07-18: stones, not braziers, and
-  // scattered rather than lining a path). The WRAPPER kind encodes each criterion's state (the
-  // `sign-blank/pass/fail` precedent) and carries the criterion id; the body marks inside come from
-  // the `standingStoneMarks` splice seam (ADR-0208) on the frozen child kinds below (+ the shared
-  // `shadow`). Colour stays CSS-side (ADR-0093 §4). No group kind: each stone is its own y-sorted
-  // drawable inside the territory, so painter depth interleaves with the tree + flora.
-  | 'standing-stone-proven'
-  | 'standing-stone-pending'
-  | 'standing-stone-failing'
-  | 'standing-stone-body'
-  | 'standing-stone-face'
-  | 'standing-stone-cap'
-  | 'standing-stone-crack'
-  | 'standing-stone-crack-glow'
-  | 'standing-stone-rune'
-  | 'standing-stone-glow'
-  | 'standing-stone-spark'
-  | 'standing-stone-moss'
-  | 'standing-stone-moss-fleck'
+  // the UAT markers (forest-parcels inc 2; stones → tall flowers, grounded-art inc 7). The story's UAT
+  // criteria as TALL-FLOWER markers scattered deterministically around the island. The owner rejected
+  // the standing-stones as noisy/colliding (#832) and directed a cosy stand-in (2026-07-20): one soft,
+  // flat flower per criterion, its STATE read from FORM — a bloomed daisy = proven, a closed bud =
+  // pending, a wilted nodding head = failing (the `sign-blank/pass/fail` precedent). The WRAPPER kind
+  // encodes the state + carries the criterion id; the body marks come from the `tallFlowerMarks` painter
+  // on the child kinds below (+ the shared `shadow`). Colour stays CSS-side (ADR-0093 §4). No group
+  // kind: each flower is its own y-sorted drawable inside the territory, so painter depth interleaves
+  // with the tree + flora.
+  | 'tall-flower-proven'
+  | 'tall-flower-pending'
+  | 'tall-flower-failing'
+  | 'tall-flower-stem'
+  | 'tall-flower-leaf'
+  | 'tall-flower-petal'
+  | 'tall-flower-center'
+  | 'tall-flower-bud'
+  | 'tall-flower-glow'
+  // the cosy-island GARDEN's flat decorative accents (grounded-art inc 11 unit 3) — a lavender bed and
+  // grass tufts in the attested tall-flower FLAT style (no isometric shading; colour is CSS-class,
+  // ADR-0093 §4). Decorative only — they carry no verdict. R3F auto-skips them (the mapper's default).
+  | 'garden-lavender-stem'
+  | 'garden-lavender-head'
+  | 'garden-grass-blade'
+  // baked art in the shared scene (ADR-0218) — the fenced paint-carrying family, KEPT as dormant
+  // reusable machinery. `baked-defs` is the once-per-scene definition LAYER (a mapper renders it into
+  // `<defs>`, non-rendering); `baked-art` is a placement `<use>` referencing a def. The UAT-marker
+  // stone that once produced these retired with the tall-flower markers (grounded-art inc 7); the
+  // family stays wired through the mapper for a future baked object type (see `SceneInput.bakedStone`).
+  | 'baked-defs'
+  | 'baked-art'
   // a capability as garden flora
   | 'flora'
   | 'flora-hit'
@@ -192,7 +203,9 @@ export type SceneKind =
   | 'claim-wisp-glow'
   | 'claim-wisp-dot'
   // the claim-GRADE drawable families (ADR-0200 D7) — which geometry a claim's grade selects.
-  // `hover-wisp*`: an exploring claim at rest beside the story tree (stationary — no orbit `phase`).
+  // `hover-wisp*`: an exploring claim window-shopping BESIDE the story tree — a small local orbit
+  //   around a per-key rest spot (ADR-0212 reversed ADR-0200 D7's stationary rule; it carries a
+  //   `phase` and the rest spot lives on a PARENT `g` so the mapper's rotate can't replace it).
   // `queue-wisp*`: a waiting claim in the visible queue line (index-placed in input order, stationary).
   // `departing-wisp*` (under the `departing-wisps` layer): a released claim fading out (`ageRatio`).
   // ALL are coordination drawables behind the same ADR-0138 §5 honesty wall as `claim-wisp*`:
@@ -308,12 +321,12 @@ export type ClaimGrade = 'exploring' | 'waiting' | 'work';
  *  it. The surface fold folds each capability's real theme into this. */
 export type SurfaceTheme = 'meadow' | 'woodland' | 'heath';
 
-/** A UAT criterion's proof state on the island's markers (forest-parcels inc 2) — how the
- *  criterion's standing-stone reads: `proven` glows warm gold, `pending` waits as dead stone,
- *  `failing` glows an alarm red. DUPLICATED as the core's OWN input vocabulary (the scene-graph is
- *  a foundational root that depends on nothing — ADR-0093 §Open call 2), mirroring the surface's
- *  folded per-criterion proof state rather than importing the proof machinery. Encoded in the
- *  marker WRAPPER's kind (`standing-stone-proven`/`-pending`/`-failing`), never as live data. */
+/** A UAT criterion's proof state on the island's markers (forest-parcels inc 2; tall flowers,
+ *  grounded-art inc 7) — how the criterion's flower reads BY FORM: `proven` is a bloomed daisy,
+ *  `pending` a closed bud, `failing` a wilted nodding head. DUPLICATED as the core's OWN input
+ *  vocabulary (the scene-graph is a foundational root that depends on nothing — ADR-0093 §Open call 2),
+ *  mirroring the surface's folded per-criterion proof state rather than importing the proof machinery.
+ *  Encoded in the marker WRAPPER's kind (`tall-flower-proven`/`-pending`/`-failing`), never as live data. */
 export type MarkerState = 'proven' | 'pending' | 'failing';
 
 /** The prove-it-gate's phases (ADR-0020 §1), DUPLICATED as the core's OWN input vocabulary — the
@@ -385,6 +398,39 @@ export interface SceneText extends SceneNodeBase {
   anchor: 'start' | 'middle' | 'end';
 }
 
+/**
+ * A resolved-paint baked drawable (ADR-0218) — the procedural-architecture factory's `BakedNode`
+ * vocabulary, DUPLICATED here because the scene-graph is a foundational root that depends on nothing
+ * (ADR-0093 §Open call 2), exactly as it duplicates `ClaimGrade` / `SurfaceTheme` / the gate phases.
+ *
+ * THIS IS THE ONE SHAPE IN THE SCENE-GRAPH THAT CARRIES PAINT. It exists because a bake's fill is its
+ * material colour modulated by N·L, so two facets of one solid differ and no CSS class can name them —
+ * the exact case ADR-0093 §4's colour-is-class rule cannot cover, and the fenced exception ADR-0218
+ * opens. It is confined to a `baked-def`'s `nodes`; `SceneNodeBase` stays colour-free.
+ */
+export type BakedPaintNode =
+  | { el: 'polygon'; points: string; fill: string; stroke: string; strokeWidth: number; opacity?: number }
+  | { el: 'path'; d: string; fill: string; stroke: string; strokeWidth: number; opacity?: number; fillRule?: 'evenodd' }
+  | { el: 'ellipse'; cx: number; cy: number; rx: number; ry: number; fill: string; opacity?: number };
+
+/** A baked-art DEFINITION (ADR-0218): the paint-carrying drawable list, defined ONCE in the scene's
+ *  `baked-defs` layer and referenced by every `SceneBakedUse`. Define-once-reference-many is the
+ *  node-cost contract (ADR-0069): one def, N cheap uses, instead of the solid inlined per placement. */
+export interface SceneBakedDef extends SceneNodeBase {
+  el: 'baked-def';
+  /** the id a `baked-use` references; the mapper stamps it as the SVG element `id` */
+  defId: string;
+  /** the resolved drawables, already in painter order — paint them in sequence */
+  nodes: BakedPaintNode[];
+}
+
+/** A baked-art PLACEMENT (ADR-0218): a paint-FREE `<use>` of a `baked-def`. Carries only the ordinary
+ *  semantic fields (its own `transform`, the marker `id` on its wrapper) — never colour. */
+export interface SceneBakedUse extends SceneNodeBase {
+  el: 'baked-use';
+  defId: string;
+}
+
 export type SceneNode =
   | SceneG
   | ScenePath
@@ -392,7 +438,9 @@ export type SceneNode =
   | SceneEllipse
   | ScenePolygon
   | SceneRect
-  | SceneText;
+  | SceneText
+  | SceneBakedDef
+  | SceneBakedUse;
 
 // ---------------------------------------------------------------------------
 // The structural INPUT contract (ADR-0093 design fork → option b)
@@ -472,15 +520,15 @@ export interface SceneTerritoryInput {
   treeTitle: string;
   /** Present only for a human-witness story; `outcome` null = a blank (unsigned) seal. */
   signpost?: { outcome: 'pass' | 'fail' | null };
-  /** The UAT markers (forest-parcels inc 2). When PRESENT and non-empty, the island grows ONE
-   *  standing-stone marker per criterion, SCATTERED deterministically around the island (owner call
-   *  2026-07-18 — stones stand among the parcels rather than lining a path; each spot is id-seeded
-   *  with keep-outs for the tree well, the signpost, the nameplate band, and other stones). Each
-   *  criterion's `state` is encoded in its wrapper KIND (`standing-stone-proven`/`-pending`/
-   *  `-failing`) and its `id` carried as the node id (the hover/delegation hook). The human-witness
-   *  `signpost` seal is RETAINED unconditionally — the markers never replace it. OPTIONAL and
-   *  back-compat: ABSENT ⇒ today's island renders BYTE-FOR-BYTE (the public website fold never
-   *  sends it and must be unchanged). */
+  /** The UAT markers (forest-parcels inc 2; tall flowers, grounded-art inc 7). When PRESENT and
+   *  non-empty, the island grows ONE tall-flower marker per criterion, SCATTERED deterministically
+   *  around the island (each spot is id-seeded with keep-outs for the tree well, the signpost, the
+   *  nameplate band, and other flowers, and a keep-IN to the island's substrate land cells so no flower
+   *  drifts into the water). Each criterion's `state` is encoded in its wrapper KIND
+   *  (`tall-flower-proven`/`-pending`/`-failing`) and its `id` carried as the node id (the
+   *  hover/delegation hook). The human-witness `signpost` seal is RETAINED unconditionally — the markers
+   *  never replace it. OPTIONAL and back-compat: ABSENT ⇒ today's island renders BYTE-FOR-BYTE (the
+   *  public website fold never sends it and must be unchanged). */
   uatCriteria?: { id: string; state: MarkerState }[];
   /** The crown bloom, folded by the surface; omitted when withered or none. */
   bloom?: { ageRatio: number; outcome: 'pass' | 'fail' };
@@ -504,7 +552,20 @@ export interface SceneTerritoryInput {
    *  (the D2 back-compat default: every pre-grade surface keeps today's orbit byte-for-byte).
    *  WAITING ORDER CONTRACT: waiters are placed by their INDEX in input order, so the surface sends
    *  them ordered by `claimedAt` (the queue order the claim ledger already keeps). */
-  claims?: { key: string; title: string; colourState: ClaimColourState; grade?: ClaimGrade }[];
+  /*  The optional `phase` (ADR-0212) is the LIVE prove-it-gate phase of a build running on this story,
+   *  folded onto the WORK-grade claim body — the first step of merging the separate build-wisp layer
+   *  (ADR-0048) into the one-wisp-per-session lifecycle. The surface joins build → claim by STORY, not
+   *  by session: `BuildActivity` carries no session identity, but the work claim is an exclusive mutex
+   *  (ADR-0200 D2), so a story with a work claim AND a live build has exactly one possible actor.
+   *  ABSENT ⇒ no band, and every pre-ADR-0212 surface renders BYTE-FOR-BYTE unchanged. Ignored on the
+   *  `exploring`/`waiting` grades — only work builds. */
+  claims?: {
+    key: string;
+    title: string;
+    colourState: ClaimColourState;
+    grade?: ClaimGrade;
+    phase?: BuildPhase;
+  }[];
   /** Recently-RELEASED story claims still fading out (ADR-0200 D7) — the departure drawable. The
    *  surface folds which departures sit inside the window and computes each `ageRatio` (0..1 — how
    *  far through the departure window); the core places a stationary `departing-wisp` whose
@@ -543,6 +604,61 @@ export interface SceneInput {
   wheatSets: ReadonlySet<string>[];
   trails: SceneTrailsInput;
   territories: SceneTerritoryInput[];
+  /** DORMANT ADR-0218 seam hook. The baked standing-stone once rode here (fed a `baked-defs` layer that
+   *  every UAT marker's `baked-art` `<use>` referenced), but the stone-in-scene instance retired with
+   *  the tall-flower markers (grounded-art inc 7) — `buildScene` no longer reads this field, so supplying
+   *  it is a no-op. The field + the baked-art types/kinds/mapper handling are KEPT as reusable machinery
+   *  (owner call: keep the seam) for a FUTURE baked object type; that type re-lights the emission in
+   *  `buildScene`. `width`/`height` are the baked box (a future consumer scales the solid to its envelope). */
+  bakedStone?: { nodes: BakedPaintNode[]; width: number; height: number };
+  /** The cosy-island GARDEN composition (grounded-art inc 11, ADR-0221 / re-lit ADR-0218). PRESENT ⇒
+   *  the island named by `garden.islandId` composes as the concept garden — the four heroes placed
+   *  through the baked-art seam, decorative flora suppressed, the `autumn-tree` hero as its central
+   *  tree. OPTIONAL and back-compat: ABSENT ⇒ every island renders BYTE-FOR-BYTE (the same lock as
+   *  `parcels`/`uatCriteria`; the public website fold never sends it). */
+  garden?: SceneGardenInput;
+}
+
+/** DORMANT: the scene-graph's def id the baked standing-stone once used (ADR-0218). No longer emitted
+ *  (the stone-in-scene instance retired with the tall-flower markers, grounded-art inc 7); KEPT exported
+ *  as the seam's documented def-id pattern for a future baked object type. */
+export const BAKED_STONE_DEF = 'baked-standing-stone';
+
+// ---------------------------------------------------------------------------
+// the cosy-island GARDEN composition (grounded-art inc 11, ADR-0221 / re-lit ADR-0218)
+// ---------------------------------------------------------------------------
+//
+// The first LIVE consumer of ADR-0218's fenced baked-art seam. When `SceneInput.garden` is present, the
+// named exemplar island composes as the concept garden (docs/research/grounded-art-concept): the four
+// inc-10 heroes (cottage, gazebo, autumn-tree, stepping-stone) placed as `baked-use` references to
+// `baked-def`s the surface folds from procedural-architecture's `kit.json` `heroes`, with the island's
+// decorative flora (conifers / capability plants / parcel flora / the 1:1 UAT-flower scatter) SUPPRESSED
+// and the `autumn-tree` hero standing as the central tree (ADR-0221, studio flag path only). ABSENT ⇒
+// every island renders BYTE-FOR-BYTE — the same absence lock as `parcels`/`uatCriteria`; the public
+// website fold never sends it.
+
+/** The four cosy-island hero ids, keyed to `kit.json`'s `heroes` array. */
+export type GardenHeroId = 'cottage' | 'gazebo' | 'autumn-tree' | 'stepping-stone';
+
+/** A baked hero's resolved-paint drawables + its baked box, folded by the SURFACE from
+ *  procedural-architecture's `kit.json` `heroes` (the core imports nothing new — the def data is
+ *  opaque surface-supplied data, exactly like `coastPaths`). One `baked-def` is emitted per hero
+ *  (define-once, ADR-0069) and referenced by every placement `baked-use`. `width`/`height` are the
+ *  baked box, so a placement scales the solid to a target on-island envelope. */
+export interface SceneGardenHero {
+  nodes: BakedPaintNode[];
+  width: number;
+  height: number;
+}
+
+/** The garden composition input (grounded-art inc 11, ADR-0221). PRESENT ⇒ the island whose id is
+ *  `islandId` composes as the concept garden (heroes placed, flora suppressed, `autumn-tree` hero as
+ *  the central tree). ABSENT ⇒ every island renders byte-for-byte (the public website never sends it). */
+export interface SceneGardenInput {
+  /** which territory id composes as a garden — the studio exemplar island (`studio`). */
+  islandId: string;
+  /** the four heroes' baked defs, keyed by their `kit.json` id. */
+  heroes: Record<GardenHeroId, SceneGardenHero>;
 }
 
 // ---------------------------------------------------------------------------
@@ -697,195 +813,207 @@ function buildSignpost(s: { outcome: 'pass' | 'fail' | null }, R: number): Scene
 }
 
 // ---------------------------------------------------------------------------
-// the UAT markers (forest-parcels inc 2)
+// the UAT markers (forest-parcels inc 2; stones → tall flowers, grounded-art inc 7)
 // ---------------------------------------------------------------------------
 //
-// A uatCriteria-present island grows ONE standing-stone marker per criterion, SCATTERED
-// deterministically around the island (owner call 2026-07-18: stones, not braziers, and scattered
-// rather than lining a path — the earlier trail-walk placement + its visible bed are retired).
-// Each spot is id-seeded with keep-outs for the tree well (which also covers the signpost beside
-// it), the nameplate band, and the other stones; every stone is its OWN y-sorted drawable so it
-// interleaves honestly with the tree + flora in painter order. The human-witness signpost seal is
-// RETAINED. Everything is seeded from the story id via the existing `hash`/`rand01` helpers —
+// A uatCriteria-present island grows ONE tall-flower marker per criterion, SCATTERED deterministically
+// around the island. The standing-stones the placement first carried (owner call 2026-07-18) were
+// rejected as noisy/colliding (#832) and replaced with a cosy stand-in (owner call 2026-07-20): a soft
+// flat flower whose FORM reads the verdict. Each spot is id-seeded with keep-outs for the tree well
+// (which also covers the signpost beside it), the nameplate band, and the other flowers — and a keep-IN
+// to the island's substrate land cells (no flower in the water); every flower is its OWN y-sorted
+// drawable so it interleaves honestly with the tree + flora in painter order. The human-witness signpost
+// seal is RETAINED. Everything is seeded from the story id via the existing `hash`/`rand01` helpers —
 // same input ⇒ byte-identical output.
 
-/** THE MARKER-BODY SPLICE SEAM (ADR-0208): the designer-authored pure body painter — the
- *  STANDING-STONE concept, owner-chosen 2026-07-18 from the ten-option design swarm (replacing the
- *  brazier; the composite LOOK stays owner-attested, ADR-0070 stage 2). Frozen contract
- *  `(state, k) => SceneNode[]` — marks positioned with the stone's BASE at (0,0), `k` a hash seed
- *  for deterministic jitter (draw via `rand01(k + i)`, never Math.random). The wrapper's KIND
- *  carries the state; the body child kinds map to CSS classes, colour stays CSS-side (ADR-0093
- *  §4). A carved runestone ~43.5 units tall — weightier than the ~24-unit signpost, well under the
- *  ~90–120u tree. THREE cel-shaded facets (dark body / lit face / fresh-cut cap sliver) give the
- *  "catches the light" read with no gradient; the glow is faked with layered circles of DECREASING
- *  radius and INCREASING opacity (largest-dimmest first). PENDING emits no glow at all — dormant
- *  reads as the ABSENCE of light. Only the lean, the hand-hewn vertex jitter, and the moss
- *  placement are seeded; the stone is the same object family in every state — only its carved
- *  sigil's light carries the verdict. */
-function standingStoneMarks(state: MarkerState, k: number): SceneNode[] {
-  const r1 = (n: number): number => Number(n.toFixed(2));
-  const pt = (x: number, y: number): string => `${f(x)},${f(y)}`;
-  // hand-hewn irregularity: every vertex nudges a little, deterministically per (k, state).
-  const jx = (n: number): number => rand01(k + n) - 0.5;
-  const leanTop = jx(0) * 3.4; // the whole monolith leans a touch off true vertical
-  const leanAt = (y: number): number => leanTop * (-y / 43.5); // more lean higher up (base planted)
+/** THE MARKER-BODY PAINTER (grounded-art inc 7, superseding the ADR-0208 standing-stone splice seam):
+ *  a soft, flat, colour-class-driven TALL FLOWER — the cosy stand-in the owner directed after rejecting
+ *  the baked standing-stones as "messy and noisy rather than cosy" (#832, 2026-07-20). One flower per
+ *  UAT criterion; the verdict is read from its FORM, not a glow: a bloomed daisy = proven, a closed bud
+ *  = pending, a wilted nodding head = failing (the `sign-blank/pass/fail` precedent). Contract
+ *  `(state, k) => SceneNode[]` — marks positioned with the flower's BASE at (0,0), growing UP in −y; `k`
+ *  is a hash seed for deterministic jitter (`rand01(k + i)`, never Math.random), so a cluster reads
+ *  natural not cloned (lean, height, petal count, rotation all seeded). The wrapper's KIND carries the
+ *  state; the body child kinds map to CSS classes, colour stays CSS-side (ADR-0093 §4). Sibling in
+ *  spirit of buildBloom/buildPlant — flat pastel fills, NO isometric shading — matching the island's
+ *  existing flat look and the cosy-island concept (`docs/research/grounded-art-concept`). */
+function tallFlowerMarks(state: MarkerState, k: number): SceneNode[] {
+  const jx = (n: number): number => rand01(k + n) - 0.5; // per-marker jitter in [-0.5, 0.5)
+  const j01 = (n: number): number => rand01(k + n); // per-marker roll in [0, 1)
 
-  // the silhouette: a gently-tapered blocky slab (base ~14u, chipped top ~6u) — weighty, not a needle.
-  const raw: Array<[number, number]> = [
-    [-7.2, 0],
-    [-8.0 + jx(1) * 0.6, -5],
-    [-6.6 + jx(2) * 0.6, -16],
-    [-6.0 + jx(3) * 0.6, -27],
-    [-5.0 + jx(4) * 0.6, -35],
-    [-3.6 + jx(5) * 0.5, -40],
-    [-1.6 + jx(6) * 0.7, -43.5], // left corner of the chipped top
-    [4.6 + jx(7) * 0.7, -39.5], // right corner of the chipped top (a wide, near-flat break)
-    [6.2 + jx(8) * 0.6, -35],
-    [7.0 + jx(9) * 0.6, -27],
-    [7.4 + jx(10) * 0.6, -16],
-    [7.0 + jx(11) * 0.6, -5],
-    [6.8, 0],
-  ];
-  const sil = raw.map(([x, y]) => [x + leanAt(y), y] as const);
-  const bodyPts = sil.map(([x, y]) => pt(x, y)).join(' ');
+  const height = 36 + j01(0) * 8; // 36–44u tall — a slender flower, a narrower footprint than the stone
+  const lean = jx(1) * 7; // the whole stalk leans a touch off true vertical (base planted)
 
-  // the lit face (right/front ~55%): shares the body's right edge + both top corners so it seams —
-  // the two-tone cel-shaded read (crown-lo/crown-hi precedent).
-  const centreRaw: Array<[number, number]> = [
-    [-0.6 + jx(12) * 0.5, 0],
-    [-0.7 + jx(13) * 0.5, -16],
-    [-0.3 + jx(14) * 0.5, -27],
-    [0.3 + jx(15) * 0.4, -35],
-  ];
-  const centre = centreRaw.map(([x, y]) => [x + leanAt(y), y] as const);
-  const apexL = sil[6]!;
-  const apexR = sil[7]!;
-  const facePts = [
-    ...centre.map(([x, y]) => pt(x, y)),
-    pt(apexL[0], apexL[1]),
-    pt(apexR[0], apexR[1]),
-    ...sil.slice(8).map(([x, y]) => pt(x, y)),
-  ].join(' ');
+  // the upright head anchor; failing nods it over + sinks it (a wilted, bowed head).
+  const upX = lean;
+  const upY = -height;
+  const nodSide = jx(2) < 0 ? -1 : 1;
+  const failing = state === 'failing';
+  const headX = failing ? upX + nodSide * 6.5 : upX;
+  const headY = failing ? upY + 7 : upY;
 
-  // the bright top-cut sliver: a fresh-hewn face catching the most light, just inside the break.
-  const capPts = [
-    pt(apexL[0], apexL[1]),
-    pt(apexR[0], apexR[1]),
-    pt(apexR[0] - 1.0, apexR[1] + 1.4),
-    pt(apexL[0] + 0.6, apexL[1] + 1.6),
-  ].join(' ');
-
-  // the carved sigil — a Gebo-cross rune (an X plus a vertical stem through the crossing): symmetric,
-  // so it reads as a CARVED MARK at map scale and never a directional arrow (the review's up-arrow
-  // fix). The SAME glyph in every state; only the light it casts changes.
-  const runeCx = 0.7 + leanAt(-27);
-  const runeCy = -27;
-  const runeD =
-    `M ${f(runeCx - 3)} ${f(runeCy - 4)} L ${f(runeCx + 3)} ${f(runeCy + 4)} ` +
-    `M ${f(runeCx + 3)} ${f(runeCy - 4)} L ${f(runeCx - 3)} ${f(runeCy + 4)} ` +
-    `M ${f(runeCx)} ${f(runeCy - 5)} L ${f(runeCx)} ${f(runeCy + 5)}`;
-
-  // the weathering crack: a hairline fissure from the sigil down to the moss — always present; lit as
-  // a vein of light only when proven/failing (how the glow reaches the ground).
-  const crackD =
-    `M ${f(runeCx - 0.4)} ${f(runeCy + 3)} ` +
-    `C ${f(runeCx - 1.6)} ${f(runeCy + 9)}, ${f(runeCx + 0.8)} ${f(runeCy + 13)}, ${f(runeCx - 0.6 + leanAt(-8))} -8 ` +
-    `C ${f(runeCx - 1.2 + leanAt(-3))} -5, ${f(runeCx + 0.4)} -2, ${f(0.4)} 0`;
+  // the stalk: a gentle cubic from the planted base up to the head. Failing arcs OVER — the second
+  // control point pulls above the sunken head so the tip bows down, reading as a wilted stem.
+  const stemD = failing
+    ? `M 0 0 C ${f(lean * 0.5)} ${f(-height * 0.5)}, ${f(upX)} ${f(upY - 5)}, ${f(headX)} ${f(headY)}`
+    : `M 0 0 C ${f(lean * 0.5 + jx(3) * 2)} ${f(-height * 0.4)}, ${f(upX * 0.85)} ${f(-height * 0.78)}, ${f(headX)} ${f(headY)}`;
 
   const marks: SceneNode[] = [
-    ellipse(0.6, 0.7, 8.2, 2.5, { kind: 'shadow' }),
-    // moss clumps hug the foot — always present, unlit (the stone's age, not its verdict).
-    ellipse(-5.6 + jx(16) * 1.2, -0.4, 4.6, 2.2, { kind: 'standing-stone-moss', opacity: 0.92 }),
-    ellipse(4.3 + jx(17) * 1.2, -0.2, 3.7, 1.8, { kind: 'standing-stone-moss', opacity: 0.85 }),
-    ...[0, 1, 2].map((i) =>
-      circle(-2 + jx(18 + i) * 9, -0.6 - rand01(k + 27 + i) * 1.4, 0.8 + rand01(k + 24 + i) * 0.6, {
-        kind: 'standing-stone-moss-fleck',
-      }),
-    ),
-    polygon(bodyPts, { kind: 'standing-stone-body' }),
-    polygon(facePts, { kind: 'standing-stone-face' }),
-    polygon(capPts, { kind: 'standing-stone-cap' }),
-    path(crackD, { kind: 'standing-stone-crack', strokeWidth: 0.8 }),
+    // a soft flat ground shadow (reuses the shared `shadow` kind the flora already map to `.flora-shadow`).
+    ellipse(0.4, 0.6, 5.2, 1.7, { kind: 'shadow' }),
+    path(stemD, { kind: 'tall-flower-stem', strokeWidth: 2.2 }),
   ];
 
-  if (state !== 'pending') {
-    const scale = state === 'proven' ? 1 : 0.84; // failing reads tighter/hotter than proven's bloom
-    const layers: Array<[radius: number, opacity: number]> = [
-      [15.5 * scale, 0.08],
-      [11.5 * scale, 0.14],
-      [7.8 * scale, 0.22],
-      [4.8 * scale, 0.34],
-      [2.4 * scale, 0.52],
-    ];
-    for (const [radius, opacity] of layers) {
-      marks.push(
-        circle(runeCx, runeCy, r1(radius), { kind: 'standing-stone-glow', opacity: r1(opacity) }),
-      );
-    }
-    // the vein of light down the crack to the moss — STATIC (not in the breathe set: the review
-    // caught that scaling this long path drifts its endpoints; only the circular glow layers breathe).
-    marks.push(path(crackD, { kind: 'standing-stone-crack-glow', strokeWidth: 1.1, opacity: 0.75 }));
-    // a small ground-pool wash where the lit crack meets the moss.
+  // two small leaves along the stalk, alternating sides, angled up-and-out — seeded so they vary.
+  const firstSide = jx(4) < 0 ? -1 : 1;
+  ([
+    [0.34, firstSide],
+    [0.6, -firstSide],
+  ] as const).forEach(([t, side], i) => {
+    const ly = -height * t;
+    const lx = lean * t;
     marks.push(
-      ellipse(0.4, 0.4, r1(4.4 * scale), r1(1.5 * scale), { kind: 'standing-stone-glow', opacity: 0.16 }),
+      ellipse(lx + side * 3.4, ly, 4.0 + jx(10 + i) * 0.9, 1.8, {
+        kind: 'tall-flower-leaf',
+        transform: `rotate(${f(side * (34 + jx(12 + i) * 12))} ${f(lx)} ${f(ly)})`,
+      }),
     );
-  }
+  });
 
   if (state === 'proven') {
-    // owner-approved gold language: a couple of stray sparks drifting off the sigil.
+    // a soft warm glow behind the bloom — proven ONLY, low opacity, calm (no sparks: the owner's noise
+    // complaint). Drawn first so the petals sit crisp on top.
     marks.push(
-      circle(runeCx - 4.2, runeCy - 3.4, 0.9, { kind: 'standing-stone-spark' }),
-      circle(runeCx + 3.6, runeCy + 2.6, 0.7, { kind: 'standing-stone-spark' }),
-      circle(runeCx + 1.4, runeCy - 6.2, 0.6, { kind: 'standing-stone-spark' }),
+      circle(headX, headY, 10.5, { kind: 'tall-flower-glow', opacity: 0.1 }),
+      circle(headX, headY, 6.8, { kind: 'tall-flower-glow', opacity: 0.16 }),
     );
+    // 7–8 soft petals radiating around the centre disc — a full daisy (the concept's flower). Each petal
+    // is a slender elongated ellipse rooted at the head centre and rotated into place; count + angle +
+    // length are seeded so no two flowers are identical.
+    const petals = 7 + (j01(5) > 0.5 ? 1 : 0);
+    for (let i = 0; i < petals; i++) {
+      const ang = (i / petals) * 360 + jx(20 + i) * 10;
+      const plen = 6.8 + jx(30 + i) * 1.1;
+      marks.push(
+        ellipse(headX, headY - plen, 2.15, plen, {
+          kind: 'tall-flower-petal',
+          transform: `rotate(${f(ang)} ${f(headX)} ${f(headY)})`,
+        }),
+      );
+    }
+    marks.push(circle(headX, headY, 3.4, { kind: 'tall-flower-center' }));
+  } else if (failing) {
+    // a wilted, nodding head: petals all droop into the lower arc, sitting low + to one side on the
+    // bowed stem — the muted colour resolves CSS-side. No glow (dormant/failing is not a bloom).
+    const petals = 6;
+    for (let i = 0; i < petals; i++) {
+      const ang = 112 + (i / (petals - 1)) * 136 + jx(20 + i) * 12; // 112–248°: hangs down + out
+      const plen = 5.8 + jx(30 + i) * 1.0;
+      marks.push(
+        ellipse(headX, headY - plen, 1.95, plen, {
+          kind: 'tall-flower-petal',
+          transform: `rotate(${f(ang)} ${f(headX)} ${f(headY)})`,
+        }),
+      );
+    }
+    marks.push(circle(headX, headY, 2.9, { kind: 'tall-flower-center' }));
+  } else {
+    // pending: a closed teardrop bud — calm, unopened; dormant reads as the ABSENCE of bloom (the
+    // stone's dark-rune precedent).
+    const bx = headX;
+    const by = headY;
+    const budD =
+      `M ${f(bx)} ${f(by - 10.5)} ` +
+      `C ${f(bx - 3.7)} ${f(by - 7.5)}, ${f(bx - 3.5)} ${f(by - 1.5)}, ${f(bx)} ${f(by)} ` +
+      `C ${f(bx + 3.5)} ${f(by - 1.5)}, ${f(bx + 3.7)} ${f(by - 7.5)}, ${f(bx)} ${f(by - 10.5)} Z`;
+    marks.push(path(budD, { kind: 'tall-flower-bud' }));
   }
 
-  // the sigil drawn last so it sits crisp on top of its own glow.
-  marks.push(path(runeD, { kind: 'standing-stone-rune', strokeWidth: 1.3 }));
   return marks;
 }
 
-/** The island's UAT markers as INDIVIDUAL y-sorted drawables — one standing-stone per criterion,
- *  scattered deterministically (owner call 2026-07-18: no path). Each stone is its own painter
+/** The flower's wrapper scale — kept at the stone's 0.6 so the scatter keep-outs (tree well, spacing,
+ *  nameplate band) still hold against the same footprint they were tuned for. The whole marker scales
+ *  at the WRAPPER (translate + scale — CSS only ever animates the glow-circle CHILDREN, so the wrapper
+ *  transform is never clobbered). */
+const MARKER_SCALE = 0.6;
+
+/** Ray-cast point-in-polygon over a substrate cell ring. */
+function pointInPoly(x: number, y: number, poly: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** The island's UAT markers as INDIVIDUAL y-sorted drawables — one tall flower per criterion,
+ *  scattered deterministically (owner call 2026-07-18: no path). Each flower is its own painter
  *  entry so it interleaves honestly with the tree + flora by depth. Placement: per-criterion
  *  id-seeded polar samples inside the island (radius 0.30–0.80·R, the wisp-orbit 0.7 y-squash),
- *  re-drawn up to 12 times to clear the tree well (which also covers the signpost beside it), the
- *  nameplate band, and previously-placed stones — deterministic rejection sampling: same input ⇒
- *  the same spots, and a failed clearance after 12 draws keeps the last sample rather than dropping
- *  the stone (every criterion ALWAYS renders). Empty/absent `uatCriteria` ⇒ nothing (the
- *  byte-for-byte absence path — the public website never sends it). */
-function buildUatMarkers(t: SceneTerritoryInput): Array<{ y: number; node: SceneG }> {
+ *  re-drawn up to 20 times to clear the tree well (which also covers the signpost beside it), the
+ *  nameplate band, other flowers — and, when the island's relaxed substrate cells are provided, to
+ *  land ON the island (the keep-IN, owner feedback 2026-07-18: the radius-only scatter drifted
+ *  markers into the water on concave hex clusters). Deterministic rejection sampling: same input ⇒
+ *  the same spots. Exhausting the draws SNAPS to the nearest free land-cell centroid (never the
+ *  water) when cells are known, else keeps the last sample — every criterion ALWAYS renders.
+ *  Empty/absent `uatCriteria` ⇒ nothing (the byte-for-byte absence path — the public website
+ *  never sends it). */
+function buildUatMarkers(
+  t: SceneTerritoryInput,
+  ownerCells: RelaxedCell[] | null,
+): Array<{ y: number; node: SceneG }> {
   const criteria = t.uatCriteria ?? [];
   if (!criteria.length) return [];
+  const land = ownerCells && ownerCells.length ? ownerCells : null;
+  const onLand = (x: number, y: number): boolean =>
+    !land || land.some((c) => pointInPoly(x, y, c.poly));
+  const clearsSpacing = (placed: Pt[], x: number, y: number): boolean =>
+    placed.every((p) => Math.hypot(x - p.x, y - p.y) > 15);
   const placed: Pt[] = [];
   const out: Array<{ y: number; node: SceneG }> = [];
   criteria.forEach((c) => {
     const k = hash(`${t.id}:marker:${c.id}`);
     let x = t.centroid.x;
     let y = t.centroid.y;
-    for (let attempt = 0; attempt < 12; attempt++) {
+    let settled = false;
+    for (let attempt = 0; attempt < 20; attempt++) {
       const ang = rand01(k + attempt * 2) * Math.PI * 2;
       const rr = (0.3 + rand01(k + attempt * 2 + 1) * 0.5) * t.radius;
       x = t.centroid.x + Math.cos(ang) * rr;
       y = t.centroid.y + Math.sin(ang) * rr * 0.7; // top-down squash, same as the wisp orbit
-      const clearsTree = Math.hypot(x - t.treeSpot.x, y - t.treeSpot.y) > 42;
+      const clearsTree = Math.hypot(x - t.treeSpot.x, y - t.treeSpot.y) > 36;
       const clearsPlate = y < t.labelY - 14;
-      const clearsOthers = placed.every((p) => Math.hypot(x - p.x, y - p.y) > 22);
-      if (clearsTree && clearsPlate && clearsOthers) break;
+      if (clearsTree && clearsPlate && clearsSpacing(placed, x, y) && onLand(x, y)) {
+        settled = true;
+        break;
+      }
+    }
+    if (!settled && land) {
+      // A hard-to-fit (concave) island exhausted its draws: snap to the nearest land-cell
+      // centroid that keeps the stone spacing (nearest of all when every cell is crowded).
+      const spots = land
+        .map((cell) => cellCentroid(cell.poly))
+        .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+      const free = spots.find((p) => clearsSpacing(placed, p.x, p.y)) ?? spots[0]!;
+      x = free.x;
+      y = free.y;
     }
     placed.push({ x, y });
     const kind: SceneKind =
       c.state === 'proven'
-        ? 'standing-stone-proven'
+        ? 'tall-flower-proven'
         : c.state === 'failing'
-          ? 'standing-stone-failing'
-          : 'standing-stone-pending';
+          ? 'tall-flower-failing'
+          : 'tall-flower-pending';
     out.push({
       y,
-      node: g(standingStoneMarks(c.state, k), {
+      node: g(tallFlowerMarks(c.state, k), {
         kind,
         id: c.id,
-        transform: `translate(${f(x)} ${f(y)})`,
+        transform: `translate(${f(x)} ${f(y)}) scale(${MARKER_SCALE})`,
       }),
     });
   });
@@ -1118,6 +1246,10 @@ function buildWisps(t: SceneTerritoryInput): SceneG | null {
  *  carrying a `colourState` that is NEVER `green`/`bloom` — only a signed verdict paints the green
  *  bloom (ADR-0045). A claimed-but-not-proven story can therefore never render as a proven-green one.
  *  Orbits a touch wider than the build wisp so the two layers read as distinct when both are present. */
+/** The window-shopping orbit radius (ADR-0212 channel 1): small and LOCAL — deliberately far tighter
+ *  than the work stage's whole-island orbit, so the two stages read apart on position alone. */
+const HOVER_ORBIT_R = 9;
+
 function buildClaimWisps(t: SceneTerritoryInput): SceneG | null {
   // `claims` is OPTIONAL (a surface with no live-claim concept omits it) — absent/empty ⇒ no layer.
   const claims = t.claims ?? [];
@@ -1131,26 +1263,40 @@ function buildClaimWisps(t: SceneTerritoryInput): SceneG | null {
     // ADR-0200 D2: an ABSENT grade IS the work claim — every pre-grade surface keeps today's orbit.
     const grade = c.grade ?? 'work';
     if (grade === 'exploring') {
-      // HOVERING (ADR-0200 D7): a session is reading/planning here — at rest beside/above the story
-      // tree, with a small per-key jitter so several hoverers never stack exactly. STATIONARY by
-      // construction: NO orbit `phase` — the mapper animates the rotation only when `phase` is
-      // present (and only on the wisp/claim-wisp kinds), so a hover wisp can never spin.
+      // WINDOW SHOPPING (ADR-0200 D7, position channel restated by ADR-0212): a session is
+      // reading/planning here — a SMALL LOCAL ORBIT beside/above the story tree, with a per-key
+      // jitter on the rest spot so several hoverers never stack exactly. ADR-0212 REVERSES
+      // ADR-0200 D7's "stationary by construction": window shopping now carries its own orbit
+      // `phase`, so position alone separates it from the whole-island work orbit (a spinning hover
+      // wisp is the DECISION — see ADR-0212 Consequences, not a regression).
+      //
+      // THREE nesting levels, and the split is load-bearing: an SVG `animateTransform` rotate
+      // REPLACES the `transform` attribute on the node it animates, so the rest spot and the
+      // rotation can never share one `g` — the dot would sweep the centroid instead of its rest
+      // spot. Outer g = the rest spot; middle g = the kind-bearing node the mapper rotates;
+      // innermost g = the small orbit radius.
       const k = hash(c.key);
       const hx = treeDx + (rand01(k + 1) - 0.5) * 18;
       const hy = treeDy - (orbitR + 12) + (rand01(k + 2) - 0.5) * 10;
+      const phase = rand01(k) * 360;
       return g(
         [
           g(
             [
-              circle(0, 0, 12, { kind: 'hover-wisp-hit' }),
-              circle(0, 0, 6.5, { kind: 'hover-wisp-glow' }),
-              circle(0, 0, 2.8, { kind: 'hover-wisp-dot' }),
+              g(
+                [
+                  circle(0, 0, 12, { kind: 'hover-wisp-hit' }),
+                  circle(0, 0, 6.5, { kind: 'hover-wisp-glow' }),
+                  circle(0, 0, 2.8, { kind: 'hover-wisp-dot' }),
+                ],
+                { transform: `translate(${f(HOVER_ORBIT_R)} 0)` },
+              ),
             ],
-            { transform: `translate(${f(hx)} ${f(hy)})` },
+            // `title` carries the claim's intent prose; NEVER an `outcome`/`bloom` (the §5 wall).
+            { kind: 'hover-wisp', title: c.title, phase, colourState: c.colourState },
           ),
         ],
-        // `title` carries the claim's intent prose; NEVER an `outcome`/`bloom` (the §5 wall).
-        { kind: 'hover-wisp', title: c.title, colourState: c.colourState },
+        { transform: `translate(${f(hx)} ${f(hy)})` },
       );
     }
     if (grade === 'waiting') {
@@ -1189,7 +1335,16 @@ function buildClaimWisps(t: SceneTerritoryInput): SceneG | null {
       ],
       // `phase` is the orbit ROTATION (geometry); `colourState` is the subagent role (form) — two
       // independent fields (location ⟂ form). NEVER carries an `outcome`/`bloom` (the §5 wall).
-      { kind: 'claim-wisp', title: c.title, phase, colourState: c.colourState },
+      // `phaseBand` (ADR-0212) is the live build state folded onto this ONE body, replacing the
+      // separate orbiting build wisp: colour stays INTENT (`colourState`, never green), the band is
+      // the build phase. Absent when no build runs on this story — back-compat byte-for-byte.
+      {
+        kind: 'claim-wisp',
+        title: c.title,
+        phase,
+        colourState: c.colourState,
+        ...(c.phase ? { phaseBand: wispBand(c.phase) } : {}),
+      },
     );
   });
   return g(wisps, {
@@ -2010,6 +2165,459 @@ function buildTerritorySurface(t: SceneTerritoryInput, ownerCells: RelaxedCell[]
 }
 
 // ---------------------------------------------------------------------------
+// the cosy-island GARDEN — hero placement + the re-lit ADR-0218 baked-art seam (grounded-art inc 11)
+// ---------------------------------------------------------------------------
+
+/** The scene-graph def id a garden hero's `baked-use` references (ADR-0218 define-once). */
+const gardenDefId = (id: GardenHeroId): string => `garden-hero-${id}`;
+
+/** The heroes the garden emits a `baked-def` for (define-once) — kept in sync with what
+ *  `buildGardenArt` places, so no def is an orphan `<use>`-less `<defs>` entry. `stepping-stone` is
+ *  the garden PATH (unit 2 — one def, N cheap `<use>` stones threading the heroes to the landfall). */
+const GARDEN_DEFINED_HEROES: GardenHeroId[] = ['autumn-tree', 'cottage', 'gazebo', 'stepping-stone'];
+
+/** A hero's on-island target HEIGHT in map units, as a multiple of the island's crown radius so it
+ *  scales with the story like the procedural tree it stands beside. Tuned against the concept render. */
+const GARDEN_HERO_TARGET: Record<GardenHeroId, number> = {
+  'autumn-tree': 2.6, // the central tree — matches the ~2.65·R procedural tree it replaces (ADR-0221)
+  cottage: 1.7,
+  gazebo: 1.5,
+  'stepping-stone': 0.28, // small flat path stones — enough of them read as a path, not a few slabs
+};
+
+/** The island-size FIT bound (grounded-art inc 11 unit 2 — the owner's "buildings dont fully land within
+ *  the island" fix). `crownRadius` saturates at 32 regardless of tile quota, so on a SMALL island the
+ *  crown-scaled hero footprint spills past the shore. These caps hold a hero's scaled footprint inside
+ *  the island: the scaled base HALF-WIDTH stays within `HALF·radius`, and the scaled HEIGHT within
+ *  `HEIGHT·radius` so a hero never towers off a tiny island. On a big island (studio) the caps are slack
+ *  and the crown-based target wins — the concept proportions are preserved where there is room. */
+const GARDEN_FIT_HALF_FRAC = 0.42; // scaled base half-width ≤ 0.42·radius (full width ≤ 0.84·radius)
+const GARDEN_FIT_HEIGHT_FRAC = 1.25; // scaled height ≤ 1.25·radius (a standing object may rise a little above)
+
+/** The lawn gap a free garden hero's PLACEMENT POINT keeps beyond the fitted tree canopy, as a fraction of
+ *  the tree's fitted footprint half-width (grounded-art inc 12 — the small-island collision fix). It sets
+ *  the canopy keep-out `treeHalfW·(1+GAP)` ({@link treeKeepOut}): the anti-merge bound that keeps a building
+ *  from sitting inside the trunk. See {@link placeGardenHeroes} for how the sampler layers the historical
+ *  `radius·0.5` spread on top of it while the fallback uses only this canopy bound (which is what leaves the
+ *  attested studio composition unchanged). */
+const GARDEN_TREE_GAP = 0.15;
+
+/** The fitted scale for one hero on island `t`: the crown-based target height, CAPPED so the scaled
+ *  footprint (base half-width and height) stays inside the island (see the FIT constants). Independent
+ *  of the placement point, so a caller can derive the footprint half-width before it places the hero. */
+export function fittedHeroScale(id: GardenHeroId, hero: SceneGardenHero, t: SceneTerritoryInput): number {
+  const sTarget = (crownRadius(t.caps) * GARDEN_HERO_TARGET[id]) / hero.height;
+  const sCapW = (2 * GARDEN_FIT_HALF_FRAC * t.radius) / hero.width;
+  const sCapH = (GARDEN_FIT_HEIGHT_FRAC * t.radius) / hero.height;
+  return Math.min(sTarget, sCapW, sCapH);
+}
+
+/** The tree CANOPY keep-out (grounded-art inc 12): how far a free hero's placement point must sit from the
+ *  tree spot so its base clears the fitted canopy + a small lawn gap — i.e. so it never merges into the
+ *  trunk. Radius-independent: it scales with the tree's ACTUAL fitted footprint, so a small island (where
+ *  the fitted tree fills the island) pushes buildings out just as a large one does. The sampler additionally
+ *  keeps its historical `radius·0.5` spread (`max(radius·0.5, …)`), so on a big island heroes still spread
+ *  wide; the FALLBACK uses only THIS canopy keep-out — lenient enough to leave the attested studio spot
+ *  (a fallback pick nestled just inside `radius·0.5` but well clear of the canopy) exactly where it is,
+ *  while still evicting a building that merged into the trunk on a small island. Exported for the unit test. */
+export function treeKeepOut(treeFitHalfW: number): number {
+  return treeFitHalfW * (1 + GARDEN_TREE_GAP);
+}
+
+/** Place ONE garden hero as a paint-free `baked-use` of its def at scale `s`, translated to (x, y): the
+ *  hero's base sits at (x, y) and the solid rises in −y (the bake is centred on x=0, standing on y=0 —
+ *  no flip). Kind `baked-art` is the existing ADR-0218 placement kind — the studio/website mappers
+ *  already render it; R3F already skips it. `s` is the {@link fittedHeroScale} the caller computed. */
+function gardenHeroUse(
+  id: GardenHeroId,
+  x: number,
+  y: number,
+  s: number,
+  nodeId?: string,
+): SceneBakedUse {
+  return {
+    el: 'baked-use',
+    defId: gardenDefId(id),
+    kind: 'baked-art',
+    id: nodeId ?? `garden-${id}`,
+    transform: `translate(${f(x)} ${f(y)}) scale(${f(s)})`,
+  };
+}
+
+/** Deterministically place the free-standing garden heroes (cottage, gazebo) around the island — the
+ *  same id-seeded rejection sampling the UAT-flower scatter uses: keep-outs for the tree, the nameplate
+ *  band and spacing from each other, and a keep-IN to the island's land cells (no hero in the water).
+ *  Same input ⇒ the same spots; exhausting the draws snaps to the nearest free land-cell centroid.
+ *
+ *  `treeFitHalfW` is the FITTED half-width of the central autumn-tree hero (grounded-art inc 12): the tree
+ *  keep-out scales to the tree's actual fitted footprint (via {@link treeKeepOut}), so on a small island —
+ *  where the fitted tree fills the island — a building no longer merges into the trunk. The fallback branch
+ *  now honours that canopy keep-out too (it used to drop it entirely, which is how the exhausted-draws snap
+ *  landed a gazebo on the trunk). Exported for the placement unit test. */
+export function placeGardenHeroes(
+  t: SceneTerritoryInput,
+  ids: GardenHeroId[],
+  halfW: Map<GardenHeroId, number>,
+  land: RelaxedCell[] | null,
+  treeFitHalfW: number,
+): Map<GardenHeroId, Pt> {
+  const onLand = (x: number, y: number): boolean =>
+    !land || land.some((c) => pointInPoly(x, y, c.poly));
+  // The WHOLE base footprint on land, not just the base point (grounded-art inc 11 unit 2 — the owner's
+  // "buildings dont fully land within the island" fix). The base spans [x−hw, x+hw] at y, so both ends
+  // AND the midpoint must sit on owned land before a spot is accepted.
+  const footprintOnLand = (x: number, y: number, hw: number): boolean =>
+    onLand(x, y) && onLand(x - hw, y) && onLand(x + hw, y);
+  // The tree keep-outs (grounded-art inc 12). The CANOPY keep-out scales to the fitted tree footprint
+  // ({@link treeKeepOut}): a placement point outside it clears the canopy + a small lawn gap, so a building
+  // never merges into the trunk — even on a small island where the fitted tree fills the island. The
+  // SAMPLER additionally keeps the historical `radius·0.5` spread (the `max`), so a big island still
+  // spreads its heroes wide, byte-for-byte as before. The FALLBACK uses ONLY the canopy keep-out — the true
+  // anti-merge bound, lenient enough to LEAVE a nestled-but-clear studio fallback spot exactly where the
+  // owner attested it (inside `radius·0.5` yet well clear of the canopy), while still evicting a building
+  // that snapped onto the trunk. Independent of which hero — it is the tree's footprint, not the pair's,
+  // that must not be sat inside (a building may still nestle under the canopy EDGE, matching the concept).
+  const canopyKeepOut = treeKeepOut(treeFitHalfW);
+  const samplerKeepOut = Math.max(t.radius * 0.5, canopyKeepOut);
+  const dTree = (x: number, y: number): number => Math.hypot(x - t.treeSpot.x, y - t.treeSpot.y);
+  const clearsCanopy = (x: number, y: number): boolean => dTree(x, y) > canopyKeepOut;
+  const clearsTreeSampler = (x: number, y: number): boolean => dTree(x, y) > samplerKeepOut;
+  const placed: Pt[] = [];
+  const out = new Map<GardenHeroId, Pt>();
+  for (const id of ids) {
+    const hw = halfW.get(id) ?? 0;
+    const k = hash(`${t.id}:garden:${id}`);
+    let x = t.centroid.x;
+    let y = t.centroid.y;
+    let settled = false;
+    // Placed nearer the interior than the marker scatter (0.28–0.62·R vs 0.42–0.82) so a fitted
+    // footprint clears the shore; the footprint check is the hard guarantee, this just seeds it well.
+    for (let attempt = 0; attempt < 48; attempt++) {
+      const ang = rand01(k + attempt * 2) * Math.PI * 2;
+      const rr = (0.28 + rand01(k + attempt * 2 + 1) * 0.34) * t.radius;
+      x = t.centroid.x + Math.cos(ang) * rr;
+      y = t.centroid.y + Math.sin(ang) * rr * 0.7; // top-down squash, same as the marker scatter
+      const clearsPlate = y < t.labelY - 18;
+      const clearsOthers = placed.every((p) => Math.hypot(x - p.x, y - p.y) > t.radius * 0.55);
+      if (clearsTreeSampler(x, y) && clearsPlate && clearsOthers && footprintOnLand(x, y, hw)) {
+        settled = true;
+        break;
+      }
+    }
+    if (!settled && land) {
+      // Snap to the land-cell centroid that clears the CANOPY and the others and whose whole footprint
+      // fits; then relax the footprint, then the canopy, then the others (a tiny island can't always do
+      // better). The canopy keep-out is honoured FIRST here — dropping it entirely is what let the
+      // exhausted-draws snap land a building on the trunk (grounded-art inc 12).
+      const spots = land
+        .map((cell) => cellCentroid(cell.poly))
+        .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+      const clearsPlaced = (p: Pt): boolean =>
+        placed.every((q) => Math.hypot(p.x - q.x, p.y - q.y) > t.radius * 0.5);
+      const free =
+        spots.find((p) => clearsCanopy(p.x, p.y) && clearsPlaced(p) && footprintOnLand(p.x, p.y, hw)) ??
+        spots.find((p) => clearsCanopy(p.x, p.y) && clearsPlaced(p)) ??
+        spots.find(clearsPlaced) ??
+        spots[0]!;
+      x = free.x;
+      y = free.y;
+    }
+    placed.push({ x, y });
+    out.set(id, { x, y });
+  }
+  return out;
+}
+
+/** The island's downward-shore LANDFALL (grounded-art inc 11 unit 2) — where the garden's stone path
+ *  docks so it reads continuous with the inter-island trail. The concept's path exits at the island's
+ *  bottom (toward the nameplate, the direction trails leave). March DOWN from the centroid and keep the
+ *  furthest point still on owned land, so the dock sits on the shore, not in the water. */
+function islandLandfall(t: SceneTerritoryInput, land: RelaxedCell[] | null): Pt {
+  const onLand = (x: number, y: number): boolean =>
+    !land || land.some((c) => pointInPoly(x, y, c.poly));
+  let best: Pt = { x: t.centroid.x, y: t.centroid.y + t.radius * 0.2 };
+  for (let d = 0.2; d <= 1.05; d += 0.05) {
+    const p: Pt = { x: t.centroid.x, y: t.centroid.y + d * t.radius };
+    if (onLand(p.x, p.y)) best = p;
+  }
+  return best;
+}
+
+interface StonePathOpts {
+  /** stone-centre spacing multiplier — <1 lays a TIGHTER, more continuous walkway; >1 a sparser trail. */
+  spacingMul?: number;
+  /** seeded-meander multiplier — 0 is a straight, deliberate walk; 1 is the loose garden wander. */
+  wobbleMul?: number;
+  /** an occlusion keep-out (the tree crown): a stone that would be HIDDEN behind the canopy is DROPPED, so
+   *  no stone is buried under the tree (grounded-art inc 12 — the owner's footpath ask). Only stones NORTH
+   *  of the tree base (smaller y) and within `r` are hidden — the y-sort paints the tree over them; a stone
+   *  SOUTH of the base draws in FRONT of the tree, so it is always kept (it reads on the lawn, not buried). */
+  skipNear?: { c: Pt; r: number };
+  /** id-namespace so two paths' stones don't collide (`garden-<tag>-<leg>-<i>`). */
+  tag: string;
+}
+
+/** The deterministic stepping-stone garden PATH (grounded-art inc 11 unit 2, footpath refined inc 12) — a
+ *  seeded walk of small `stepping-stone` `baked-use`s threading the `waypoints`, one cheap `<use>` per stone
+ *  off the ONE shared def. Purely ADDITIVE: `buildTrails` and the segment/casing system are untouched — these
+ *  stones are garden art on the island, not trail segments. Seeded jitter gives a natural meander (never
+ *  `Math.random`). Each stone is y-sorted so it interleaves in depth. `opts` tunes density / meander per
+ *  path and drops any stone buried under the tree crown (the `skipNear` occlusion filter). */
+function buildStonePath(
+  t: SceneTerritoryInput,
+  hero: SceneGardenHero,
+  waypoints: Pt[],
+  opts: StonePathOpts,
+): Array<{ y: number; node: SceneNode }> {
+  const s = fittedHeroScale('stepping-stone', hero, t);
+  const stoneW = s * hero.width; // scaled footprint width
+  const spacingMul = opts.spacingMul ?? 1;
+  const wobbleMul = opts.wobbleMul ?? 1;
+  const spacing = Math.max(stoneW * 1.05, t.radius * 0.06) * spacingMul; // stone-centre gap
+  const buried = (x: number, y: number): boolean =>
+    !!opts.skipNear &&
+    y < opts.skipNear.c.y && // only NORTH of the base is painted over — a southern stone reads in front
+    Math.hypot(x - opts.skipNear.c.x, y - opts.skipNear.c.y) < opts.skipNear.r;
+  const out: Array<{ y: number; node: SceneNode }> = [];
+  for (let leg = 0; leg + 1 < waypoints.length; leg++) {
+    const a = waypoints[leg]!;
+    const b = waypoints[leg + 1]!;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-3) continue;
+    const ux = dx / len;
+    const uy = dy / len;
+    const px = -uy; // unit perpendicular, for the seeded meander
+    const py = ux;
+    // Interior stones only — leave a margin at each waypoint so a stone doesn't sit under a hero base.
+    const margin = Math.min(stoneW * 0.8, len * 0.2);
+    const usable = len - 2 * margin;
+    if (usable <= 0) continue;
+    const n = Math.max(1, Math.round(usable / spacing));
+    for (let i = 0; i <= n; i++) {
+      const dist = margin + (usable * i) / n;
+      const k = hash(`${t.id}:${opts.tag}:${leg}:${i}`);
+      const wob = (rand01(k) - 0.5) * spacing * 0.35 * wobbleMul; // seeded meander
+      const x = a.x + ux * dist + px * wob;
+      const y = a.y + uy * dist + py * wob;
+      if (buried(x, y)) continue; // never bury a stone under the tree crown (occlusion)
+      out.push({ y, node: gardenHeroUse('stepping-stone', x, y, s, `garden-${opts.tag}-${leg}-${i}`) });
+    }
+  }
+  return out;
+}
+
+/** A midpoint for a stone leg that BOWS around the tree crown instead of crossing it (grounded-art inc 12).
+ *  If the straight leg's midpoint already clears the crown it is kept; otherwise it is pushed radially out
+ *  from the tree spot to just past the crown, so the light secondary path skirts the tree rather than
+ *  vanishing beneath it. Deterministic; a degenerate near-centre midpoint bows perpendicular to the leg. */
+function detourAroundTree(a: Pt, b: Pt, tree: Pt, crownR: number): Pt {
+  const mid: Pt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const dx = mid.x - tree.x;
+  const dy = mid.y - tree.y;
+  const d = Math.hypot(dx, dy);
+  const want = crownR * 1.3; // clear the crown with a small lawn gap
+  if (d >= want) return mid;
+  if (d < 1e-3) {
+    // midpoint sits on the trunk — bow perpendicular to the leg (deterministic side: +perp).
+    const lx = b.x - a.x, ly = b.y - a.y;
+    const ll = Math.hypot(lx, ly) || 1;
+    return { x: tree.x + (-ly / ll) * want, y: tree.y + (lx / ll) * want };
+  }
+  return { x: tree.x + (dx / d) * want, y: tree.y + (dy / d) * want };
+}
+
+/** Pull a point onto owned land: if it is already on land keep it; otherwise walk it back toward the
+ *  island centroid until it lands (a garden accent never sits in the water). */
+function towardLand(p: Pt, centroid: Pt, land: RelaxedCell[] | null): Pt {
+  const onLand = (x: number, y: number): boolean => !land || land.some((c) => pointInPoly(x, y, c.poly));
+  if (onLand(p.x, p.y)) return p;
+  for (let tt = 0.7; tt >= 0; tt -= 0.15) {
+    const q: Pt = { x: centroid.x + (p.x - centroid.x) * tt, y: centroid.y + (p.y - centroid.y) * tt };
+    if (onLand(q.x, q.y)) return q;
+  }
+  return centroid;
+}
+
+/** A flat LAVENDER clump (grounded-art inc 11 unit 3) — a few upright stems each topped with a short
+ *  bud spike, in the concept's dusty muted purple. Base at (0,0), growing UP in −y; seeded so no two
+ *  clumps clone. Decorative (carries no verdict), in the attested flat tall-flower style (colour CSS-side). */
+function lavenderMarks(k: number): SceneNode[] {
+  const marks: SceneNode[] = [ellipse(0.3, 0.6, 6, 1.8, { kind: 'shadow' })];
+  const stems = 4 + Math.floor(rand01(k) * 3);
+  for (let i = 0; i < stems; i++) {
+    const dx = (rand01(k + i * 5 + 1) - 0.5) * 11;
+    const h = 13 + rand01(k + i * 5 + 2) * 8;
+    const lean = (rand01(k + i * 5 + 3) - 0.5) * 4;
+    const topX = dx + lean;
+    marks.push(
+      path(`M ${f(dx)} 0 C ${f(dx + lean * 0.5)} ${f(-h * 0.5)}, ${f(topX)} ${f(-h * 0.8)}, ${f(topX)} ${f(-h)}`, {
+        kind: 'garden-lavender-stem',
+        strokeWidth: 1.3,
+      }),
+    );
+    for (let b = 0; b < 4; b++) marks.push(ellipse(topX, -h + b * 2.6, 1.7, 2.3, { kind: 'garden-lavender-head' }));
+  }
+  return marks;
+}
+
+/** A flat GRASS tuft (grounded-art inc 11 unit 3) — a handful of thin arching blades, seeded. Base at
+ *  (0,0), UP in −y; the concept's cosy filler between the hero objects. Decorative, no verdict. */
+function grassMarks(k: number): SceneNode[] {
+  const marks: SceneNode[] = [ellipse(0.3, 0.5, 5, 1.5, { kind: 'shadow' })];
+  const blades = 5 + Math.floor(rand01(k) * 3);
+  for (let i = 0; i < blades; i++) {
+    const dx = (rand01(k + i * 3 + 1) - 0.5) * 9;
+    const h = 9 + rand01(k + i * 3 + 2) * 8;
+    const lean = (rand01(k + i * 3 + 3) - 0.5) * 9;
+    marks.push(
+      path(`M ${f(dx)} 0 Q ${f(dx + lean * 0.5)} ${f(-h * 0.6)}, ${f(dx + lean)} ${f(-h)}`, {
+        kind: 'garden-grass-blade',
+        strokeWidth: 1.5,
+      }),
+    );
+  }
+  return marks;
+}
+
+/** The UAT verdict as a MASSED daisy BED (grounded-art inc 11 unit 3 — the owner's few-hero-objects
+ *  read). Instead of ONE tall-flower scattered per criterion across the whole island (the inc-7 render
+ *  the owner flagged as busy), the criteria cluster into one bed near the garden — each flower KEEPING
+ *  its per-criterion `state` (bloom=proven / bud=pending / wilted=failing — the FORM is the verdict) and
+ *  `id` (the click-to-detail hook, unchanged). The human-witness signpost seal is retained separately.
+ *  A phyllotactic (golden-angle) cluster reads as one dense bed. Empty criteria ⇒ no bed. */
+function buildGardenUatBed(
+  t: SceneTerritoryInput,
+  land: RelaxedCell[] | null,
+  anchor: Pt,
+): Array<{ y: number; node: SceneNode }> {
+  const criteria = t.uatCriteria ?? [];
+  if (!criteria.length) return [];
+  const out: Array<{ y: number; node: SceneNode }> = [];
+  criteria.forEach((c, i) => {
+    const k = hash(`${t.id}:bed:${c.id}`);
+    const ang = i * 2.399963; // golden angle → an even, natural cluster
+    const rr = 3 + Math.sqrt(i) * 8 + (rand01(k) - 0.5) * 3;
+    const p = towardLand({ x: anchor.x + Math.cos(ang) * rr, y: anchor.y + Math.sin(ang) * rr * 0.7 }, anchor, land);
+    const kind: SceneKind =
+      c.state === 'proven' ? 'tall-flower-proven' : c.state === 'failing' ? 'tall-flower-failing' : 'tall-flower-pending';
+    out.push({
+      y: p.y,
+      node: g(tallFlowerMarks(c.state, k), {
+        kind,
+        id: c.id,
+        transform: `translate(${f(p.x)} ${f(p.y)}) scale(${f(MARKER_SCALE * 0.8)})`,
+      }),
+    });
+  });
+  return out;
+}
+
+/** The garden island's art drawables (grounded-art inc 11) — the `autumn-tree` hero at the tree spot
+ *  (ADR-0221, replacing the procedural tree), the human-witness signpost RETAINED beside it, and the
+ *  cottage + gazebo placed around the island. Each is a y-sorted `baked-use` so it interleaves in
+ *  painter order with anything else on the island. The caller SUPPRESSES the decorative flora. */
+function buildGardenArt(
+  t: SceneTerritoryInput,
+  garden: SceneGardenInput,
+  ownerCells: RelaxedCell[] | null,
+): Array<{ y: number; node: SceneNode }> {
+  const land = ownerCells && ownerCells.length ? ownerCells : null;
+  const crownR = crownRadius(t.caps);
+  const out: Array<{ y: number; node: SceneNode }> = [];
+
+  // the autumn-tree hero AS the central tree (ADR-0221) — at the story's tree spot, FITTED to the island
+  // so its footprint lands within the shore on a small island (unit 2).
+  const treeScale = fittedHeroScale('autumn-tree', garden.heroes['autumn-tree'], t);
+  // its fitted footprint half-width feeds the free heroes' tree keep-out (grounded-art inc 12), so a
+  // building never merges into the trunk on a small island where the tree fills the island.
+  const treeHalfW = (treeScale * garden.heroes['autumn-tree'].width) / 2;
+  out.push({
+    y: t.treeSpot.y,
+    node: gardenHeroUse('autumn-tree', t.treeSpot.x, t.treeSpot.y, treeScale),
+  });
+  // the human-witness signpost is RETAINED beside the hero tree (the seal never leaves).
+  if (t.signpost) {
+    out.push({
+      y: t.treeSpot.y,
+      node: g([buildSignpost(t.signpost, crownR)], {
+        transform: `translate(${f(t.treeSpot.x)} ${f(t.treeSpot.y)})`,
+      }),
+    });
+  }
+  // the free-standing garden heroes — cottage + gazebo: each FITTED to the island, then placed so the
+  // whole fitted footprint sits on owned land (unit 2 — the owner's "fully land within the island" fix).
+  const freeIds: GardenHeroId[] = ['cottage', 'gazebo'];
+  const scales = new Map<GardenHeroId, number>(
+    freeIds.map((id) => [id, fittedHeroScale(id, garden.heroes[id], t)]),
+  );
+  const halfW = new Map<GardenHeroId, number>(
+    freeIds.map((id) => [id, (scales.get(id)! * garden.heroes[id].width) / 2]),
+  );
+  const spots = placeGardenHeroes(t, freeIds, halfW, land, treeHalfW);
+  for (const [id, p] of spots) {
+    out.push({ y: p.y, node: gardenHeroUse(id, p.x, p.y, scales.get(id)!) });
+  }
+  // the stepping-stone garden PATH (unit 2; footpath refined inc 12). The concept reads as ONE clear paved
+  // front-door WALK from the shore landfall up to the cottage door, with the rest of the garden lighter and
+  // NO stones buried under the tree crown. So the path is TWO tiers, both dropping any stone that would sit
+  // under the fitted canopy (`skipNear`): a PRIMARY walk (landfall → cottage) laid tight + nearly straight
+  // (a deliberate front-door path that docks at the island's inter-island trail), and a LIGHT secondary
+  // trail (cottage → gazebo) laid sparse and bowed AROUND the tree crown (`detourAroundTree`) rather than
+  // threading through the tree spot — which is what buried stones under the canopy before.
+  const landfall = islandLandfall(t, land);
+  const cottage = spots.get('cottage');
+  const gazebo = spots.get('gazebo');
+  const crown = { c: { x: t.treeSpot.x, y: t.treeSpot.y }, r: treeHalfW };
+  const stone = garden.heroes['stepping-stone'];
+  if (cottage) {
+    // the prominent front-door WALK — tight spacing + a calm meander reads as a laid path, not a scatter.
+    out.push(...buildStonePath(t, stone, [landfall, cottage], { spacingMul: 0.72, wobbleMul: 0.45, skipNear: crown, tag: 'walk' }));
+  }
+  if (cottage && gazebo) {
+    // a LIGHT trail on to the gazebo — sparse, skirting the tree crown so no stone hides beneath it.
+    const detour = detourAroundTree(cottage, gazebo, crown.c, treeHalfW);
+    out.push(...buildStonePath(t, stone, [cottage, detour, gazebo], { spacingMul: 1.5, wobbleMul: 0.8, skipNear: crown, tag: 'step' }));
+  }
+
+  // flat decorative accents + the UAT verdict (unit 3): a lavender clump beside the cottage, the UAT
+  // verdict as a MASSED daisy bed beside the gazebo, and a couple of grass tufts in the open — all flat,
+  // seeded, clamped to owned land. This is the cosy garden read the concept has, and it folds the
+  // per-criterion verdict into ONE bed instead of the busy 1:1 island-wide scatter.
+  const cen = t.centroid;
+  const accentScale = crownR / 26;
+  if (cottage) {
+    const a = towardLand({ x: cottage.x - crownR * 0.85, y: cottage.y + crownR * 0.4 }, cen, land);
+    out.push({ y: a.y, node: g(lavenderMarks(hash(`${t.id}:lavender`)), { transform: `translate(${f(a.x)} ${f(a.y)}) scale(${f(accentScale)})` }) });
+  }
+  const bedAnchor = gazebo
+    ? towardLand({ x: gazebo.x + crownR * 0.9, y: gazebo.y + crownR * 0.3 }, cen, land)
+    : towardLand({ x: cen.x + crownR, y: cen.y + crownR * 0.5 }, cen, land);
+  out.push(...buildGardenUatBed(t, land, bedAnchor));
+  for (let i = 0; i < 3; i++) {
+    const k = hash(`${t.id}:grass:${i}`);
+    const ang = rand01(k) * Math.PI * 2;
+    const rr = (0.4 + rand01(k + 1) * 0.32) * t.radius;
+    const gp = towardLand({ x: cen.x + Math.cos(ang) * rr, y: cen.y + Math.sin(ang) * rr * 0.7 }, cen, land);
+    out.push({ y: gp.y, node: g(grassMarks(k), { transform: `translate(${f(gp.x)} ${f(gp.y)}) scale(${f(accentScale)})` }) });
+  }
+  return out;
+}
+
+/** The garden's baked-art DEFINITIONS layer (grounded-art inc 11, re-lighting ADR-0218's dormant seam):
+ *  one `baked-def` per hero the garden USES, define-once. Emitted into the scene so a mapper renders a
+ *  `<defs>` block every placement `baked-use` references. Only USED heroes are defined — no orphan defs. */
+function buildGardenDefs(garden: SceneGardenInput): SceneG {
+  const defs: SceneBakedDef[] = GARDEN_DEFINED_HEROES.map((id) => ({
+    el: 'baked-def',
+    defId: gardenDefId(id),
+    nodes: garden.heroes[id].nodes,
+  }));
+  return g(defs, { kind: 'baked-defs' });
+}
+
+// ---------------------------------------------------------------------------
 // a whole island's flora layer (TerritoryFlora)
 // ---------------------------------------------------------------------------
 
@@ -2024,29 +2632,40 @@ function buildTerritorySurface(t: SceneTerritoryInput, ownerCells: RelaxedCell[]
 export function buildTerritoryFlora(
   t: SceneTerritoryInput,
   parcelFlora?: ParcelFloraMark[] | null,
+  ownerCells?: RelaxedCell[] | null,
+  garden?: SceneGardenInput | null,
 ): SceneG {
   const drawables: { y: number; node: SceneNode }[] = [];
 
-  if (parcelFlora) {
-    // parcels-present: the parcel surface flora IS the island's flora (conifers + plant ring retired).
-    for (const fm of parcelFlora) drawables.push({ y: fm.y, node: fm.node });
+  if (garden) {
+    // the cosy-island GARDEN (grounded-art inc 11, ADR-0221): the four heroes ARE this island's art.
+    // The decorative flora (conifers / capability plants / parcel flora), the procedural central tree,
+    // and the 1:1 UAT-flower scatter are ALL suppressed — the heroes replace them; the `autumn-tree`
+    // hero stands as the central tree. The nameplate + session wisps/claims still layer on below.
+    drawables.push(...buildGardenArt(t, garden, ownerCells ?? null));
   } else {
-    for (const d of t.decor) {
-      const count = 2 + (d.seed % 2);
-      for (let i = 0; i < count; i++) {
-        const a = rand01(d.seed + i * 7) * Math.PI * 2;
-        const rr = rand01(d.seed + i * 13) * HEX_R * 0.55;
-        const x = d.x + Math.cos(a) * rr;
-        const y = d.y + Math.sin(a) * rr * 0.8 + 4;
-        drawables.push({ y, node: buildConifer(x, y, 7 + rand01(d.seed + i) * 4, d.seed + i) });
+    if (parcelFlora) {
+      // parcels-present: the parcel surface flora IS the island's flora (conifers + plant ring retired).
+      for (const fm of parcelFlora) drawables.push({ y: fm.y, node: fm.node });
+    } else {
+      for (const d of t.decor) {
+        const count = 2 + (d.seed % 2);
+        for (let i = 0; i < count; i++) {
+          const a = rand01(d.seed + i * 7) * Math.PI * 2;
+          const rr = rand01(d.seed + i * 13) * HEX_R * 0.55;
+          const x = d.x + Math.cos(a) * rr;
+          const y = d.y + Math.sin(a) * rr * 0.8 + 4;
+          drawables.push({ y, node: buildConifer(x, y, 7 + rand01(d.seed + i) * 4, d.seed + i) });
+        }
       }
+      for (const plant of t.plants) drawables.push({ y: plant.y, node: buildPlant(plant) });
     }
-    for (const plant of t.plants) drawables.push({ y: plant.y, node: buildPlant(plant) });
+    drawables.push({ y: t.treeSpot.y, node: buildTree(t) });
+    // the UAT markers (forest-parcels inc 2; tall flowers, grounded-art inc 7) — each scattered flower
+    // is its OWN y-sorted drawable so it interleaves with the tree + flora by depth. The island's
+    // substrate cells (when known) are the scatter's keep-in. Absent/empty uatCriteria ⇒ nothing (the lock).
+    drawables.push(...buildUatMarkers(t, ownerCells ?? null));
   }
-  drawables.push({ y: t.treeSpot.y, node: buildTree(t) });
-  // the UAT markers (forest-parcels inc 2) — each scattered stone is its OWN y-sorted drawable so
-  // it interleaves with the tree + flora by depth. Absent/empty uatCriteria ⇒ nothing (the lock).
-  drawables.push(...buildUatMarkers(t));
   drawables.sort((a, b) => a.y - b.y);
 
   const children: SceneNode[] = drawables.map((d) => d.node);
@@ -2282,24 +2901,45 @@ export function buildScene(input: SceneInput): SceneG {
   // `buildGround`, the flora to `buildTerritoryFlora`. Null (no parcels / no mesh cells) ⇒ today's
   // render on both seams, byte-for-byte.
   const cells = input.relaxedCells;
-  const surfaces: (ParcelSurface | null)[] = input.territories.map((t, owner) =>
-    cells ? buildTerritorySurface(t, cells.filter((c) => c.owner === owner)) : null,
+  // Each territory's substrate cells, computed once — the parcel surface AND the UAT-marker
+  // keep-in both read them.
+  const ownerCells: (RelaxedCell[] | null)[] = input.territories.map((_, owner) =>
+    cells ? cells.filter((c) => c.owner === owner) : null,
   );
-  return g(
-    [
-      buildEmpties(input),
-      buildCoast(input),
-      buildGround(input, surfaces),
-      buildTrails(input),
-      g(
-        [
-          ...input.territories.map((t, i) => buildTerritoryFlora(t, surfaces[i]?.flora ?? null)),
-          ...buildCaves(input),
-        ],
-        { kind: 'flora-layer' },
-      ),
-      buildHits(input),
-    ],
-    { kind: 'world', transform: `translate(${f(input.offset.x)} ${f(input.offset.y)})` },
-  );
+  const surfaces: (ParcelSurface | null)[] = input.territories.map((t, i) => {
+    const own = ownerCells[i];
+    return own ? buildTerritorySurface(t, own) : null;
+  });
+  // ADR-0218's fenced baked-art seam is RE-LIT here (grounded-art inc 11, ADR-0221): when `input.garden`
+  // is present, its heroes' `baked-def`s are emitted once into a `baked-defs` layer that every hero
+  // placement `baked-use` (in `buildGardenArt`) references. ABSENT ⇒ no defs layer, and every island
+  // renders byte-for-byte (the same absence lock as `parcels`/`uatCriteria`; the public website never
+  // sends `garden`). The heroes compose ONLY onto the island named by `garden.islandId`.
+  const garden = input.garden ?? null;
+  const layers: SceneNode[] = [
+    ...(garden ? [buildGardenDefs(garden)] : []),
+    buildEmpties(input),
+    buildCoast(input),
+    buildGround(input, surfaces),
+    buildTrails(input),
+    g(
+      [
+        ...input.territories.map((t, i) =>
+          buildTerritoryFlora(
+            t,
+            surfaces[i]?.flora ?? null,
+            ownerCells[i] ?? null,
+            garden && garden.islandId === t.id ? garden : null,
+          ),
+        ),
+        ...buildCaves(input),
+      ],
+      { kind: 'flora-layer' },
+    ),
+    buildHits(input),
+  ];
+  return g(layers, {
+    kind: 'world',
+    transform: `translate(${f(input.offset.x)} ${f(input.offset.y)})`,
+  });
 }
