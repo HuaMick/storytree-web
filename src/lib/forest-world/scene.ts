@@ -475,14 +475,14 @@ export interface ScenePlantInput {
 
 /** A capability rendered as a PARCEL of the island's ground (forest-parcels inc 1) — its id (the
  *  delegation/hover hook + the deterministic flora seed), its folded `status` (the per-cell ground
- *  tint), its `testCount` (drives the flora DENSITY, not the parcel's area — island size stays keyed
+ *  tint), its `testCount` (the exact flora-group quantity, not the parcel's area — island size stays keyed
  *  to the caps count), the `theme` that surfaces it, and a `seed` position. The island's EXISTING
  *  relaxed substrate cells are sub-partitioned among the parcels by equal-weight Voronoi over the
  *  `seed` points (nearest seed wins); a parcel owns the cells nearest its seed. */
 export interface SceneParcelInput {
   capId: string;
   status: SceneStatus;
-  /** The capability's test-criteria count — the flora density knob (0 ⇒ bare ground). */
+  /** The capability's observed runnable automated-test count (one flora group each; 0 ⇒ bare ground). */
   testCount: number;
   theme: SurfaceTheme;
   /** The parcel's Voronoi seed point, in island/map space (the same space `relaxedCells[].poly` is in). */
@@ -511,7 +511,7 @@ export interface SceneTerritoryInput {
   /** Capability PARCELS (forest-parcels inc 1). When PRESENT (and the island has relaxed substrate
    *  cells), the island's existing cells are sub-partitioned among these capabilities by equal-weight
    *  Voronoi over each parcel's `seed`, each cell tinted by its assigned cap's `status`, and each
-   *  parcel's flora emitted through its `theme`'s surface function with density ∝ `testCount` — and
+   *  parcel's flora emitted through its `theme`'s surface function at exactly `testCount` groups — and
    *  the decorative conifers (`decor`) + the one-plant-per-cap ring (`plants`) are RETIRED for this
    *  island. OPTIONAL and back-compat: absent ⇒ today's ground + conifers + plant ring render
    *  byte-for-byte (the public website omits it entirely). */
@@ -1607,34 +1607,12 @@ function meadowSurface(
   const item = (y: number, marks: SceneNode[]): ParcelFloraMark =>
     parcelFloraItem('meadow', status, y, marks);
 
-  // density budget (verbatim): grass is the ramp bulk; shrubs a "grown" mark only where standing bulk
-  // grows (healthy/building/unhealthy); flowers a healthy (mapped-rare) accent — but the decorative
-  // wildflower tier is RETIRED under the unified vegetation vocabulary (ADR-0226 decision 2: the meadow
-  // reads as PURE GRASS, so a "flower" means a UAT criterion and nothing else).
-  const shrubEligible = status === 'healthy' || status === 'building' || status === 'unhealthy';
-  let grassCount: number;
-  let shrubCount: number;
-  let flowerCount: number;
-  if (tests <= 0) {
-    grassCount = Math.min(2, cells.length);
-    shrubCount = 0;
-    flowerCount = 0;
-  } else {
-    grassCount = Math.round(2 + tests * 1.9);
-    shrubCount = shrubEligible ? Math.round(tests / 2.6) : 0;
-    flowerCount = unifiedVeg
-      ? 0
-      : status === 'healthy'
-        ? Math.round(Math.max(0, tests - 1) * 0.7)
-        : status === 'mapped'
-          ? tests >= 8
-            ? 1
-            : 0
-          : 0;
-  }
-  if (status === 'unhealthy') shrubCount = Math.round(shrubCount * 0.7);
-  if (status === 'unknown') grassCount = Math.round(grassCount * 0.6);
-  if (status === 'mapped' || status === 'proposed') grassCount = Math.round(grassCount * 0.85);
+  // ADR-0236: quantity is an exact observation channel. One runnable automated test emits one flora
+  // group; status changes the group's health/form, never the count. The old base marks, status
+  // multipliers, shrubs and decorative flowers made cross-capability comparison dishonest.
+  const grassCount = Math.max(0, Math.floor(tests));
+  const shrubCount = 0;
+  const flowerCount = 0;
   const lushBlade = (status === 'healthy' || status === 'building') && tests >= 6;
 
   // the drift beds: the whole budget plants inside them (open lawn is part of the drawing)
@@ -1762,20 +1740,6 @@ function meadowSurface(
     for (let k = 0; k < flowerCount; k++) {
       const pf = spot();
       flora.push(item(pf.y, flower(pf.x, pf.y)));
-    }
-  }
-  if (status === 'proposed' || status === 'building') {
-    const sproutCount = tests <= 0 ? 0 : Math.max(1, Math.round(tests * (status === 'building' ? 0.6 : 0.45)));
-    for (let k = 0; k < sproutCount; k++) {
-      const psp = spot();
-      flora.push(item(psp.y, sprout(psp.x, psp.y)));
-    }
-  }
-  if (status === 'unhealthy') {
-    const wiltCount = tests <= 0 ? 0 : Math.max(1, Math.round(tests * 0.4));
-    for (let k = 0; k < wiltCount; k++) {
-      const pw = spot();
-      flora.push(item(pw.y, wilt(pw.x, pw.y)));
     }
   }
   return { ground, flora };
@@ -1924,10 +1888,11 @@ function woodlandSurface(
   // density: three tiers always present past 0, saplings a bonus top layer. The anemone bloom tier is
   // RETIRED under the unified vegetation vocabulary (ADR-0226 decision 2: a flower means UAT, not
   // decoration); ferns + shrubs stay as the understory bulk.
-  const nFerns = tests <= 0 ? 1 : Math.min(cells.length, 2 + Math.round(tests * 0.85));
-  const nShrubs = tests <= 0 ? 0 : Math.max(1, Math.round(tests * 0.45));
-  const nFlowers = unifiedVeg ? 0 : tests < 2 ? 0 : Math.max(1, Math.round(tests * 0.32));
-  const nSaplings = Math.floor(tests / 4);
+  // ADR-0236: the theme chooses a fern form, but every observed test contributes exactly one group.
+  const nFerns = Math.max(0, Math.floor(tests));
+  const nShrubs = 0;
+  const nFlowers = 0;
+  const nSaplings = 0;
 
   for (let i = 0; i < nFerns; i++) {
     const p = spot();
@@ -2134,11 +2099,11 @@ function heathSurface(
   // the drift beds: the whole budget plants inside them (the all-cells spread retired).
   const next = driftSpot(cells, tests, rand);
 
-  // density budget: tests drives every tier, status only recolours/mutes.
+  // ADR-0236: exact 1:1 quantity; theme/status remain form channels only.
   const t = Math.max(0, tests | 0);
-  const grassCount = cells.length ? Math.min(cells.length, t === 0 ? 4 : 4 + Math.round(t * 1.3)) : 0;
-  const shrubCount = Math.round(t * 0.75);
-  const flowerClusters = unifiedVeg ? 0 : t < 2 ? 0 : Math.round((t - 1) * 0.3 * conf.flowerBoost);
+  const grassCount = cells.length ? t : 0;
+  const shrubCount = 0;
+  const flowerClusters = 0;
 
   for (let i = 0; i < grassCount; i++) {
     const p = next();
